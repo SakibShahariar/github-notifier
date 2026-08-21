@@ -5,8 +5,19 @@ Shows a panel indicator that tracks:
 - New issues & PRs on repos you choose to watch
 - New stars on repos you choose to watch
 
-Clicking an item opens it in your browser. New items also raise a
-system notification.
+Clicking an item (in the dropdown or the toast) opens it in your
+browser. Notification-inbox items have an inline button to mark just
+that thread as read on GitHub. "Mark all as read" clears the local
+list and also marks your GitHub inbox read. You can pause polling
+from the dropdown, and optionally hide the panel icon entirely
+whenever there's nothing unread (Settings → Display) — it reappears
+as soon as something new comes in, and stays visible if there's an
+error (bad token, rate limit) that needs your attention.
+
+Built to be resilient: a failing or misconfigured repo in your watch
+list won't block polling of the others, rate-limit responses back off
+automatically instead of hammering the API, and an invalid token is
+reported clearly rather than failing silently.
 
 ## Install
 

@@ -2,3 +2,12 @@
     margin-left: 4px;
     font-weight: bold;
 }
+
+.github-notifier-mark-read {
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.github-notifier-mark-read:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}

@@ -46,6 +46,11 @@
       <summary>Poll watched repos for new stars</summary>
     </key>
 
+    <key name="hide-when-empty" type="b">
+      <default>false</default>
+      <summary>Hide the panel icon when there is nothing unread</summary>
+    </key>
+
     <key name="last-state" type="s">
       <default>'{}'</default>
       <summary>Internal JSON blob tracking last-seen ids/counts</summary>

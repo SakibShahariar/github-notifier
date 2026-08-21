@@ -27,6 +27,19 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         userRow.connect('notify::text', () => settings.set_string('github-username', userRow.get_text()));
         accountGroup.add(userRow);
 
+        // --- Display group ---
+        const displayGroup = new Adw.PreferencesGroup({
+            title: 'Display',
+        });
+        page.add(displayGroup);
+
+        const hideEmptyRow = new Adw.SwitchRow({
+            title: 'Hide panel icon when there\'s nothing unread',
+            subtitle: 'The icon reappears as soon as something new comes in',
+        });
+        settings.bind('hide-when-empty', hideEmptyRow, 'active', 0);
+        displayGroup.add(hideEmptyRow);
+
         // --- Watch group ---
         const watchGroup = new Adw.PreferencesGroup({
             title: 'What to watch',
