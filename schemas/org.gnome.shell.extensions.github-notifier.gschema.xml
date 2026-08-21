@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.github-notifier" path="/org/gnome/shell/extensions/github-notifier/">
+
+    <key name="github-token" type="s">
+      <default>''</default>
+      <summary>GitHub Personal Access Token</summary>
+      <description>
+        Fine-grained or classic PAT. Needs at least "notifications" read
+        access for mentions/review requests, and "public_repo" (or repo)
+        read access if you watch private repos for issues/PRs/stars.
+      </description>
+    </key>
+
+    <key name="github-username" type="s">
+      <default>''</default>
+      <summary>GitHub username</summary>
+    </key>
+
+    <key name="watched-repos" type="s">
+      <default>''</default>
+      <summary>Comma-separated owner/repo list</summary>
+      <description>
+        Repos to poll for new issues, new pull requests and new stars,
+        e.g. "gnome/gnome-shell,torvalds/linux"
+      </description>
+    </key>
+
+    <key name="poll-interval" type="i">
+      <default>120</default>
+      <summary>Polling interval in seconds</summary>
+    </key>
+
+    <key name="watch-mentions" type="b">
+      <default>true</default>
+      <summary>Poll /notifications for mentions and review requests</summary>
+    </key>
+
+    <key name="watch-issues-prs" type="b">
+      <default>true</default>
+      <summary>Poll watched repos for new issues and PRs</summary>
+    </key>
+
+    <key name="watch-stars" type="b">
+      <default>true</default>
+      <summary>Poll watched repos for new stars</summary>
+    </key>
+
+    <key name="last-state" type="s">
+      <default>'{}'</default>
+      <summary>Internal JSON blob tracking last-seen ids/counts</summary>
+    </key>
+
+  </schema>
+</schemalist>
