@@ -32,7 +32,8 @@ class Indicator extends PanelMenu.Button {
         this._settings = extensionObject.getSettings();
         this._session = new Soup.Session();
         this._session.timeout = 15;
-        this._recent = []; // [{id, rawId, title, subtitle, url, kind, ts}]
+        this._notificationItems = []; // live mirror of GitHub's current unread inbox
+        this._activityItems = []; // accumulated issue/PR/star events, cleared on mark-all-read
         this._unread = 0;
         this._timeoutId = null;
         this._source = null; // MessageTray.Source, created lazily
@@ -231,13 +232,14 @@ class Indicator extends PanelMenu.Button {
 
         this._polling = true;
         const state = this._loadState();
-        let newItems = [];
+        let notificationItems = [];
+        let activityItems = [];
         const errors = [];
 
         try {
             if (this._settings.get_boolean('watch-mentions')) {
                 try {
-                    newItems = newItems.concat(await this._pollNotifications(state));
+                    notificationItems = await this._pollNotifications(state);
                 } catch (e) {
                     if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                         throw e; // fatal for this cycle, no point continuing
@@ -259,7 +261,7 @@ class Indicator extends PanelMenu.Button {
                     // Isolate each repo: one failing repo must not block the rest.
                     if (this._settings.get_boolean('watch-issues-prs')) {
                         try {
-                            newItems = newItems.concat(await this._pollRepoIssues(repo, state));
+                            activityItems = activityItems.concat(await this._pollRepoIssues(repo, state));
                         } catch (e) {
                             if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                                 throw e;
@@ -271,7 +273,7 @@ class Indicator extends PanelMenu.Button {
                         return;
                     if (this._settings.get_boolean('watch-stars')) {
                         try {
-                            newItems = newItems.concat(await this._pollRepoStars(repo, state));
+                            activityItems = activityItems.concat(await this._pollRepoStars(repo, state));
                         } catch (e) {
                             if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                                 throw e;
@@ -288,7 +290,7 @@ class Indicator extends PanelMenu.Button {
                 return;
 
             this._saveState(state);
-            this._applyNewItems(newItems);
+            this._afterPoll(notificationItems, activityItems);
 
             if (errors.length > 0) {
                 this._statusItem.label.text = `Updated with ${errors.length} issue(s) — see logs`;
@@ -316,8 +318,13 @@ class Indicator extends PanelMenu.Button {
     }
 
     async _pollNotifications(state) {
-        state.seenNotificationIds ||= [];
-        const seen = new Set(state.seenNotificationIds);
+        // We deliberately do NOT filter out already-seen ids here — this list
+        // should always mirror what GitHub currently considers unread, so it
+        // survives shell/extension restarts and never silently drops an item
+        // that's still sitting unread in your GitHub inbox. The toasted-id set
+        // is only used to avoid re-notifying you for the same thread twice.
+        state.toastedNotificationIds ||= [];
+        const toasted = new Set(state.toastedNotificationIds);
         const items = [];
 
         let path = '/notifications?per_page=50&participating=false';
@@ -328,10 +335,6 @@ class Indicator extends PanelMenu.Button {
             pagesFetched += 1;
 
             for (const n of data) {
-                if (seen.has(n.id))
-                    continue;
-                seen.add(n.id);
-
                 const kind = this._reasonToKind(n.reason);
                 items.push({
                     id: `notif-${n.id}`,
@@ -341,16 +344,17 @@ class Indicator extends PanelMenu.Button {
                     url: this._apiUrlToHtmlUrl(n.subject.url) || `https://github.com/${n.repository.full_name}`,
                     kind: 'notification',
                     ts: n.updated_at,
+                    isNewToast: !toasted.has(n.id),
                 });
+                toasted.add(n.id);
             }
 
-            // Only bother paginating further if this page was full (likely more unread).
             const nextUrl = data.length === 50 ? this._nextPageUrl(linkHeader) : null;
             path = nextUrl ? nextUrl.replace('https://api.github.com', '') : null;
         }
 
-        // Keep the seen-set from growing forever: cap to last 500 ids.
-        state.seenNotificationIds = Array.from(seen).slice(-500);
+        // Keep the toasted-set from growing forever: cap to last 500 ids.
+        state.toastedNotificationIds = Array.from(toasted).slice(-500);
         return items;
     }
 
@@ -457,28 +461,34 @@ class Indicator extends PanelMenu.Button {
             await this._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
+            return; // don't remove locally if GitHub didn't actually confirm it
         }
-        this._recent = this._recent.filter(i => i.id !== item.id);
-        this._unread = Math.max(0, this._unread - 1);
+        this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
         this._renderList();
         this._updatePanel();
     }
 
     // ---------- UI update ----------
-    _applyNewItems(newItems) {
-        if (newItems.length === 0)
-            return;
+    _afterPoll(notificationItems, newActivityItems) {
+        // Notifications: always replace with the live unread set from GitHub.
+        this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
+        const toToast = notificationItems.filter(n => n.isNewToast);
 
-        this._recent = newItems.concat(this._recent).slice(0, MAX_RECENT);
-        this._unread += newItems.length;
+        // Activity (issues/PRs/stars): keep accumulating until dismissed.
+        if (newActivityItems.length > 0)
+            this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
+
         this._renderList();
         this._updatePanel();
-        this._notify(newItems);
+
+        const toNotify = toToast.concat(newActivityItems);
+        if (toNotify.length > 0)
+            this._notify(toNotify);
     }
 
     _markAllRead() {
-        this._unread = 0;
-        this._recent = [];
+        this._notificationItems = [];
+        this._activityItems = [];
         this._renderList();
         this._updatePanel();
 
@@ -491,8 +501,9 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updatePanel() {
-        if (this._unread > 0) {
-            this._label.text = this._unread > MAX_BADGE ? `${MAX_BADGE}+` : String(this._unread);
+        const unread = this._notificationItems.length + this._activityItems.length;
+        if (unread > 0) {
+            this._label.text = unread > MAX_BADGE ? `${MAX_BADGE}+` : String(unread);
             this._label.show();
         } else {
             this._label.hide();
@@ -503,16 +514,19 @@ class Indicator extends PanelMenu.Button {
         // (bad token, rate limit, etc.) always keeps it visible so it doesn't
         // vanish silently on a problem.
         const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
-        this.visible = !(hideWhenEmpty && this._unread === 0 && !this._statusIsError);
+        this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
     }
 
     _renderList() {
         this._listSection.removeAll();
-        if (this._recent.length === 0) {
-            this._listSection.addMenuItem(new PopupMenu.PopupMenuItem('Nothing yet', {reactive: false}));
+        const combined = this._notificationItems.concat(this._activityItems)
+            .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+        if (combined.length === 0) {
+            this._listSection.addMenuItem(new PopupMenu.PopupMenuItem('Nothing unread', {reactive: false}));
             return;
         }
-        for (const item of this._recent.slice(0, 15)) {
+        for (const item of combined.slice(0, 15)) {
             const menuItem = new PopupMenu.PopupBaseMenuItem();
             const label = new St.Label({
                 text: `${item.title}  —  ${item.subtitle}`,

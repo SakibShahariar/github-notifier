@@ -17,7 +17,11 @@ error (bad token, rate limit) that needs your attention.
 Built to be resilient: a failing or misconfigured repo in your watch
 list won't block polling of the others, rate-limit responses back off
 automatically instead of hammering the API, and an invalid token is
-reported clearly rather than failing silently.
+reported clearly rather than failing silently. The notifications list
+always mirrors GitHub's actual unread inbox in real time (rather than
+a one-time "new since last check" diff), so it can't silently lose
+track of something that's still unread after a shell restart — it'll
+only disappear once it's actually marked read, here or on GitHub.
 
 ## Install
 
