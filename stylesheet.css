@@ -11,3 +11,7 @@
 .github-notifier-mark-read:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
+
+.github-notifier-item-label {
+    max-width: 420px;
+}

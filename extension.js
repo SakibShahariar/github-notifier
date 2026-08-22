@@ -4,6 +4,7 @@ import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
+import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -342,13 +343,13 @@ class Indicator extends PanelMenu.Button {
             pagesFetched += 1;
 
             for (const n of data) {
-                const kind = this._reasonToKind(n.reason);
+                const kind = this._reasonToKind(n.reason, n.subject.type);
                 items.push({
                     id: `notif-${n.id}`,
                     rawId: n.id,
                     title: `${kind}: ${n.subject.title}`,
                     subtitle: n.repository.full_name,
-                    url: this._apiUrlToHtmlUrl(n.subject.url) || `https://github.com/${n.repository.full_name}`,
+                    url: this._subjectHtmlUrl(n.subject, n.repository.full_name),
                     kind: 'notification',
                     ts: n.updated_at,
                     isNewToast: !toasted.has(n.id),
@@ -365,7 +366,20 @@ class Indicator extends PanelMenu.Button {
         return items;
     }
 
-    _reasonToKind(reason) {
+    _reasonToKind(reason, subjectType) {
+        // Some subject types are more informative than the notification
+        // reason alone — e.g. reason "subscribed" on a Release just says
+        // "Activity", which tells you nothing. Prefer the type when it adds
+        // real information.
+        const typeLabels = {
+            Release: 'New release',
+            Commit: 'New commit',
+            CheckSuite: 'CI run',
+            WorkflowRun: 'CI run',
+        };
+        if (typeLabels[subjectType])
+            return typeLabels[subjectType];
+
         const map = {
             mention: 'Mention',
             review_requested: 'Review requested',
@@ -379,13 +393,39 @@ class Indicator extends PanelMenu.Button {
         return map[reason] || 'Notification';
     }
 
-    _apiUrlToHtmlUrl(apiUrl) {
-        if (!apiUrl)
-            return null;
-        // e.g. https://api.github.com/repos/o/r/issues/123 -> https://github.com/o/r/issues/123
-        return apiUrl
-            .replace('api.github.com/repos', 'github.com')
-            .replace('/pulls/', '/pull/');
+    // GitHub's notification `subject.url` is an API url, and for several
+    // subject types the API path shape doesn't match the web path shape at
+    // all (e.g. commits are /commits/SHA on the API but /commit/SHA —
+    // singular — on the web; releases and CI runs aren't derivable from the
+    // API url without an extra fetch). Map what we can reliably resolve
+    // without another request, and fall back to a repo-level page — never a
+    // guess that 404s.
+    _subjectHtmlUrl(subject, repoFullName) {
+        const repoUrl = `https://github.com/${repoFullName}`;
+        if (!subject.url)
+            return repoUrl;
+
+        const url = subject.url.replace('https://api.github.com/repos', 'https://github.com');
+
+        switch (subject.type) {
+            case 'Issue':
+            case 'Discussion':
+                return url;
+            case 'PullRequest':
+                return url.replace('/pulls/', '/pull/');
+            case 'Commit':
+                return url.replace('/commits/', '/commit/');
+            case 'Release':
+                // The API only gives us a release id here, not its tag, so we
+                // can't build the exact /releases/tag/<name> URL without an
+                // extra request — link to the releases list instead of 404ing.
+                return `${repoUrl}/releases`;
+            case 'CheckSuite':
+            case 'WorkflowRun':
+                return `${repoUrl}/actions`;
+            default:
+                return repoUrl;
+        }
     }
 
     _encodeRepo(repo) {
@@ -533,6 +573,12 @@ class Indicator extends PanelMenu.Button {
         this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
     }
 
+    _truncate(text, maxLen) {
+        if (!text || text.length <= maxLen)
+            return text;
+        return `${text.slice(0, maxLen - 1)}…`;
+    }
+
     _renderList() {
         this._listSection.removeAll();
         const combined = this._notificationItems.concat(this._activityItems)
@@ -544,11 +590,18 @@ class Indicator extends PanelMenu.Button {
         }
         for (const item of combined.slice(0, 15)) {
             const menuItem = new PopupMenu.PopupBaseMenuItem();
+            const text = `${this._truncate(item.title, 70)}  —  ${item.subtitle}`;
             const label = new St.Label({
-                text: `${item.title}  —  ${item.subtitle}`,
+                text,
                 x_expand: true,
                 y_align: Clutter.ActorAlign.CENTER,
+                style_class: 'github-notifier-item-label',
             });
+            // Belt-and-braces: truncate the string itself (above) for a
+            // reasonable default, and also ellipsize on the actor so it can
+            // never blow out the menu width regardless of font/DPI.
+            label.clutter_text.set_line_wrap(false);
+            label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
             menuItem.add_child(label);
 
             menuItem.connect('activate', () => {
