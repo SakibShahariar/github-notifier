@@ -606,6 +606,10 @@ class Indicator extends PanelMenu.Button {
 
             menuItem.connect('activate', () => {
                 Gio.AppInfo.launch_default_for_uri(item.url, null);
+                // Opening it is treated the same as reading it, same as GitHub's
+                // own notification inbox — no need to also hit the checkmark.
+                if (item.kind === 'notification' && item.rawId)
+                    this._markThreadRead(item);
             });
 
             // Only GitHub notification-inbox items have a real thread id we can
@@ -659,6 +663,8 @@ class Indicator extends PanelMenu.Button {
             // Clicking the toast itself opens the item, same as clicking it in the menu.
             notification.connect('activated', () => {
                 Gio.AppInfo.launch_default_for_uri(item.url, null);
+                if (item.kind === 'notification' && item.rawId)
+                    this._markThreadRead(item);
             });
             source.addNotification(notification);
         }
