@@ -44,8 +44,9 @@ class Indicator extends PanelMenu.Button {
 
         // --- panel button contents ---
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
+        const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
         this._icon = new St.Icon({
-            icon_name: 'emblem-default-symbolic',
+            gicon: Gio.icon_new_for_string(iconPath),
             style_class: 'system-status-icon',
         });
         this._label = new St.Label({
@@ -493,10 +494,8 @@ class Indicator extends PanelMenu.Button {
         if (this._unread > 0) {
             this._label.text = this._unread > MAX_BADGE ? `${MAX_BADGE}+` : String(this._unread);
             this._label.show();
-            this._icon.icon_name = 'mail-unread-symbolic';
         } else {
             this._label.hide();
-            this._icon.icon_name = 'emblem-default-symbolic';
         }
 
         // Hiding the whole indicator is opt-in and only ever applies when
@@ -546,9 +545,10 @@ class Indicator extends PanelMenu.Button {
 
     _notify(newItems) {
         if (!this._source) {
+            const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
             this._source = new MessageTray.Source({
                 title: 'GitHub Notifier',
-                iconName: 'emblem-default-symbolic',
+                icon: Gio.icon_new_for_string(iconPath),
             });
             Main.messageTray.add(this._source);
         }

@@ -68,6 +68,12 @@ Open the extension's Settings (from the panel dropdown menu, or via
 
 ## Notes / limitations
 
+- The panel icon uses GitHub's Octocat mark, bundled as a symbolic SVG
+  (`icons/github-symbolic.svg`) so it recolors automatically with your
+  shell theme. The GitHub logo is a GitHub trademark — fine for a
+  personal/local extension like this, but if you ever publish it more
+  widely (e.g. extensions.gnome.org), check GitHub's logo usage
+  guidelines first: https://github.com/logos
 - The token is stored in plain text via dconf (`gsettings`), same as
   most simple GNOME extensions handle secrets. Don't use a
   broad-scope token — a fine-grained, read-only token is safer.
