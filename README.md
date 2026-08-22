@@ -12,7 +12,11 @@ list and also marks your GitHub inbox read. You can pause polling
 from the dropdown, and optionally hide the panel icon entirely
 whenever there's nothing unread (Settings → Display) — it reappears
 as soon as something new comes in, and stays visible if there's an
-error (bad token, rate limit) that needs your attention.
+error (bad token, rate limit) that needs your attention. The first
+time a repo is polled for issues/PRs or stars, you'll get a one-time
+"now tracking" toast recording the starting count — that poll can't
+detect "new" yet since it has nothing to compare against, so this
+makes that distinguishable from the extension just not working.
 
 Built to be resilient: a failing or misconfigured repo in your watch
 list won't block polling of the others, rate-limit responses back off

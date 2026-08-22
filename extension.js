@@ -235,6 +235,7 @@ class Indicator extends PanelMenu.Button {
         let notificationItems = [];
         let activityItems = [];
         const errors = [];
+        const baselineNotes = [];
 
         try {
             if (this._settings.get_boolean('watch-mentions')) {
@@ -261,7 +262,7 @@ class Indicator extends PanelMenu.Button {
                     // Isolate each repo: one failing repo must not block the rest.
                     if (this._settings.get_boolean('watch-issues-prs')) {
                         try {
-                            activityItems = activityItems.concat(await this._pollRepoIssues(repo, state));
+                            activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
                         } catch (e) {
                             if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                                 throw e;
@@ -273,7 +274,7 @@ class Indicator extends PanelMenu.Button {
                         return;
                     if (this._settings.get_boolean('watch-stars')) {
                         try {
-                            activityItems = activityItems.concat(await this._pollRepoStars(repo, state));
+                            activityItems = activityItems.concat(await this._pollRepoStars(repo, state, baselineNotes));
                         } catch (e) {
                             if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                                 throw e;
@@ -292,9 +293,15 @@ class Indicator extends PanelMenu.Button {
             this._saveState(state);
             this._afterPoll(notificationItems, activityItems);
 
+            if (baselineNotes.length > 0)
+                this._notifyBaseline(baselineNotes);
+
             if (errors.length > 0) {
                 this._statusItem.label.text = `Updated with ${errors.length} issue(s) — see logs`;
                 this._statusIsError = true;
+            } else if (baselineNotes.length > 0) {
+                this._statusItem.label.text = `Started tracking ${baselineNotes.length} new watch(es)`;
+                this._statusIsError = false;
             } else {
                 this._statusItem.label.text = `Updated ${new Date().toLocaleTimeString()}`;
                 this._statusIsError = false;
@@ -386,7 +393,7 @@ class Indicator extends PanelMenu.Button {
         return `${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
     }
 
-    async _pollRepoIssues(repo, state) {
+    async _pollRepoIssues(repo, state, baselineNotes) {
         state.repos ||= {};
         state.repos[repo] ||= {};
         const repoState = state.repos[repo];
@@ -425,11 +432,15 @@ class Indicator extends PanelMenu.Button {
             });
         }
 
+        if (!seenAnyBefore) {
+            baselineNotes.push(`${repo}: now tracking issues/PRs (${data.length} currently open)`);
+        }
+
         repoState.lastIssueNumber = maxId;
         return items;
     }
 
-    async _pollRepoStars(repo, state) {
+    async _pollRepoStars(repo, state, baselineNotes) {
         state.repos ||= {};
         state.repos[repo] ||= {};
         const repoState = state.repos[repo];
@@ -437,8 +448,9 @@ class Indicator extends PanelMenu.Button {
         const data = await this._apiGet(`/repos/${this._encodeRepo(repo)}`);
         const count = data.stargazers_count;
         const items = [];
+        const hadBaseline = typeof repoState.stars === 'number';
 
-        if (typeof repoState.stars === 'number' && count > repoState.stars) {
+        if (hadBaseline && count > repoState.stars) {
             const gained = count - repoState.stars;
             items.push({
                 id: `${repo}-stars-${count}`,
@@ -449,6 +461,10 @@ class Indicator extends PanelMenu.Button {
                 ts: new Date().toISOString(),
             });
         }
+
+        if (!hadBaseline)
+            baselineNotes.push(`${repo}: now tracking stars (currently ${count})`);
+
         repoState.stars = count;
         return items;
     }
@@ -557,7 +573,7 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
-    _notify(newItems) {
+    _ensureSource() {
         if (!this._source) {
             const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
             this._source = new MessageTray.Source({
@@ -566,19 +582,24 @@ class Indicator extends PanelMenu.Button {
             });
             Main.messageTray.add(this._source);
         }
+        return this._source;
+    }
+
+    _notify(newItems) {
+        const source = this._ensureSource();
         // Avoid a notification storm: summarize if there are many at once.
         if (newItems.length > 3) {
             const notification = new MessageTray.Notification({
-                source: this._source,
+                source,
                 title: 'GitHub Notifier',
                 body: `${newItems.length} new updates`,
             });
-            this._source.addNotification(notification);
+            source.addNotification(notification);
             return;
         }
         for (const item of newItems) {
             const notification = new MessageTray.Notification({
-                source: this._source,
+                source,
                 title: item.title,
                 body: item.subtitle,
             });
@@ -586,8 +607,22 @@ class Indicator extends PanelMenu.Button {
             notification.connect('activated', () => {
                 Gio.AppInfo.launch_default_for_uri(item.url, null);
             });
-            this._source.addNotification(notification);
+            source.addNotification(notification);
         }
+    }
+
+    // Fired once per repo the first time it's polled, so adding a repo to the
+    // watch list doesn't look identical to "nothing happened" — without this,
+    // silently recording a baseline count is indistinguishable from a bug.
+    // Not added to the badge/dropdown since it isn't unread activity.
+    _notifyBaseline(notes) {
+        const source = this._ensureSource();
+        const notification = new MessageTray.Notification({
+            source,
+            title: 'GitHub Notifier',
+            body: notes.join('\n'),
+        });
+        source.addNotification(notification);
     }
 
     destroy() {
