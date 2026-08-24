@@ -67,6 +67,12 @@ class Indicator extends PanelMenu.Button {
         this._settingsChangedId = this._settings.connect('changed::poll-interval', () => this._restartTimer());
         this._hideEmptyChangedId = this._settings.connect('changed::hide-when-empty', () => this._updatePanel());
 
+        this._networkMonitor = Gio.NetworkMonitor.get_default();
+        this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
+            if (available && !this._destroyed)
+                this._poll();
+        });
+
         this._restartTimer();
         this._poll(); // kick off immediately
     }
@@ -144,27 +150,60 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- HTTP helper ----------
-    async _apiRequest(method, path, {body = null} = {}) {
-        const token = this._settings.get_string('github-token');
-        const uri = GLib.Uri.parse(`https://api.github.com${path}`, GLib.UriFlags.NONE);
+    _sleep(ms) {
+        return new Promise(resolve => {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
+                resolve();
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+    }
+
+    _buildMessage(method, uri, token, body) {
         const msg = new Soup.Message({method, uri});
         msg.request_headers.append('Accept', 'application/vnd.github+json');
         msg.request_headers.append('X-GitHub-Api-Version', '2022-11-28');
         msg.request_headers.append('User-Agent', 'gnome-shell-github-notifier');
         if (token)
             msg.request_headers.append('Authorization', `Bearer ${token}`);
-
         if (body !== null) {
             const bodyBytes = new TextEncoder().encode(JSON.stringify(body));
             msg.set_request_body_from_bytes('application/json', new GLib.Bytes(bodyBytes));
         }
+        return msg;
+    }
 
-        let bytes;
+    // A single send attempt. Throws the raw Soup/GLib error on transport
+    // failure (DNS, no route, timeout) — the caller decides whether that's
+    // worth retrying.
+    async _sendOnce(method, uri, token, body) {
+        const msg = this._buildMessage(method, uri, token, body);
+        const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+        return {bytes, msg};
+    }
+
+    async _apiRequest(method, path, {body = null} = {}) {
+        const token = this._settings.get_string('github-token');
+        const uri = GLib.Uri.parse(`https://api.github.com${path}`, GLib.UriFlags.NONE);
+
+        let bytes, msg;
         try {
-            bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
-        } catch (e) {
-            // Network-level failure (DNS, offline, timeout, cancelled on destroy)
-            throw new ApiError(`Network error: ${e.message}`, 0);
+            ({bytes, msg} = await this._sendOnce(method, uri, token, body));
+        } catch (firstError) {
+            // Transport-level failure only (not an HTTP error response — those
+            // don't throw here). Often just a dead IPv6 route or a momentary
+            // blip, so one quick retry clears most of these within the same
+            // poll cycle instead of leaving a stale error until the next one.
+            if (this._destroyed)
+                throw new ApiError(`Network error: ${firstError.message}`, 0);
+            await this._sleep(1500);
+            if (this._destroyed)
+                throw new ApiError(`Network error: ${firstError.message}`, 0);
+            try {
+                ({bytes, msg} = await this._sendOnce(method, uri, token, body));
+            } catch (secondError) {
+                throw new ApiError(`Network error: ${secondError.message}`, 0);
+            }
         }
 
         const status = msg.get_status();
@@ -217,6 +256,19 @@ class Indicator extends PanelMenu.Button {
         const token = this._settings.get_string('github-token');
         if (!token) {
             this._statusItem.label.text = 'Add a GitHub token in Settings';
+            this._statusIsError = true;
+            this._updatePanel();
+            return;
+        }
+
+        // No point attempting any request if there's clearly no network at
+        // all (airplane mode, WiFi off) — this would otherwise show up as a
+        // pile of confusing per-repo/per-step errors, and each one has to
+        // wait out its own timeout/retry before failing. Skip straight to a
+        // clear status instead; _onNetworkChanged() re-polls automatically
+        // once connectivity returns, so this isn't a dead end.
+        if (!this._networkMonitor.get_network_available()) {
+            this._statusItem.label.text = 'No internet connection';
             this._statusIsError = true;
             this._updatePanel();
             return;
@@ -697,6 +749,10 @@ class Indicator extends PanelMenu.Button {
         if (this._hideEmptyChangedId) {
             this._settings.disconnect(this._hideEmptyChangedId);
             this._hideEmptyChangedId = null;
+        }
+        if (this._networkChangedId) {
+            this._networkMonitor.disconnect(this._networkChangedId);
+            this._networkChangedId = null;
         }
         if (this._session)
             this._session.abort();
