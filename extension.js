@@ -265,11 +265,15 @@ class Indicator extends PanelMenu.Button {
         // all (airplane mode, WiFi off) — this would otherwise show up as a
         // pile of confusing per-repo/per-step errors, and each one has to
         // wait out its own timeout/retry before failing. Skip straight to a
-        // clear status instead; _onNetworkChanged() re-polls automatically
-        // once connectivity returns, so this isn't a dead end.
+        // clear status instead; the network-changed listener re-polls
+        // automatically once connectivity returns, so this isn't a dead end.
         if (!this._networkMonitor.get_network_available()) {
             this._statusItem.label.text = 'No internet connection';
-            this._statusIsError = true;
+            // Deliberately NOT treated as an "error" for hide-when-empty
+            // purposes — you already know you're offline (there's a system
+            // indicator for that), so this shouldn't force the icon to stay
+            // visible the way a bad token or rate limit genuinely should.
+            this._statusIsError = false;
             this._updatePanel();
             return;
         }
