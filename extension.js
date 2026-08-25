@@ -580,6 +580,14 @@ class Indicator extends PanelMenu.Button {
         this._updatePanel();
     }
 
+    // Star/issue/PR activity has no "read" concept on GitHub's side — it's
+    // purely local bookkeeping, so dismissing one is just a local removal.
+    _dismissActivityItem(item) {
+        this._activityItems = this._activityItems.filter(i => i.id !== item.id);
+        this._renderList();
+        this._updatePanel();
+    }
+
     // ---------- UI update ----------
     _afterPoll(notificationItems, newActivityItems) {
         // Notifications: always replace with the live unread set from GitHub.
@@ -666,11 +674,12 @@ class Indicator extends PanelMenu.Button {
                 // own notification inbox — no need to also hit the checkmark.
                 if (item.kind === 'notification' && item.rawId)
                     this._markThreadRead(item);
+                else
+                    this._dismissActivityItem(item);
             });
 
-            // Only GitHub notification-inbox items have a real thread id we can
-            // mark read remotely; issue/PR/star items are just local activity.
             if (item.kind === 'notification' && item.rawId) {
+                // Real GitHub notification-inbox items: mark read remotely too.
                 const readButton = new St.Button({
                     style_class: 'github-notifier-mark-read',
                     child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
@@ -680,6 +689,18 @@ class Indicator extends PanelMenu.Button {
                     this._markThreadRead(item);
                 });
                 menuItem.add_child(readButton);
+            } else {
+                // Issue/PR/star activity has no "read" state on GitHub's side —
+                // this just removes it from the local list without opening it.
+                const dismissButton = new St.Button({
+                    style_class: 'github-notifier-mark-read',
+                    child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
+                    can_focus: true,
+                });
+                dismissButton.connect('clicked', () => {
+                    this._dismissActivityItem(item);
+                });
+                menuItem.add_child(dismissButton);
             }
 
             this._listSection.addMenuItem(menuItem);
