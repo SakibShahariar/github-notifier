@@ -70,11 +70,12 @@ Open the extension's Settings (from the panel dropdown menu, or via
 2. **GitHub username**
 3. Toggle which categories to watch
 4. **Watched repositories** — comma-separated `owner/repo` list, used
-   for the "new issues/PRs" and "new stars" checks
+   for the "new issues/PRs" and "new stars" checks (banner warns if empty while watches enabled)
 5. Polling interval (default 2 minutes; minimum 30s to stay well
    within GitHub's API rate limits)
+6. **API host** — defaults to `api.github.com`; set to `github.example.com` for GHES (uses `/api/v3`)
 
-## Notes / limitations
+Toasts now have `Open` + `Mark read`/`Dismiss` actions; grouped by repo in the dropdown with headers; rate-limit shows `Retry now`.
 
 - The panel icon uses GitHub's Octocat mark, bundled as a symbolic SVG
   (`icons/github-symbolic.svg`) so it recolors automatically with your
