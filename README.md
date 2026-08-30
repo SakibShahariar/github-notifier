@@ -1,94 +1,54 @@
-# GitHub Notifier — GNOME Shell extension
+# GitHub Notifier
 
-Shows a panel indicator that tracks:
-- Mentions & review requests (via your GitHub notifications inbox)
-- New issues & PRs on repos you choose to watch
-- New stars on repos you choose to watch
+> Mentions, reviews, issues/PRs and stars — in your top panel.
 
-Clicking an item (in the dropdown or the toast) opens it in your
-browser. Notification-inbox items have an inline button to mark just
-that thread as read on GitHub. "Mark all as read" clears the local
-list and also marks your GitHub inbox read. You can pause polling
-from the dropdown, and optionally hide the panel icon entirely
-whenever there's nothing unread (Settings → Display) — it reappears
-as soon as something new comes in, and stays visible if there's an
-error (bad token, rate limit) that needs your attention. The first
-time a repo is polled for issues/PRs or stars, you'll get a one-time
-"now tracking" toast recording the starting count — that poll can't
-detect "new" yet since it has nothing to compare against, so this
-makes that distinguishable from the extension just not working.
+![GNOME 45-50](https://img.shields.io/badge/GNOME-45--50-blue)
 
-Built to be resilient: a failing or misconfigured repo in your watch
-list won't block polling of the others, rate-limit responses back off
-automatically instead of hammering the API, and an invalid token is
-reported clearly rather than failing silently. The notifications list
-always mirrors GitHub's actual unread inbox in real time (rather than
-a one-time "new since last check" diff), so it can't silently lose
-track of something that's still unread after a shell restart — it'll
-only disappear once it's actually marked read, here or on GitHub.
+### What it does
 
-## Install
+| | |
+|---|---|
+| 💬 **Inbox** | Mentions & review requests (live mirror, not diff) |
+| 📝 **Watch** | New issues/PRs on chosen repos |
+| ⭐ **Stars** | New stars count |
+| 🔔 **Toasts** | `Open` / `Mark read` + grouped by repo |
 
-1. Copy this whole folder to:
-   `~/.local/share/gnome-shell/extensions/github-notifier@local`
+`Mark all as read` clears locally + `PUT /notifications {last_read_at}` on GitHub. Pause from menu, `Hide when empty` keeps icon hidden unless error.
 
-   ```bash
-   cp -r github-notifier@local ~/.local/share/gnome-shell/extensions/
-   ```
+### Install
 
-2. If `schemas/gschemas.compiled` isn't already there (it should be),
-   compile it:
+```bash
+cp -r github-notifier@local ~/.local/share/gnome-shell/extensions/
+glib-compile-schemas ~/.local/share/gnome-shell/extensions/github-notifier@local/schemas/
+# X11: Alt+F2 → r | Wayland: logout
+gnome-extensions enable github-notifier@local
+```
 
-   ```bash
-   glib-compile-schemas ~/.local/share/gnome-shell/extensions/github-notifier@local/schemas/
-   ```
+Prefs: panel → `Settings…` or `gnome-extensions prefs github-notifier@local`
 
-3. Restart GNOME Shell:
-   - X11: `Alt+F2`, type `r`, Enter
-   - Wayland: log out and back in
+### Configure
 
-4. Enable it:
+| Setting | Notes |
+|---|---|
+| **Token** | `github.com/settings/tokens` — Classic `notifications`+`repo`, or fine-grained Issues/PRs + Metadata |
+| **Username** | your GitHub handle |
+| **API host** | `api.github.com` or `github.example.com` (GHES → `/api/v3`) |
+| **Repos** | `owner/repo, owner/repo` — banner if empty while watches on |
+| **Poll** | 30–3600s, default 120s |
 
-   ```bash
-   gnome-extensions enable github-notifier@local
-   ```
+3 pages: **Account** / **Watching** / **Settings**
 
-   Or via the **Extensions** app / extensions.gnome.org's local manager.
+### How it works
 
-## Configure
+* Polls `/notifications`, `/repos/{repo}/issues` (page 2 verified when 20 new), `/repos/{repo}` stars.
+* Baseline `now tracking` toast on first poll.
+* `FULL` internet only — skips on portal/LOCAL to avoid timeout storm.
+* `150` notifs cap → `More than shown` sentinel; `!` stays visible on 401/403.
 
-Open the extension's Settings (from the panel dropdown menu, or via
-`gnome-extensions prefs github-notifier@local`):
+<details>
+<summary>Notes</summary>
 
-1. **Personal access token** — create one at
-   https://github.com/settings/tokens
-   - Classic token scopes: `notifications`, and `repo` (or
-     `public_repo` if you only watch public repos)
-   - Fine-grained token: read access to Issues, Pull requests, and
-     Metadata for the repos you want to watch, plus access to your
-     notifications
-2. **GitHub username**
-3. Toggle which categories to watch
-4. **Watched repositories** — comma-separated `owner/repo` list, used
-   for the "new issues/PRs" and "new stars" checks (banner warns if empty while watches enabled)
-5. Polling interval (default 2 minutes; minimum 30s to stay well
-   within GitHub's API rate limits)
-6. **API host** — defaults to `api.github.com`; set to `github.example.com` for GHES (uses `/api/v3`)
-
-Toasts now have `Open` + `Mark read`/`Dismiss` actions; grouped by repo in the dropdown with headers; rate-limit shows `Retry now`.
-
-- The panel icon uses GitHub's Octocat mark, bundled as a symbolic SVG
-  (`icons/github-symbolic.svg`) so it recolors automatically with your
-  shell theme. The GitHub logo is a GitHub trademark — fine for a
-  personal/local extension like this, but if you ever publish it more
-  widely (e.g. extensions.gnome.org), check GitHub's logo usage
-  guidelines first: https://github.com/logos
-- The token is stored in plain text via dconf (`gsettings`), same as
-  most simple GNOME extensions handle secrets. Don't use a
-  broad-scope token — a fine-grained, read-only token is safer.
-- "New issue/PR" detection is per-repo and only starts working after
-  the first successful poll (it needs a baseline to diff against).
-- GitHub's REST API rate limit for authenticated requests is 5000/hr,
-  so keep the interval reasonable if you're watching many repos.
-- Tested against the GNOME 45+ ESM extension API (`gnome-shell` 45,
-  46, 47, 48 in metadata.json — adjust if your version is older/newer).
+* Icon `icons/github-symbolic.svg` — recolors with theme. GitHub mark is trademark.
+* Token stored plain in `dconf` — use fine-grained read-only.
+* Rate limit 5000/hr authenticated.
+</details>
