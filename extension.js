@@ -196,7 +196,7 @@ class Indicator extends PanelMenu.Button {
             // poll cycle instead of leaving a stale error until the next one.
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
-            await this._sleep(1500);
+            await this._sleep(3000);
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             try {
