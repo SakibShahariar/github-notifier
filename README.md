@@ -36,7 +36,7 @@ Prefs: panel → `Settings…` or `gnome-extensions prefs github-notifier@local`
 | **Repos** | `owner/repo, owner/repo` — banner if empty while watches on |
 | **Poll** | 30–3600s, default 120s |
 
-3 pages: **Account** / **Watching** / **Settings**
+Sections: **Account** / **Watching** / **Settings**
 
 ### How it works
 
