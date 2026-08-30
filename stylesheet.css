@@ -15,3 +15,10 @@
 .github-notifier-item-label {
     max-width: 420px;
 }
+
+.github-notifier-repo-header {
+    font-weight: bold;
+    opacity: 0.85;
+    padding: 4px 0 2px 0;
+    font-size: 0.9em;
+}

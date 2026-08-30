@@ -182,9 +182,19 @@ class Indicator extends PanelMenu.Button {
         return {bytes, msg};
     }
 
+    _apiBase() {
+        const host = this._settings.get_string('github-host').trim() || 'api.github.com';
+        // GHES: host like github.example.com -> https://host/api/v3, else api.github.com direct
+        if (host === 'api.github.com')
+            return `https://${host}`;
+        if (host.includes('/'))
+            return `https://${host.replace(/\/+$/, '')}`;
+        return `https://${host}/api/v3`;
+    }
+
     async _apiRequest(method, path, {body = null} = {}) {
         const token = this._settings.get_string('github-token');
-        const uri = GLib.Uri.parse(`https://api.github.com${path}`, GLib.UriFlags.NONE);
+        const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
 
         let bytes, msg;
         try {
@@ -412,7 +422,7 @@ class Indicator extends PanelMenu.Button {
             }
 
             const nextUrl = data.length === 50 ? this._nextPageUrl(linkHeader) : null;
-            path = nextUrl ? nextUrl.replace('https://api.github.com', '') : null;
+            path = nextUrl ? nextUrl.replace(this._apiBase(), '') : null;
         }
 
         // Keep the toasted-set from growing forever: cap to last 500 ids.
@@ -466,12 +476,21 @@ class Indicator extends PanelMenu.Button {
     // API url without an extra fetch). Map what we can reliably resolve
     // without another request, and fall back to a repo-level page — never a
     // guess that 404s.
+    _webBase() {
+        const host = this._settings.get_string('github-host').trim() || 'api.github.com';
+        if (host === 'api.github.com')
+            return 'https://github.com';
+        // GHES web host is same as API host without /api/v3
+        return `https://${host.split('/')[0]}`;
+    }
+
     _subjectHtmlUrl(subject, repoFullName) {
-        const repoUrl = `https://github.com/${repoFullName}`;
+        const webBase = this._webBase();
+        const repoUrl = `${webBase}/${repoFullName}`;
         if (!subject.url)
             return repoUrl;
 
-        const url = subject.url.replace('https://api.github.com/repos', 'https://github.com');
+        const url = subject.url.replace(`${this._apiBase()}/repos`, webBase);
 
         switch (subject.type) {
             case 'Issue':
@@ -682,7 +701,16 @@ class Indicator extends PanelMenu.Button {
             this._listSection.addMenuItem(new PopupMenu.PopupMenuItem('Nothing unread', {reactive: false}));
             return;
         }
+        // Group by repo (subtitle) while keeping time order
+        let lastRepo = null;
         for (const item of combined.slice(0, 15)) {
+            if (item.subtitle !== lastRepo) {
+                const header = new PopupMenu.PopupMenuItem(item.subtitle, {reactive: false});
+                header.label.add_style_class_name('github-notifier-repo-header');
+                header.label.style = 'font-weight: bold; opacity: 0.85;';
+                this._listSection.addMenuItem(header);
+                lastRepo = item.subtitle;
+            }
             const menuItem = new PopupMenu.PopupBaseMenuItem();
             const text = `${this._truncate(item.title, 70)}  —  ${item.subtitle}`;
             const label = new St.Label({
@@ -758,6 +786,8 @@ class Indicator extends PanelMenu.Button {
                 title: 'GitHub Notifier',
                 body: `${newItems.length} new updates`,
             });
+            notification.addAction('Open Inbox', () => Gio.AppInfo.launch_default_for_uri('https://github.com/notifications', null));
+            notification.connect('activated', () => Gio.AppInfo.launch_default_for_uri('https://github.com/notifications', null));
             source.addNotification(notification);
             return;
         }
@@ -772,7 +802,27 @@ class Indicator extends PanelMenu.Button {
                 Gio.AppInfo.launch_default_for_uri(item.url, null);
                 if (item.kind === 'notification' && item.rawId)
                     this._markThreadRead(item);
+                else
+                    this._dismissActivityItem(item);
             });
+            notification.addAction('Open', () => {
+                Gio.AppInfo.launch_default_for_uri(item.url, null);
+                if (item.kind === 'notification' && item.rawId)
+                    this._markThreadRead(item);
+                else
+                    this._dismissActivityItem(item);
+            });
+            const dismissLabel = item.kind === 'notification' ? 'Mark read' : 'Dismiss';
+            notification.addAction(dismissLabel, () => {
+                if (item.kind === 'notification' && item.rawId)
+                    this._markThreadRead(item);
+                else
+                    this._dismissActivityItem(item);
+            });
+            // Rate limit retry action for any 403 sentinel (if present)
+            if (this._rateLimitResetEpoch > Math.floor(Date.now() / 1000)) {
+                notification.addAction('Retry now', () => this._poll());
+            }
             source.addNotification(notification);
         }
     }

@@ -33,6 +33,12 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         userRow.connect('notify::text', () => settings.set_string('github-username', userRow.get_text()));
         accountGroup.add(userRow);
 
+        const hostRow = new Adw.EntryRow({title: 'API host'});
+        hostRow.add_prefix(new Gtk.Image({icon_name: 'network-server-symbolic', pixel_size: 16}));
+        hostRow.set_text(settings.get_string('github-host'));
+        hostRow.connect('notify::text', () => settings.set_string('github-host', hostRow.get_text().trim()));
+        accountGroup.add(hostRow);
+
         // Page 2: Watching
         const watchPage = new Adw.PreferencesPage({
             title: 'Watching',

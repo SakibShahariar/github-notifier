@@ -17,6 +17,12 @@
       <summary>GitHub username</summary>
     </key>
 
+    <key name="github-host" type="s">
+      <default>'api.github.com'</default>
+      <summary>GitHub API host</summary>
+      <description>Host for API, e.g. api.github.com or github.example.com for Enterprise (uses /api/v3).</description>
+    </key>
+
     <key name="watched-repos" type="s">
       <default>''</default>
       <summary>Comma-separated owner/repo list</summary>
