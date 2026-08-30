@@ -1,5 +1,6 @@
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -37,7 +38,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             title: 'Hide panel icon when there\'s nothing unread',
             subtitle: 'The icon reappears as soon as something new comes in',
         });
-        settings.bind('hide-when-empty', hideEmptyRow, 'active', 0);
+        settings.bind('hide-when-empty', hideEmptyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(hideEmptyRow);
 
         // --- Watch group ---
@@ -50,21 +51,21 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             title: 'Mentions & review requests',
             subtitle: 'Polls your GitHub notifications inbox',
         });
-        settings.bind('watch-mentions', mentionsRow, 'active', 0);
+        settings.bind('watch-mentions', mentionsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(mentionsRow);
 
         const issuesRow = new Adw.SwitchRow({
             title: 'New issues & pull requests',
             subtitle: 'On the repos listed below',
         });
-        settings.bind('watch-issues-prs', issuesRow, 'active', 0);
+        settings.bind('watch-issues-prs', issuesRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(issuesRow);
 
         const starsRow = new Adw.SwitchRow({
             title: 'New stars',
             subtitle: 'On the repos listed below',
         });
-        settings.bind('watch-stars', starsRow, 'active', 0);
+        settings.bind('watch-stars', starsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(starsRow);
 
         // --- Repos group ---
@@ -77,6 +78,20 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         const reposRow = new Adw.EntryRow({title: 'owner/repo, owner/repo, …'});
         reposRow.set_text(settings.get_string('watched-repos'));
         reposRow.connect('notify::text', () => settings.set_string('watched-repos', reposRow.get_text()));
+        const reposBanner = new Adw.Banner({
+            title: 'No repos — add one above or disable Issues/Stars watches.',
+            revealed: false,
+        });
+        const updateReposBanner = () => {
+            const hasWatch = settings.get_boolean('watch-issues-prs') || settings.get_boolean('watch-stars');
+            const hasRepos = settings.get_string('watched-repos').trim().length > 0;
+            reposBanner.set_revealed(hasWatch && !hasRepos);
+        };
+        updateReposBanner();
+        settings.connect('changed::watched-repos', updateReposBanner);
+        settings.connect('changed::watch-issues-prs', updateReposBanner);
+        settings.connect('changed::watch-stars', updateReposBanner);
+        reposGroup.add(reposBanner);
         reposGroup.add(reposRow);
 
         // --- Polling group ---
@@ -88,7 +103,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             subtitle: 'Minimum 30s — be mindful of GitHub API rate limits',
             adjustment: new Gtk.Adjustment({lower: 30, upper: 3600, step_increment: 30}),
         });
-        settings.bind('poll-interval', intervalRow, 'value', 0);
+        settings.bind('poll-interval', intervalRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         pollGroup.add(intervalRow);
     }
 }

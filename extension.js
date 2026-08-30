@@ -261,13 +261,11 @@ class Indicator extends PanelMenu.Button {
             return;
         }
 
-        // No point attempting any request if there's clearly no network at
-        // all (airplane mode, WiFi off) — this would otherwise show up as a
-        // pile of confusing per-repo/per-step errors, and each one has to
-        // wait out its own timeout/retry before failing. Skip straight to a
-        // clear status instead; the network-changed listener re-polls
-        // automatically once connectivity returns, so this isn't a dead end.
-        if (!this._networkMonitor.get_network_available()) {
+        // No point attempting any request if there's clearly no internet
+        // (airplane mode, portal, LOCAL only) — use FULL connectivity like
+        // update-checker does, not just get_network_available() which is
+        // true even on LOCAL. This avoids per-repo timeout storms.
+        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             this._statusItem.label.text = 'No internet connection';
             // Deliberately NOT treated as an "error" for hide-when-empty
             // purposes — you already know you're offline (there's a system
@@ -419,6 +417,18 @@ class Indicator extends PanelMenu.Button {
 
         // Keep the toasted-set from growing forever: cap to last 500 ids.
         state.toastedNotificationIds = Array.from(toasted).slice(-500);
+        // Sentinel when we hit the page cap with a full page — there may be more beyond 150
+        if (pagesFetched === MAX_NOTIFICATION_PAGES && items.length === MAX_NOTIFICATION_PAGES * 50) {
+            items.push({
+                id: `notif-more-${Date.now()}`,
+                title: 'More notifications than shown — check GitHub inbox directly',
+                subtitle: 'https://github.com/notifications',
+                url: 'https://github.com/notifications',
+                kind: 'notification',
+                ts: new Date().toISOString(),
+                isNewToast: false,
+            });
+        }
         return items;
     }
 
@@ -515,17 +525,37 @@ class Indicator extends PanelMenu.Button {
                 maxId = issue.number;
         }
 
-        // If a repo returned 20 brand-new issues since our last poll, there may be
-        // more beyond this page — flag it rather than silently dropping the rest.
+        // If we filled a full page of new items, verify there's more beyond
+        // by fetching page 2 once — avoids false sentinel when exactly 20 new.
         if (seenAnyBefore && items.length === 20) {
-            items.push({
-                id: `${repo}-more-${maxId}`,
-                title: 'More new issues/PRs than shown — check the repo directly',
-                subtitle: repo,
-                url: `https://github.com/${repo}/issues`,
-                kind: 'issue',
-                ts: new Date().toISOString(),
-            });
+            try {
+                const data2 = await this._apiGet(`/repos/${this._encodeRepo(repo)}/issues?state=open&sort=created&direction=desc&per_page=20&page=2`);
+                for (const issue of data2) {
+                    if (issue.number > maxId)
+                        maxId = issue.number;
+                }
+                const hasMoreNew = data2.some(issue => issue.number > repoState.lastIssueNumber);
+                if (hasMoreNew || data2.length === 20) {
+                    items.push({
+                        id: `${repo}-more-${maxId}`,
+                        title: 'More new issues/PRs than shown — check the repo directly',
+                        subtitle: repo,
+                        url: `https://github.com/${repo}/issues`,
+                        kind: 'issue',
+                        ts: new Date().toISOString(),
+                    });
+                }
+            } catch (e) {
+                // Fallback: keep sentinel if page 2 fails, better noisy than silent drop
+                items.push({
+                    id: `${repo}-more-${maxId}`,
+                    title: 'More new issues/PRs than shown — check the repo directly',
+                    subtitle: repo,
+                    url: `https://github.com/${repo}/issues`,
+                    kind: 'issue',
+                    ts: new Date().toISOString(),
+                });
+            }
         }
 
         if (!seenAnyBefore) {
@@ -614,7 +644,7 @@ class Indicator extends PanelMenu.Button {
 
         // Best-effort: also mark read on GitHub's side so the web inbox matches.
         if (this._settings.get_string('github-token')) {
-            this._apiRequest('PUT', '/notifications', {body: {}}).catch(e => {
+            this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).catch(e => {
                 logError(e, 'github-notifier: failed to mark all read on GitHub');
             });
         }
