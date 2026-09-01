@@ -98,7 +98,7 @@ class Indicator extends PanelMenu.Button {
         const heroIcon = new St.Icon({
             gicon: Gio.icon_new_for_string(iconPath),
             style_class: 'system-status-icon github-notifier-hero-icon',
-            icon_size: 22,
+            icon_size: 24,
         });
         const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         this._heroTitle = new St.Label({text: 'GitHub', style_class: 'github-notifier-hero-title'});
@@ -893,7 +893,7 @@ class Indicator extends PanelMenu.Button {
             icon_name: iconName,
             style_class: 'popup-menu-icon github-notifier-glyph' + (item.kind === 'star' ? ' urgent' : ' dim'),
             y_align: Clutter.ActorAlign.CENTER,
-            icon_size: 16,
+            icon_size: 18,
         });
         rowBox.add_child(glyph);
 
@@ -907,39 +907,28 @@ class Indicator extends PanelMenu.Button {
         textBox.add_child(detailLabel);
         rowBox.add_child(textBox);
 
-        const chevron = new St.Icon({icon_name: 'go-next-symbolic', style_class: 'popup-menu-icon github-notifier-chevron', y_align: Clutter.ActorAlign.CENTER, icon_size: 12});
+        const chevron = new St.Icon({icon_name: 'go-next-symbolic', style_class: 'popup-menu-icon github-notifier-chevron', y_align: Clutter.ActorAlign.CENTER, icon_size: 14});
         rowBox.add_child(chevron);
 
-        menuItem.add_child(rowBox);
-
-        // read strip for notifications
-        if (item.kind === 'notification' && item.rawId) {
-            const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
-            const btn = new St.Button({
-                style_class: 'github-notifier-read-button',
-                can_focus: true,
-                child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
-            });
-            btn.connect('clicked', () => {
+        // combine row and read-strip in single container (PopupBaseMenuItem is a Bin)
+        const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        container.add_child(rowBox);
+        const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+        const btn = new St.Button({
+            style_class: 'github-notifier-read-button',
+            can_focus: true,
+            child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
+        });
+        btn.connect('clicked', () => {
+            if (item.kind === 'notification' && item.rawId)
                 this._markThreadRead(item);
-                return Clutter.EVENT_STOP;
-            });
-            strip.add_child(btn);
-            menuItem.add_child(strip);
-        } else {
-            const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
-            const btn = new St.Button({
-                style_class: 'github-notifier-read-button',
-                can_focus: true,
-                child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
-            });
-            btn.connect('clicked', () => {
+            else
                 this._dismissActivityItem(item);
-                return Clutter.EVENT_STOP;
-            });
-            strip.add_child(btn);
-            menuItem.add_child(strip);
-        }
+            return Clutter.EVENT_STOP;
+        });
+        strip.add_child(btn);
+        container.add_child(strip);
+        menuItem.add_child(container);
 
         section.addMenuItem(menuItem);
     }
@@ -958,7 +947,7 @@ class Indicator extends PanelMenu.Button {
             const btn = new St.Button({
                 style_class: 'github-notifier-footer-button github-notifier-footer-icon-button',
                 can_focus: true,
-                child: new St.Icon({icon_name: iconName, icon_size: 12, style_class: 'popup-menu-icon'}),
+                child: new St.Icon({icon_name: iconName, icon_size: 14, style_class: 'popup-menu-icon'}),
             });
             if (tooltip) btn.set_tooltip_text(tooltip);
             btn.connect('clicked', cb);
@@ -984,9 +973,12 @@ class Indicator extends PanelMenu.Button {
             if (opts.page + 1 >= opts.pageCount) next.reactive = false;
         }
         if (opts.showOpen) {
-            const openBtn = makeBtn('Open in GitHub', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
-            // append go-next icon to match row chevrons
-            openBtn.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 12, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
+            const openBox = new St.BoxLayout({style: 'spacing: 6px;', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER});
+            openBox.add_child(new St.Label({text: 'Open in GitHub'}));
+            openBox.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
+            const openBtn = new St.Button({style_class: 'github-notifier-footer-button', can_focus: true, child: openBox});
+            openBtn.connect('clicked', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
+            box.add_child(openBtn);
         }
         // refresh / pause controls only when handlers provided (global footer)
         if (opts.onPauseToggle && opts.onRefresh) {
@@ -1034,58 +1026,49 @@ class Indicator extends PanelMenu.Button {
                 pageCount,
                 onPrev: () => { this._notificationsPage = Math.max(0, this._notificationsPage - 1); this._renderList(); },
                 onNext: () => { this._notificationsPage = Math.min(pageCount - 1, this._notificationsPage + 1); this._renderList(); },
-                showOpen: true,
-                openUrl: 'https://github.com/notifications',
+                showOpen: false,
                 showMarkAll,
                 markAllArmed: this._markAllArmed,
                 onMarkAll: () => this._markAllRead(),
             });
         }
 
-        // ---- ISSUES / PRS ----
+        // ---- ISSUES / PRS ---- (hidden when empty to reduce whitespace)
         const issuePrItems = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr')
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
-        if (issuePrItems.length > 0 || this._settings.get_boolean('watch-issues-prs')) {
+        if (issuePrItems.length > 0) {
             this._addSeparator(this._issuesSection);
             this._addSectionHeader(this._issuesSection, 'New Issues & Pull Requests', issuePrItems.length);
-            if (issuePrItems.length === 0) {
-                this._addEmpty(this._issuesSection, 'No new issues or PRs.');
-            } else {
-                const expandable = issuePrItems.length > ACTIVITY_PREVIEW;
-                const shown = issuePrItems.slice(0, this._issuesExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
-                for (const item of shown) this._addRow(this._issuesSection, item);
-                this._addFooter(this._issuesSection, {
-                    expandable,
-                    expanded: this._issuesExpanded,
-                    count: issuePrItems.length,
-                    onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
-                    showOpen: issuePrItems.length > 0,
-                    openUrl: issuePrItems[0] ? `https://github.com/${issuePrItems[0].subtitle}/issues` : 'https://github.com',
-                });
-            }
+            const expandable = issuePrItems.length > ACTIVITY_PREVIEW;
+            const shown = issuePrItems.slice(0, this._issuesExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
+            for (const item of shown) this._addRow(this._issuesSection, item);
+            this._addFooter(this._issuesSection, {
+                expandable,
+                expanded: this._issuesExpanded,
+                count: issuePrItems.length,
+                onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
+                showOpen: true,
+                openUrl: `https://github.com/${issuePrItems[0].subtitle}/issues`,
+            });
         }
 
-        // ---- STARS ----
+        // ---- STARS ---- (hidden when empty)
         const starItems = this._activityItems.filter(i => i.kind === 'star')
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
-        if (starItems.length > 0 || this._settings.get_boolean('watch-stars')) {
+        if (starItems.length > 0) {
             this._addSeparator(this._starsSection);
             this._addSectionHeader(this._starsSection, 'New Stars', starItems.length);
-            if (starItems.length === 0) {
-                this._addEmpty(this._starsSection, 'No new stars.');
-            } else {
-                const expandable = starItems.length > ACTIVITY_PREVIEW;
-                const shown = starItems.slice(0, this._starsExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
-                for (const item of shown) this._addRow(this._starsSection, item);
-                this._addFooter(this._starsSection, {
-                    expandable,
-                    expanded: this._starsExpanded,
-                    count: starItems.length,
-                    onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
-                    showOpen: starItems.length > 0,
-                    openUrl: starItems[0] ? `https://github.com/${starItems[0].subtitle}/stargazers` : 'https://github.com',
-                });
-            }
+            const expandable = starItems.length > ACTIVITY_PREVIEW;
+            const shown = starItems.slice(0, this._starsExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
+            for (const item of shown) this._addRow(this._starsSection, item);
+            this._addFooter(this._starsSection, {
+                expandable,
+                expanded: this._starsExpanded,
+                count: starItems.length,
+                onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
+                showOpen: true,
+                openUrl: `https://github.com/${starItems[0].subtitle}/stargazers`,
+            });
         }
 
         // global footer — always for pause/refresh + rate
