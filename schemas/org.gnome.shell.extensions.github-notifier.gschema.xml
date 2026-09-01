@@ -62,33 +62,6 @@
       <summary>Internal JSON blob tracking last-seen ids/counts</summary>
     </key>
 
-    <key name="link-behavior" type="s">
-      <default>'Browser tab'</default>
-      <summary>How to open links</summary>
-      <description>Browser tab or Web app window (requires Chromium-based browser).</description>
-    </key>
-
-    <key name="repository-scope" type="s">
-      <default>'Owned'</default>
-      <summary>Repository scope</summary>
-      <description>Owned or Owned and organizations.</description>
-    </key>
-
-    <key name="include-archived" type="b">
-      <default>false</default>
-      <summary>Include archived repositories</summary>
-    </key>
-
-    <key name="include-forks" type="b">
-      <default>false</default>
-      <summary>Include forked repositories</summary>
-    </key>
-
-    <key name="max-displayed-repos" type="i">
-      <default>25</default>
-      <summary>Maximum displayed repositories</summary>
-    </key>
-
     <key name="icon-always-unlit" type="b">
       <default>false</default>
       <summary>Keep bar icon unlit</summary>

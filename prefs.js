@@ -8,32 +8,6 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
-        // --- helpers for ComboRow (string enum) ---
-        const createEnumRow = (title, subtitle, key, options) => {
-            const stringList = new Gtk.StringList();
-            for (const o of options) stringList.append(o);
-            const row = new Adw.ComboRow({
-                title,
-                subtitle,
-                model: stringList,
-                expression: new Gtk.PropertyExpression(Gtk.StringObject, null, 'string'),
-            });
-            const cur = settings.get_string(key);
-            const idx = options.indexOf(cur);
-            row.set_selected(idx >= 0 ? idx : 0);
-            row.connect('notify::selected', () => {
-                const sel = options[row.get_selected()];
-                if (sel) settings.set_string(key, sel);
-            });
-            // live update if external change
-            settings.connect(`changed::${key}`, () => {
-                const v = settings.get_string(key);
-                const i = options.indexOf(v);
-                if (i >= 0 && i !== row.get_selected()) row.set_selected(i);
-            });
-            return row;
-        };
-
         // Page 1: Account
         const accountPage = new Adw.PreferencesPage({
             title: 'Account',
@@ -224,29 +198,6 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.connect('changed::watch-issues-prs', () => syncRepos());
         settings.connect('changed::watch-stars', () => syncRepos());
 
-        const scopeGroup = new Adw.PreferencesGroup({
-            title: 'Repository filtering',
-            description: 'Applies when repository browsing is enabled.',
-        });
-        watchPage.add(scopeGroup);
-        scopeGroup.add(createEnumRow('Repository scope', 'Owned or organization', 'repository-scope', ['Owned', 'Owned and organizations']));
-        const archivedRow = new Adw.SwitchRow({title: 'Include archived repositories', subtitle: 'Show archived repos when browsing'});
-        archivedRow.add_prefix(new Gtk.Image({icon_name: 'folder-symbolic', pixel_size: 16}));
-        settings.bind('include-archived', archivedRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        scopeGroup.add(archivedRow);
-        const forksRow = new Adw.SwitchRow({title: 'Include forked repositories', subtitle: 'Show forked repos when browsing'});
-        forksRow.add_prefix(new Gtk.Image({icon_name: 'edit-copy-symbolic', pixel_size: 16}));
-        settings.bind('include-forks', forksRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-        scopeGroup.add(forksRow);
-        const maxReposRow = new Adw.SpinRow({
-            title: 'Maximum displayed repositories',
-            subtitle: 'Caps rendered repository rows',
-            adjustment: new Gtk.Adjustment({lower: 10, upper: 500, step_increment: 5}),
-        });
-        maxReposRow.add_prefix(new Gtk.Image({icon_name: 'view-list-symbolic', pixel_size: 16}));
-        settings.bind('max-displayed-repos', maxReposRow, 'value', Gio.SettingsBindFlags.DEFAULT);
-        scopeGroup.add(maxReposRow);
-
         // Page 3: Settings
         const settingsPage = new Adw.PreferencesPage({
             title: 'Settings',
@@ -272,10 +223,6 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         unlitRow.add_prefix(new Gtk.Image({icon_name: 'weather-clear-night-symbolic', pixel_size: 16}));
         settings.bind('icon-always-unlit', unlitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(unlitRow);
-
-        const linksGroup = new Adw.PreferencesGroup({title: 'Links'});
-        settingsPage.add(linksGroup);
-        linksGroup.add(createEnumRow('Open links', 'Browser tab or web app window', 'link-behavior', ['Browser tab', 'Web app window']));
 
         const pollGroup = new Adw.PreferencesGroup({title: 'Polling'});
         settingsPage.add(pollGroup);
