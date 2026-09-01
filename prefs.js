@@ -76,7 +76,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         watchPage.add(watchGroup);
 
         const mentionsRow = new Adw.SwitchRow({
-            title: 'Mentions & review requests',
+            title: 'Mentions &amp; review requests',
             subtitle: 'Inbox notifications',
         });
         mentionsRow.add_prefix(new Gtk.Image({icon_name: 'mail-unread-symbolic', pixel_size: 16}));
@@ -84,7 +84,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         watchGroup.add(mentionsRow);
 
         const issuesRow = new Adw.SwitchRow({
-            title: 'New issues & pull requests',
+            title: 'New issues &amp; pull requests',
             subtitle: 'On watched repos',
         });
         issuesRow.add_prefix(new Gtk.Image({icon_name: 'bug-symbolic', pixel_size: 16}));
