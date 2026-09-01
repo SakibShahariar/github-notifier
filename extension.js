@@ -378,6 +378,25 @@ class Indicator extends PanelMenu.Button {
         return null;
     }
 
+    /** Turn an absolute GitHub Link URL into a path for _apiRequest (leading / + query). */
+    _pathFromAbsoluteUrl(absoluteUrl) {
+        if (!absoluteUrl)
+            return null;
+        try {
+            const uri = GLib.Uri.parse(absoluteUrl, GLib.UriFlags.NONE);
+            const path = uri.get_path() || '/';
+            const query = uri.get_query();
+            return query ? `${path}?${query}` : path;
+        } catch (e) {
+            // Fallback: strip known api base prefix if parse fails
+            const base = this._apiBase();
+            if (absoluteUrl.startsWith(base))
+                return absoluteUrl.slice(base.length) || '/';
+            logError(e, 'github-notifier: failed to parse next-page URL');
+            return null;
+        }
+    }
+
     // ---------- polling ----------
     async _poll() {
         if (this._paused || this._destroyed || this._polling)
@@ -570,16 +589,17 @@ class Indicator extends PanelMenu.Button {
             }
 
             const nextUrl = data.length === 50 ? this._nextPageUrl(linkHeader) : null;
-            path = nextUrl ? nextUrl.replace(this._apiBase(), '') : null;
+            path = nextUrl ? this._pathFromAbsoluteUrl(nextUrl) : null;
         }
 
         state.toastedNotificationIds = Array.from(toasted).slice(-500);
         if (pagesFetched === MAX_NOTIFICATION_PAGES && items.length === MAX_NOTIFICATION_PAGES * 50) {
+            const inboxUrl = `${this._webBase()}/notifications`;
             items.push({
                 id: `notif-more-${Date.now()}`,
                 title: 'More notifications than shown — check GitHub inbox directly',
-                subtitle: 'https://github.com/notifications',
-                url: 'https://github.com/notifications',
+                subtitle: inboxUrl,
+                url: inboxUrl,
                 kind: 'notification',
                 ts: new Date().toISOString(),
                 isNewToast: false,
@@ -690,7 +710,7 @@ class Indicator extends PanelMenu.Button {
                         id: `${repo}-more-${maxId}`,
                         title: 'More new issues/PRs than shown — check the repo directly',
                         subtitle: repo,
-                        url: `https://github.com/${repo}/issues`,
+                        url: `${this._webBase()}/${repo}/issues`,
                         kind: 'issue',
                         ts: new Date().toISOString(),
                     });
@@ -700,7 +720,7 @@ class Indicator extends PanelMenu.Button {
                     id: `${repo}-more-${maxId}`,
                     title: 'More new issues/PRs than shown — check the repo directly',
                     subtitle: repo,
-                    url: `https://github.com/${repo}/issues`,
+                    url: `${this._webBase()}/${repo}/issues`,
                     kind: 'issue',
                     ts: new Date().toISOString(),
                 });
@@ -731,7 +751,7 @@ class Indicator extends PanelMenu.Button {
                 id: `${repo}-stars-${count}`,
                 title: `+${gained} new star${gained > 1 ? 's' : ''} (${count} total)`,
                 subtitle: repo,
-                url: `https://github.com/${repo}/stargazers`,
+                url: `${this._webBase()}/${repo}/stargazers`,
                 kind: 'star',
                 ts: new Date().toISOString(),
             });
@@ -967,7 +987,7 @@ class Indicator extends PanelMenu.Button {
             prev.can_focus = true;
             if (opts.page <= 0) prev.reactive = false;
             const lab = new St.Label({text: `${opts.page + 1} / ${opts.pageCount}`, y_align: Clutter.ActorAlign.CENTER, style_class: 'github-notifier-hero-meta'});
-            lab.set_style('padding: 0 6px;');
+            lab.set_style('padding: 0 6px; opacity: 1;');
             box.add_child(lab);
             const next = makeIconBtn('go-next-symbolic', opts.onNext, 'Next page');
             if (opts.page + 1 >= opts.pageCount) next.reactive = false;
@@ -1048,7 +1068,7 @@ class Indicator extends PanelMenu.Button {
                 count: issuePrItems.length,
                 onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
                 showOpen: true,
-                openUrl: `https://github.com/${issuePrItems[0].subtitle}/issues`,
+                openUrl: `${this._webBase()}/${issuePrItems[0].subtitle}/issues`,
             });
         }
 
@@ -1067,14 +1087,14 @@ class Indicator extends PanelMenu.Button {
                 count: starItems.length,
                 onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
                 showOpen: true,
-                openUrl: `https://github.com/${starItems[0].subtitle}/stargazers`,
+                openUrl: `${this._webBase()}/${starItems[0].subtitle}/stargazers`,
             });
         }
 
         // global footer — always for pause/refresh + rate
         this._addFooter(this._footerSection, {
             showOpen: true,
-            openUrl: 'https://github.com/notifications',
+            openUrl: `${this._webBase()}/notifications`,
             showMarkAll: false,
             isPaused: this._paused,
             onPauseToggle: () => this._togglePause(),
@@ -1107,13 +1127,14 @@ class Indicator extends PanelMenu.Button {
     _notify(newItems) {
         const source = this._ensureSource();
         if (newItems.length > 3) {
+            const inboxUrl = `${this._webBase()}/notifications`;
             const notification = new MessageTray.Notification({
                 source,
                 title: 'GitHub Notifier',
                 body: `${newItems.length} new updates`,
             });
-            notification.addAction('Open Inbox', () => Gio.AppInfo.launch_default_for_uri('https://github.com/notifications', null));
-            notification.connect('activated', () => Gio.AppInfo.launch_default_for_uri('https://github.com/notifications', null));
+            notification.addAction('Open Inbox', () => Gio.AppInfo.launch_default_for_uri(inboxUrl, null));
+            notification.connect('activated', () => Gio.AppInfo.launch_default_for_uri(inboxUrl, null));
             source.addNotification(notification);
             return;
         }
@@ -1190,6 +1211,10 @@ class Indicator extends PanelMenu.Button {
         if (this._networkChangedId) {
             this._networkMonitor.disconnect(this._networkChangedId);
             this._networkChangedId = null;
+        }
+        if (this._source) {
+            this._source.destroy();
+            this._source = null;
         }
         if (this._session)
             this._session.abort();
