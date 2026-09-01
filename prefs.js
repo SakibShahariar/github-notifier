@@ -68,7 +68,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         // Page 2: Watching
         const watchPage = new Adw.PreferencesPage({
             title: 'Watching',
-            icon_name: 'eye-open-negative-filled-symbolic',
+            icon_name: 'view-reveal-symbolic',
         });
         window.add(watchPage);
 
@@ -87,7 +87,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             title: 'New issues &amp; pull requests',
             subtitle: 'On watched repos',
         });
-        issuesRow.add_prefix(new Gtk.Image({icon_name: 'bug-symbolic', pixel_size: 16}));
+        issuesRow.add_prefix(new Gtk.Image({icon_name: 'view-list-symbolic', pixel_size: 16}));
         settings.bind('watch-issues-prs', issuesRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(issuesRow);
 
@@ -235,7 +235,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('include-archived', archivedRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         scopeGroup.add(archivedRow);
         const forksRow = new Adw.SwitchRow({title: 'Include forked repositories', subtitle: 'Show forked repos when browsing'});
-        forksRow.add_prefix(new Gtk.Image({icon_name: 'branch-symbolic', pixel_size: 16}));
+        forksRow.add_prefix(new Gtk.Image({icon_name: 'edit-copy-symbolic', pixel_size: 16}));
         settings.bind('include-forks', forksRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         scopeGroup.add(forksRow);
         const maxReposRow = new Adw.SpinRow({
@@ -261,7 +261,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             title: 'Hide when empty',
             subtitle: 'Show only when unread',
         });
-        hideEmptyRow.add_prefix(new Gtk.Image({icon_name: 'view-visible-symbolic', pixel_size: 16}));
+        hideEmptyRow.add_prefix(new Gtk.Image({icon_name: 'view-reveal-symbolic', pixel_size: 16}));
         settings.bind('hide-when-empty', hideEmptyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(hideEmptyRow);
 

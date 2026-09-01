@@ -189,15 +189,16 @@ class Indicator extends PanelMenu.Button {
     }
 
     _iconForItem(item) {
+        // Adwaita-only mapping: branch/bug/git are Breeze-only and missing on vanilla GNOME
         if (item.kind === 'notification') {
             const t = item.subjectType || '';
-            if (t === 'PullRequest') return 'branch-symbolic';
-            if (t === 'Issue') return 'bug-symbolic';
-            if (t === 'Commit') return 'git-symbolic';
+            if (t === 'PullRequest') return 'insert-link-symbolic';
+            if (t === 'Issue') return 'chat-message-new-symbolic';
+            if (t === 'Commit') return 'document-edit-symbolic';
             return 'mail-unread-symbolic';
         }
-        if (item.kind === 'pr') return 'branch-symbolic';
-        if (item.kind === 'issue') return 'bug-symbolic';
+        if (item.kind === 'pr') return 'insert-link-symbolic';
+        if (item.kind === 'issue') return 'chat-message-new-symbolic';
         if (item.kind === 'star') return 'starred-symbolic';
         return 'mail-unread-symbolic';
     }
@@ -953,6 +954,17 @@ class Indicator extends PanelMenu.Button {
             box.add_child(btn);
             return btn;
         };
+        const makeIconBtn = (iconName, cb, tooltip) => {
+            const btn = new St.Button({
+                style_class: 'github-notifier-footer-button github-notifier-footer-icon-button',
+                can_focus: true,
+                child: new St.Icon({icon_name: iconName, icon_size: 12, style_class: 'popup-menu-icon'}),
+            });
+            if (tooltip) btn.set_tooltip_text(tooltip);
+            btn.connect('clicked', cb);
+            box.add_child(btn);
+            return btn;
+        };
         if (opts.expandable) {
             const label = opts.expanded ? 'Show less' : (opts.count > ACTIVITY_EXPANDED ? 'Show 25' : `Show all ${opts.count}`);
             makeBtn(label, opts.onToggle);
@@ -962,17 +974,19 @@ class Indicator extends PanelMenu.Button {
             makeBtn(label, opts.onMarkAll, opts.markAllArmed);
         }
         if (opts.paginated) {
-            const prev = makeBtn('‹', opts.onPrev);
+            const prev = makeIconBtn('go-previous-symbolic', opts.onPrev, 'Previous page');
             prev.can_focus = true;
             if (opts.page <= 0) prev.reactive = false;
             const lab = new St.Label({text: `${opts.page + 1} / ${opts.pageCount}`, y_align: Clutter.ActorAlign.CENTER, style_class: 'github-notifier-hero-meta'});
-            lab.set_style('padding: 0 4px;');
+            lab.set_style('padding: 0 6px;');
             box.add_child(lab);
-            const next = makeBtn('›', opts.onNext);
+            const next = makeIconBtn('go-next-symbolic', opts.onNext, 'Next page');
             if (opts.page + 1 >= opts.pageCount) next.reactive = false;
         }
         if (opts.showOpen) {
-            makeBtn('Open in GitHub  ›', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
+            const openBtn = makeBtn('Open in GitHub', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
+            // append go-next icon to match row chevrons
+            openBtn.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 12, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
         }
         // refresh / pause controls only when handlers provided (global footer)
         if (opts.onPauseToggle && opts.onRefresh) {
