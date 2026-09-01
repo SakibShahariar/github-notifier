@@ -51,6 +51,7 @@ class Indicator extends PanelMenu.Button {
         this._starsExpanded = false;
         this._markAllArmed = false;
         this._markAllTimer = null;
+        this._markingAllRead = false; // true while PUT /notifications is in flight
         this._lastFetchedAt = null;
 
         // --- panel button contents ---
@@ -399,7 +400,7 @@ class Indicator extends PanelMenu.Button {
 
     // ---------- polling ----------
     async _poll() {
-        if (this._paused || this._destroyed || this._polling)
+        if (this._paused || this._destroyed || this._polling || this._markingAllRead)
             return;
 
         const token = this._settings.get_string('github-token');
@@ -646,16 +647,19 @@ class Indicator extends PanelMenu.Button {
         if (!subject.url)
             return repoUrl;
 
-        const url = subject.url.replace(`${this._apiBase()}/repos`, webBase);
+        // Case-insensitive replace of API base + /repos → web base (GHES / proxies)
+        const apiReposPrefix = `${this._apiBase()}/repos`;
+        const escaped = apiReposPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const url = subject.url.replace(new RegExp(escaped, 'i'), webBase);
 
         switch (subject.type) {
             case 'Issue':
             case 'Discussion':
                 return url;
             case 'PullRequest':
-                return url.replace('/pulls/', '/pull/');
+                return url.replace(/\/pulls\//i, '/pull/');
             case 'Commit':
-                return url.replace('/commits/', '/commit/');
+                return url.replace(/\/commits\//i, '/commit/');
             case 'Release':
                 return `${repoUrl}/releases`;
             case 'CheckSuite':
@@ -828,6 +832,7 @@ class Indicator extends PanelMenu.Button {
         }
         // confirmed
         this._disarmMarkAll();
+        this._markingAllRead = true;
         this._notificationItems = [];
         this._activityItems = [];
         this._notificationsPage = 0;
@@ -837,14 +842,19 @@ class Indicator extends PanelMenu.Button {
         this._setActionStatus('Marking all read…');
         if (this._settings.get_string('github-token')) {
             this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).then(() => {
+                this._markingAllRead = false;
                 this._setActionStatus('All marked read');
                 GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             }).catch(e => {
+                this._markingAllRead = false;
                 logError(e, 'github-notifier: failed to mark all read on GitHub');
                 this._setActionStatus('Could not mark all read');
                 GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+                // Refill from GitHub so local state matches reality after failed mark-all
+                this._poll();
             });
         } else {
+            this._markingAllRead = false;
             this._setActionStatus('');
         }
     }
@@ -1025,7 +1035,7 @@ class Indicator extends PanelMenu.Button {
         }
 
         // ---- Unread Notifications (GNOME HIG: Title Case) ----
-        this._addSeparator(this._notifSection);
+        // No leading separator: hero (and optional banner) already separate the section.
         const notifCount = this._notificationItems.length;
         this._addSectionHeader(this._notifSection, 'Unread Notifications', notifCount);
         if (notifCount === 0) {
