@@ -8,10 +8,12 @@
 
 | | |
 |---|---|
-| 💬 **Inbox** | Mentions & review requests (live mirror, not diff) |
+| 💬 **Inbox** | Full unread GitHub notifications (live mirror of `/notifications`, not a local diff) |
 | 📝 **Watch** | New issues/PRs on chosen repos |
 | ⭐ **Stars** | New stars count |
 | 🔔 **Toasts** | `Open` / `Mark read` + grouped by repo |
+
+Inbox uses `participating=false`, so you see the same unread list as github.com/notifications (mentions, review requests, subscribed threads, etc.).
 
 `Mark all as read` clears locally + `PUT /notifications {last_read_at}` on GitHub. Pause from menu, `Hide when empty` keeps icon hidden unless error.
 
@@ -48,7 +50,8 @@ Sections: **Account** / **Watching** / **Settings**
 <details>
 <summary>Notes</summary>
 
-* Icon `icons/github-symbolic.svg` — recolors with theme. GitHub mark is trademark.
-* Token stored plain in `dconf` — use fine-grained read-only.
-* Rate limit 5000/hr authenticated.
+* Icon `icons/github-symbolic.svg` — `fill=currentColor`, recolors with theme. GitHub mark is trademark.
+* Token is stored plain in `dconf` (GSettings). Prefer a **fine-grained, read-only** PAT with only the scopes you need; revoke if the machine is shared or compromised.
+* Rate limit 5000/hr authenticated (shared across all clients using the token).
+* API host may be `api.github.com` or a GHES host; web links follow the same host via `_webBase()`.
 </details>
