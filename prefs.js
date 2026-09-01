@@ -8,6 +8,32 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
+        // --- helpers for ComboRow (string enum) ---
+        const createEnumRow = (title, subtitle, key, options) => {
+            const stringList = new Gtk.StringList();
+            for (const o of options) stringList.append(o);
+            const row = new Adw.ComboRow({
+                title,
+                subtitle,
+                model: stringList,
+                expression: new Gtk.PropertyExpression(Gtk.StringObject, null, 'string'),
+            });
+            const cur = settings.get_string(key);
+            const idx = options.indexOf(cur);
+            row.set_selected(idx >= 0 ? idx : 0);
+            row.connect('notify::selected', () => {
+                const sel = options[row.get_selected()];
+                if (sel) settings.set_string(key, sel);
+            });
+            // live update if external change
+            settings.connect(`changed::${key}`, () => {
+                const v = settings.get_string(key);
+                const i = options.indexOf(v);
+                if (i >= 0 && i !== row.get_selected()) row.set_selected(i);
+            });
+            return row;
+        };
+
         // Page 1: Account
         const accountPage = new Adw.PreferencesPage({
             title: 'Account',
@@ -73,31 +99,155 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('watch-stars', starsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(starsRow);
 
+        const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
+
         const reposGroup = new Adw.PreferencesGroup({
             title: 'Watched repositories',
-            description: 'Comma-separated owner/repo',
+            description: 'One owner/repo per row — verified as owner/repo',
         });
         watchPage.add(reposGroup);
 
-        const reposRow = new Adw.EntryRow({title: 'owner/repo, …'});
-        reposRow.add_prefix(new Gtk.Image({icon_name: 'system-software-install-symbolic', pixel_size: 16}));
-        reposRow.set_text(settings.get_string('watched-repos'));
-        reposRow.connect('notify::text', () => settings.set_string('watched-repos', reposRow.get_text()));
-        const reposBanner = new Adw.Banner({
+        const invalidBanner = new Adw.Banner({
+            title: 'Invalid repo — expected owner/repo (e.g. torvalds/linux)',
+            revealed: false,
+        });
+        const emptyBanner = new Adw.Banner({
             title: 'No repos — add one or disable watches.',
             revealed: false,
         });
-        const updateReposBanner = () => {
+        reposGroup.add(invalidBanner);
+        reposGroup.add(emptyBanner);
+
+        const repoRows = [];
+        let syncing = false;
+
+        const syncRepos = () => {
+            if (syncing) return;
+            const values = repoRows.map(r => r.get_text().trim()).filter(t => t.length > 0);
+            syncing = true;
+            settings.set_string('watched-repos', values.join(', '));
+            syncing = false;
+            let hasInvalid = false;
+            for (const row of repoRows) {
+                const txt = row.get_text().trim();
+                const isInvalid = txt.length > 0 && !REPO_RE.test(txt);
+                if (isInvalid) hasInvalid = true;
+                if (isInvalid) row.add_css_class('error');
+                else row.remove_css_class('error');
+                // suffix warning icon is second suffix; toggle visibility via row._warnIcon
+                if (row._warnIcon) row._warnIcon.set_visible(isInvalid);
+            }
+            invalidBanner.set_revealed(hasInvalid);
             const hasWatch = settings.get_boolean('watch-issues-prs') || settings.get_boolean('watch-stars');
-            const hasRepos = settings.get_string('watched-repos').trim().length > 0;
-            reposBanner.set_revealed(hasWatch && !hasRepos);
+            emptyBanner.set_revealed(hasWatch && values.length === 0);
         };
-        updateReposBanner();
-        settings.connect('changed::watched-repos', updateReposBanner);
-        settings.connect('changed::watch-issues-prs', updateReposBanner);
-        settings.connect('changed::watch-stars', updateReposBanner);
-        reposGroup.add(reposBanner);
-        reposGroup.add(reposRow);
+
+        const createRepoRow = (initialText) => {
+            const row = new Adw.EntryRow({title: ''});
+            row.set_text(initialText);
+            row.add_prefix(new Gtk.Image({icon_name: 'system-software-install-symbolic', pixel_size: 16}));
+            // keep header empty but ensure entry expands; Adw.EntryRow with empty title still works
+            const warnIcon = new Gtk.Image({icon_name: 'dialog-warning-symbolic', pixel_size: 16, tooltip_text: 'Invalid — use owner/repo'});
+            warnIcon.set_visible(false);
+            row._warnIcon = warnIcon;
+            row.add_suffix(warnIcon);
+            const delBtn = new Gtk.Button({icon_name: 'user-trash-symbolic', valign: Gtk.Align.CENTER, tooltip_text: 'Remove repository'});
+            delBtn.add_css_class('flat');
+            delBtn.add_css_class('circular');
+            delBtn.connect('clicked', () => {
+                const idx = repoRows.indexOf(row);
+                if (idx >= 0) repoRows.splice(idx, 1);
+                reposGroup.remove(row);
+                syncRepos();
+            });
+            row.add_suffix(delBtn);
+            row.connect('notify::text', () => syncRepos());
+            // insert before the Add row (last child)
+            // find Add row reference
+            const addRow = reposGroup._addRowRef;
+            if (addRow && addRow.get_parent() === reposGroup) {
+                // remove addRow, add new row, re-add addRow to keep it last
+                reposGroup.remove(addRow);
+                reposGroup.add(row);
+                reposGroup.add(addRow);
+            } else {
+                reposGroup.add(row);
+            }
+            repoRows.push(row);
+            // initial validation without double-sync
+            const txt = row.get_text().trim();
+            const isInvalid = txt.length > 0 && !REPO_RE.test(txt);
+            if (isInvalid) row.add_css_class('error');
+            warnIcon.set_visible(isInvalid);
+            return row;
+        };
+
+        // Add row (always last)
+        const addRow = new Adw.ActionRow({title: 'Add repository', subtitle: 'owner/repo — e.g. gnome/gnome-shell'});
+        addRow.add_prefix(new Gtk.Image({icon_name: 'list-add-symbolic', pixel_size: 16}));
+        const addButton = new Gtk.Button({label: 'Add', valign: Gtk.Align.CENTER});
+        addButton.add_css_class('suggested-action');
+        addButton.add_css_class('pill');
+        addRow.add_suffix(addButton);
+        addButton.connect('clicked', () => {
+            const r = createRepoRow('');
+            syncRepos();
+            // focus new row's entry
+            r.grab_focus();
+        });
+        addRow.set_activatable_widget(addButton);
+        reposGroup._addRowRef = addRow;
+        reposGroup.add(addRow);
+
+        // populate from existing setting
+        const initial = settings.get_string('watched-repos').split(',').map(s => s.trim()).filter(s => s.length > 0);
+        for (const repo of initial) createRepoRow(repo);
+        // if none, keep empty (user will click Add)
+        syncRepos();
+
+        // external change -> rebuild
+        settings.connect('changed::watched-repos', () => {
+            if (syncing) return;
+            const vals = settings.get_string('watched-repos').split(',').map(s => s.trim()).filter(s => s.length > 0);
+            const current = repoRows.map(r => r.get_text().trim()).filter(s => s.length > 0).join(',');
+            if (vals.join(',') === current) {
+                // just re-validate banners
+                syncRepos();
+                return;
+            }
+            // rebuild
+            for (const r of [...repoRows]) {
+                reposGroup.remove(r);
+            }
+            repoRows.length = 0;
+            for (const v of vals) createRepoRow(v);
+            syncRepos();
+        });
+        settings.connect('changed::watch-issues-prs', () => syncRepos());
+        settings.connect('changed::watch-stars', () => syncRepos());
+
+        const scopeGroup = new Adw.PreferencesGroup({
+            title: 'Repository filtering',
+            description: 'Applies when repository browsing is enabled.',
+        });
+        watchPage.add(scopeGroup);
+        scopeGroup.add(createEnumRow('Repository scope', 'Owned or organization', 'repository-scope', ['Owned', 'Owned and organizations']));
+        const archivedRow = new Adw.SwitchRow({title: 'Include archived repositories', subtitle: 'Show archived repos when browsing'});
+        archivedRow.add_prefix(new Gtk.Image({icon_name: 'folder-symbolic', pixel_size: 16}));
+        settings.bind('include-archived', archivedRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        scopeGroup.add(archivedRow);
+        const forksRow = new Adw.SwitchRow({title: 'Include forked repositories', subtitle: 'Show forked repos when browsing'});
+        forksRow.add_prefix(new Gtk.Image({icon_name: 'branch-symbolic', pixel_size: 16}));
+        settings.bind('include-forks', forksRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        scopeGroup.add(forksRow);
+        const maxReposRow = new Adw.SpinRow({
+            title: 'Maximum displayed repositories',
+            subtitle: 'Caps rendered repository rows',
+            adjustment: new Gtk.Adjustment({lower: 10, upper: 500, step_increment: 5}),
+        });
+        maxReposRow.add_prefix(new Gtk.Image({icon_name: 'view-list-symbolic', pixel_size: 16}));
+        settings.bind('max-displayed-repos', maxReposRow, 'value', Gio.SettingsBindFlags.DEFAULT);
+        scopeGroup.add(maxReposRow);
 
         // Page 3: Settings
         const settingsPage = new Adw.PreferencesPage({
@@ -117,6 +267,18 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('hide-when-empty', hideEmptyRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(hideEmptyRow);
 
+        const unlitRow = new Adw.SwitchRow({
+            title: 'Keep icon unlit',
+            subtitle: 'Leave Octocat dim even when unread',
+        });
+        unlitRow.add_prefix(new Gtk.Image({icon_name: 'weather-clear-night-symbolic', pixel_size: 16}));
+        settings.bind('icon-always-unlit', unlitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        displayGroup.add(unlitRow);
+
+        const linksGroup = new Adw.PreferencesGroup({title: 'Links'});
+        settingsPage.add(linksGroup);
+        linksGroup.add(createEnumRow('Open links', 'Browser tab or web app window', 'link-behavior', ['Browser tab', 'Web app window']));
+
         const pollGroup = new Adw.PreferencesGroup({title: 'Polling'});
         settingsPage.add(pollGroup);
 
@@ -128,5 +290,25 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         intervalRow.add_prefix(new Gtk.Image({icon_name: 'alarm-symbolic', pixel_size: 16}));
         settings.bind('poll-interval', intervalRow, 'value', Gio.SettingsBindFlags.DEFAULT);
         pollGroup.add(intervalRow);
+        // quick presets like omarchy refreshIntervalOptions
+        const presetGroup = new Adw.PreferencesGroup({title: 'Quick presets'});
+        settingsPage.add(presetGroup);
+        const intervalPresets = [
+            {label: 'Every 5 minutes', value: 300},
+            {label: 'Every 10 minutes', value: 600},
+            {label: 'Every 15 minutes', value: 900},
+            {label: 'Every 30 minutes', value: 1800},
+            {label: 'Every hour', value: 3600},
+        ];
+        for (const p of intervalPresets) {
+            const r = new Adw.ActionRow({title: p.label});
+            r.add_prefix(new Gtk.Image({icon_name: 'alarm-symbolic', pixel_size: 16}));
+            const btn = new Gtk.Button({label: 'Apply', valign: Gtk.Align.CENTER});
+            btn.add_css_class('pill');
+            btn.connect('clicked', () => settings.set_int('poll-interval', p.value));
+            r.add_suffix(btn);
+            r.set_activatable_widget(btn);
+            presetGroup.add(r);
+        }
     }
 }

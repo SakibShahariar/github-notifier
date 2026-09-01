@@ -15,6 +15,9 @@ import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
+const ACTIVITY_PREVIEW = 5;
+const ACTIVITY_EXPANDED = 25;
+const NOTIF_PAGE_SIZE = 5;
 const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 
 class ApiError extends Error {
@@ -43,6 +46,12 @@ class Indicator extends PanelMenu.Button {
         this._rateLimitResetEpoch = 0; // unix seconds; 0 = not rate-limited
         this._polling = false; // prevents overlapping poll cycles
         this._statusIsError = false; // keeps the indicator visible while a problem is showing
+        this._notificationsPage = 0;
+        this._issuesExpanded = false;
+        this._starsExpanded = false;
+        this._markAllArmed = false;
+        this._markAllTimer = null;
+        this._lastFetchedAt = null;
 
         // --- panel button contents ---
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
@@ -66,6 +75,9 @@ class Indicator extends PanelMenu.Button {
 
         this._settingsChangedId = this._settings.connect('changed::poll-interval', () => this._restartTimer());
         this._hideEmptyChangedId = this._settings.connect('changed::hide-when-empty', () => this._updatePanel());
+        this._unlitChangedId = this._settings.connect('changed::icon-always-unlit', () => this._updatePanel());
+        // live hero update when username changes
+        this._usernameChangedId = this._settings.connect('changed::github-username', () => this._updateHero());
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
@@ -78,42 +90,76 @@ class Indicator extends PanelMenu.Button {
     }
 
     _buildMenuSkeleton() {
-        this._statusItem = new PopupMenu.PopupMenuItem('Checking GitHub…', {reactive: false});
-        this.menu.addMenuItem(this._statusItem);
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        this._listSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._listSection);
-
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        this._refreshItem = new PopupMenu.PopupMenuItem('Refresh now');
-        this._refreshItem.connect('activate', () => this._poll());
-        this.menu.addMenuItem(this._refreshItem);
-
-        this._pauseItem = new PopupMenu.PopupMenuItem('Pause polling');
-        this._pauseItem.connect('activate', () => this._togglePause());
-        this.menu.addMenuItem(this._pauseItem);
-
-        const markReadItem = new PopupMenu.PopupMenuItem('Mark all as read');
-        markReadItem.connect('activate', () => this._markAllRead());
-        this.menu.addMenuItem(markReadItem);
-
-        const openInboxItem = new PopupMenu.PopupMenuItem('Open GitHub notifications');
-        openInboxItem.connect('activate', () => {
-            Gio.AppInfo.launch_default_for_uri('https://github.com/notifications', null);
+        // --- hero ---
+        const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
+        const heroItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        heroItem.style_class = 'github-notifier-hero';
+        const heroBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-hero'});
+        const heroIcon = new St.Icon({
+            gicon: Gio.icon_new_for_string(iconPath),
+            style_class: 'system-status-icon github-notifier-hero-icon',
+            icon_size: 22,
         });
-        this.menu.addMenuItem(openInboxItem);
+        const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        this._heroTitle = new St.Label({text: 'GitHub', style_class: 'github-notifier-hero-title'});
+        this._heroMeta = new St.Label({text: 'Checking…', style_class: 'github-notifier-hero-meta'});
+        // ellipsize meta so it fits ~420px
+        this._heroMeta.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        textBox.add_child(this._heroTitle);
+        textBox.add_child(this._heroMeta);
+        const gearButton = new St.Button({
+            style_class: 'github-notifier-hero-gear',
+            can_focus: true,
+            child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
+        });
+        gearButton.connect('clicked', () => this._ext.openPreferences());
+        heroBox.add_child(heroIcon);
+        heroBox.add_child(textBox);
+        heroBox.add_child(gearButton);
+        heroItem.add_child(heroBox);
+        this.menu.addMenuItem(heroItem);
 
-        const settingsItem = new PopupMenu.PopupMenuItem('Settings…');
-        settingsItem.connect('activate', () => this._ext.openPreferences());
-        this.menu.addMenuItem(settingsItem);
+        // status / warning banner (hidden unless needed)
+        this._statusItem = new PopupMenu.PopupMenuItem('Checking GitHub…', {reactive: false});
+        this._statusItem.style_class = 'github-notifier-banner';
+        this._statusItem.label.clutter_text.line_wrap = true;
+        this._statusItem.label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+        this.menu.addMenuItem(this._statusItem);
+        this._statusItem.visible = false;
+
+        // action status (marking …) centered dim text
+        this._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
+        this._actionStatusItem.style_class = 'github-notifier-action-status';
+        this._actionStatusItem.visible = false;
+        this.menu.addMenuItem(this._actionStatusItem);
+
+        // sections
+        this._notifSection = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._notifSection);
+        this._issuesSection = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._issuesSection);
+        this._starsSection = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._starsSection);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+        // footer controls + rate limit
+        this._footerSection = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(this._footerSection);
+        this._rateItem = new PopupMenu.PopupMenuItem('', {reactive: false});
+        this._rateItem.style_class = 'github-notifier-rate';
+        this._rateItem.label.clutter_text.line_wrap = true;
+        this.menu.addMenuItem(this._rateItem);
+        this._rateItem.visible = false;
+
+        this._updateHero();
+        this._renderList();
     }
 
     _togglePause() {
         this._paused = !this._paused;
-        this._pauseItem.label.text = this._paused ? 'Resume polling' : 'Pause polling';
-        this._statusItem.label.text = this._paused ? 'Polling paused' : 'Resuming…';
+        // update footer pause button if exists via re-render
+        this._renderList();
         if (!this._paused)
             this._poll();
     }
@@ -128,6 +174,89 @@ class Indicator extends PanelMenu.Button {
             this._poll();
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    // ---------- helpers borrowed from omarchy Panel.qml ----------
+    _relativeTime(value) {
+        const then = new Date(String(value || '')).getTime();
+        if (!isFinite(then)) return '';
+        const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+        if (seconds < 60) return 'just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        if (seconds < 2592000) return `${Math.floor(seconds / 86400)}d ago`;
+        return `${Math.floor(seconds / 2592000)}mo ago`;
+    }
+
+    _iconForItem(item) {
+        if (item.kind === 'notification') {
+            const t = item.subjectType || '';
+            if (t === 'PullRequest') return 'branch-symbolic';
+            if (t === 'Issue') return 'bug-symbolic';
+            if (t === 'Commit') return 'git-symbolic';
+            return 'mail-unread-symbolic';
+        }
+        if (item.kind === 'pr') return 'branch-symbolic';
+        if (item.kind === 'issue') return 'bug-symbolic';
+        if (item.kind === 'star') return 'starred-symbolic';
+        return 'mail-unread-symbolic';
+    }
+    // kept for compat if stylesheet still references glyph class
+    _glyphForItem(item) { return this._iconForItem(item); }
+
+    _detailForItem(item) {
+        const repo = item.subtitle || '';
+        const time = this._relativeTime(item.ts);
+        if (item.kind === 'notification') {
+            // item.title is "Kind: subject" – extract kind part already?
+            // Use stored reasonLabel if available
+            const reason = item.reasonLabel || item.kind;
+            return `${repo} · ${reason} · ${time}`.trim();
+        }
+        if (item.kind === 'pr') return `${repo} · PR · ${time}`;
+        if (item.kind === 'issue') return `${repo} · issue · ${time}`;
+        if (item.kind === 'star') return `${repo} · star · ${time}`;
+        return `${repo} · ${time}`;
+    }
+
+    _updateHero() {
+        if (!this._heroTitle || !this._heroMeta) return;
+        const username = this._settings.get_string('github-username').trim();
+        this._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
+        const n = this._notificationItems.length;
+        const issuesPrCount = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
+        const starsCount = this._activityItems.filter(i => i.kind === 'star').length;
+        const parts = [];
+        if (this._polling) parts.push('Refreshing…');
+        else if (n > 0) parts.push(`${n} unread`);
+        if (issuesPrCount > 0) parts.push(`${issuesPrCount} issues/PRs`);
+        if (starsCount > 0) parts.push(`${starsCount} stars`);
+        if (parts.length === 0) {
+            if (this._statusIsError) parts.push('Attention needed');
+            else parts.push('All caught up');
+        }
+        // also show paused
+        if (this._paused) parts.unshift('Paused');
+        this._heroMeta.text = parts.join(' · ');
+    }
+
+    _setActionStatus(text) {
+        if (!this._actionStatusItem) return;
+        if (text) {
+            this._actionStatusItem.label.text = text;
+            this._actionStatusItem.visible = true;
+        } else {
+            this._actionStatusItem.visible = false;
+        }
+    }
+
+    _disarmMarkAll() {
+        this._markAllArmed = false;
+        if (this._markAllTimer) {
+            GLib.source_remove(this._markAllTimer);
+            this._markAllTimer = null;
+        }
+        this._renderList();
     }
 
     // ---------- state persistence ----------
@@ -173,9 +302,6 @@ class Indicator extends PanelMenu.Button {
         return msg;
     }
 
-    // A single send attempt. Throws the raw Soup/GLib error on transport
-    // failure (DNS, no route, timeout) — the caller decides whether that's
-    // worth retrying.
     async _sendOnce(method, uri, token, body) {
         const msg = this._buildMessage(method, uri, token, body);
         const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
@@ -184,7 +310,6 @@ class Indicator extends PanelMenu.Button {
 
     _apiBase() {
         const host = this._settings.get_string('github-host').trim() || 'api.github.com';
-        // GHES: host like github.example.com -> https://host/api/v3, else api.github.com direct
         if (host === 'api.github.com')
             return `https://${host}`;
         if (host.includes('/'))
@@ -200,10 +325,6 @@ class Indicator extends PanelMenu.Button {
         try {
             ({bytes, msg} = await this._sendOnce(method, uri, token, body));
         } catch (firstError) {
-            // Transport-level failure only (not an HTTP error response — those
-            // don't throw here). Often just a dead IPv6 route or a momentary
-            // blip, so one quick retry clears most of these within the same
-            // poll cycle instead of leaving a stale error until the next one.
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             await this._sleep(3000);
@@ -217,8 +338,6 @@ class Indicator extends PanelMenu.Button {
         }
 
         const status = msg.get_status();
-
-        // Track rate limit state regardless of outcome.
         const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
         const reset = msg.response_headers.get_one('X-RateLimit-Reset');
         if (remaining === '0' && reset)
@@ -266,22 +385,18 @@ class Indicator extends PanelMenu.Button {
         const token = this._settings.get_string('github-token');
         if (!token) {
             this._statusItem.label.text = 'Add a GitHub token in Settings';
+            this._statusItem.visible = true;
             this._statusIsError = true;
+            this._updateHero();
             this._updatePanel();
             return;
         }
 
-        // No point attempting any request if there's clearly no internet
-        // (airplane mode, portal, LOCAL only) — use FULL connectivity like
-        // update-checker does, not just get_network_available() which is
-        // true even on LOCAL. This avoids per-repo timeout storms.
         if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             this._statusItem.label.text = 'No internet connection';
-            // Deliberately NOT treated as an "error" for hide-when-empty
-            // purposes — you already know you're offline (there's a system
-            // indicator for that), so this shouldn't force the icon to stay
-            // visible the way a bad token or rate limit genuinely should.
+            this._statusItem.visible = true;
             this._statusIsError = false;
+            this._updateHero();
             this._updatePanel();
             return;
         }
@@ -290,12 +405,15 @@ class Indicator extends PanelMenu.Button {
         if (this._rateLimitResetEpoch > nowEpoch) {
             const waitMin = Math.ceil((this._rateLimitResetEpoch - nowEpoch) / 60);
             this._statusItem.label.text = `Rate limited — retrying in ~${waitMin} min`;
+            this._statusItem.visible = true;
             this._statusIsError = true;
+            this._updateHero();
             this._updatePanel();
             return;
         }
 
         this._polling = true;
+        this._updateHero();
         const state = this._loadState();
         let notificationItems = [];
         let activityItems = [];
@@ -308,7 +426,7 @@ class Indicator extends PanelMenu.Button {
                     notificationItems = await this._pollNotifications(state);
                 } catch (e) {
                     if (e instanceof ApiError && (e.status === 401 || e.status === 403))
-                        throw e; // fatal for this cycle, no point continuing
+                        throw e;
                     errors.push(`Notifications: ${e.message}`);
                     logError(e, 'github-notifier: notifications poll failed');
                 }
@@ -317,14 +435,13 @@ class Indicator extends PanelMenu.Button {
             if (this._settings.get_boolean('watch-issues-prs') || this._settings.get_boolean('watch-stars')) {
                 const reposStr = this._settings.get_string('watched-repos');
                 const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
-                const repos = Array.from(new Set(rawRepos)); // dedupe
+                const repos = Array.from(new Set(rawRepos));
 
                 for (const repo of repos) {
                     if (!REPO_RE.test(repo)) {
                         errors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
                         continue;
                     }
-                    // Isolate each repo: one failing repo must not block the rest.
                     if (this._settings.get_boolean('watch-issues-prs')) {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
@@ -363,14 +480,28 @@ class Indicator extends PanelMenu.Button {
 
             if (errors.length > 0) {
                 this._statusItem.label.text = `Updated with ${errors.length} issue(s) — see logs`;
+                this._statusItem.visible = true;
                 this._statusIsError = true;
             } else if (baselineNotes.length > 0) {
                 this._statusItem.label.text = `Started tracking ${baselineNotes.length} new watch(es)`;
+                this._statusItem.visible = true;
                 this._statusIsError = false;
+                // auto-hide after 4s like omarchy banner
+                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
+                    if (!this._destroyed && this._statusItem.label.text.startsWith('Started tracking')) {
+                        this._statusItem.visible = false;
+                        this._statusIsError = false;
+                        this._updatePanel();
+                    }
+                    return GLib.SOURCE_REMOVE;
+                });
             } else {
-                this._statusItem.label.text = `Updated ${new Date().toLocaleTimeString()}`;
+                this._statusItem.visible = false;
                 this._statusIsError = false;
+                this._lastFetchedAt = new Date().toISOString();
+                this._updateRateFooter();
             }
+            this._updateHero();
             this._updatePanel();
         } catch (e) {
             if (this._destroyed)
@@ -382,19 +513,32 @@ class Indicator extends PanelMenu.Button {
                 this._statusItem.label.text = 'Rate limited by GitHub — will retry later';
             else
                 this._statusItem.label.text = `Error: ${e.message}`;
+            this._statusItem.visible = true;
             this._statusIsError = true;
+            this._updateHero();
             this._updatePanel();
         } finally {
             this._polling = false;
+            this._updateHero();
+        }
+    }
+
+    _updateRateFooter() {
+        if (!this._rateItem) return;
+        const parts = [];
+        if (this._rateLimitResetEpoch > 0)
+            parts.push(`Rate limit resets in ${Math.max(1, Math.ceil((this._rateLimitResetEpoch - Date.now()/1000)/60))}m`);
+        if (this._lastFetchedAt)
+            parts.push(`updated ${this._relativeTime(this._lastFetchedAt)}`);
+        if (parts.length > 0) {
+            this._rateItem.label.text = parts.join(' · ');
+            this._rateItem.visible = true;
+        } else {
+            this._rateItem.visible = false;
         }
     }
 
     async _pollNotifications(state) {
-        // We deliberately do NOT filter out already-seen ids here — this list
-        // should always mirror what GitHub currently considers unread, so it
-        // survives shell/extension restarts and never silently drops an item
-        // that's still sitting unread in your GitHub inbox. The toasted-id set
-        // is only used to avoid re-notifying you for the same thread twice.
         state.toastedNotificationIds ||= [];
         const toasted = new Set(state.toastedNotificationIds);
         const items = [];
@@ -408,6 +552,7 @@ class Indicator extends PanelMenu.Button {
 
             for (const n of data) {
                 const kind = this._reasonToKind(n.reason, n.subject.type);
+                const reasonLabel = n.reason || n.subject.type || 'notification';
                 items.push({
                     id: `notif-${n.id}`,
                     rawId: n.id,
@@ -417,6 +562,8 @@ class Indicator extends PanelMenu.Button {
                     kind: 'notification',
                     ts: n.updated_at,
                     isNewToast: !toasted.has(n.id),
+                    reasonLabel: kind,
+                    subjectType: n.subject.type,
                 });
                 toasted.add(n.id);
             }
@@ -425,9 +572,7 @@ class Indicator extends PanelMenu.Button {
             path = nextUrl ? nextUrl.replace(this._apiBase(), '') : null;
         }
 
-        // Keep the toasted-set from growing forever: cap to last 500 ids.
         state.toastedNotificationIds = Array.from(toasted).slice(-500);
-        // Sentinel when we hit the page cap with a full page — there may be more beyond 150
         if (pagesFetched === MAX_NOTIFICATION_PAGES && items.length === MAX_NOTIFICATION_PAGES * 50) {
             items.push({
                 id: `notif-more-${Date.now()}`,
@@ -437,16 +582,14 @@ class Indicator extends PanelMenu.Button {
                 kind: 'notification',
                 ts: new Date().toISOString(),
                 isNewToast: false,
+                reasonLabel: 'more',
+                subjectType: '',
             });
         }
         return items;
     }
 
     _reasonToKind(reason, subjectType) {
-        // Some subject types are more informative than the notification
-        // reason alone — e.g. reason "subscribed" on a Release just says
-        // "Activity", which tells you nothing. Prefer the type when it adds
-        // real information.
         const typeLabels = {
             Release: 'New release',
             Commit: 'New commit',
@@ -469,18 +612,10 @@ class Indicator extends PanelMenu.Button {
         return map[reason] || 'Notification';
     }
 
-    // GitHub's notification `subject.url` is an API url, and for several
-    // subject types the API path shape doesn't match the web path shape at
-    // all (e.g. commits are /commits/SHA on the API but /commit/SHA —
-    // singular — on the web; releases and CI runs aren't derivable from the
-    // API url without an extra fetch). Map what we can reliably resolve
-    // without another request, and fall back to a repo-level page — never a
-    // guess that 404s.
     _webBase() {
         const host = this._settings.get_string('github-host').trim() || 'api.github.com';
         if (host === 'api.github.com')
             return 'https://github.com';
-        // GHES web host is same as API host without /api/v3
         return `https://${host.split('/')[0]}`;
     }
 
@@ -501,9 +636,6 @@ class Indicator extends PanelMenu.Button {
             case 'Commit':
                 return url.replace('/commits/', '/commit/');
             case 'Release':
-                // The API only gives us a release id here, not its tag, so we
-                // can't build the exact /releases/tag/<name> URL without an
-                // extra request — link to the releases list instead of 404ing.
                 return `${repoUrl}/releases`;
             case 'CheckSuite':
             case 'WorkflowRun':
@@ -544,8 +676,6 @@ class Indicator extends PanelMenu.Button {
                 maxId = issue.number;
         }
 
-        // If we filled a full page of new items, verify there's more beyond
-        // by fetching page 2 once — avoids false sentinel when exactly 20 new.
         if (seenAnyBefore && items.length === 20) {
             try {
                 const data2 = await this._apiGet(`/repos/${this._encodeRepo(repo)}/issues?state=open&sort=created&direction=desc&per_page=20&page=2`);
@@ -565,7 +695,6 @@ class Indicator extends PanelMenu.Button {
                     });
                 }
             } catch (e) {
-                // Fallback: keep sentinel if page 2 fails, better noisy than silent drop
                 items.push({
                     id: `${repo}-more-${maxId}`,
                     title: 'More new issues/PRs than shown — check the repo directly',
@@ -618,37 +747,42 @@ class Indicator extends PanelMenu.Button {
     async _markThreadRead(item) {
         if (!item.rawId)
             return;
+        this._setActionStatus('Marking notification read…');
         try {
             await this._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
-            return; // don't remove locally if GitHub didn't actually confirm it
+            this._setActionStatus('Could not mark read');
+            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            return;
         }
         this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
+        this._setActionStatus('');
         this._renderList();
         this._updatePanel();
+        this._updateHero();
     }
 
-    // Star/issue/PR activity has no "read" concept on GitHub's side — it's
-    // purely local bookkeeping, so dismissing one is just a local removal.
     _dismissActivityItem(item) {
         this._activityItems = this._activityItems.filter(i => i.id !== item.id);
         this._renderList();
         this._updatePanel();
+        this._updateHero();
     }
 
     // ---------- UI update ----------
     _afterPoll(notificationItems, newActivityItems) {
-        // Notifications: always replace with the live unread set from GitHub.
         this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
         const toToast = notificationItems.filter(n => n.isNewToast);
 
-        // Activity (issues/PRs/stars): keep accumulating until dismissed.
         if (newActivityItems.length > 0)
             this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
 
+        this._lastFetchedAt = new Date().toISOString();
         this._renderList();
         this._updatePanel();
+        this._updateHero();
+        this._updateRateFooter();
 
         const toNotify = toToast.concat(newActivityItems);
         if (toNotify.length > 0)
@@ -656,32 +790,57 @@ class Indicator extends PanelMenu.Button {
     }
 
     _markAllRead() {
+        // 2-step confirm like omarchy DashboardSection: first click arms, second executes
+        if (!this._markAllArmed) {
+            if (this._notificationItems.length === 0 && this._activityItems.length === 0)
+                return;
+            this._markAllArmed = true;
+            this._setActionStatus('Confirm mark all read? Click again.');
+            this._renderList();
+            if (this._markAllTimer) GLib.source_remove(this._markAllTimer);
+            this._markAllTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
+                this._disarmMarkAll();
+                this._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
+            return;
+        }
+        // confirmed
+        this._disarmMarkAll();
         this._notificationItems = [];
         this._activityItems = [];
+        this._notificationsPage = 0;
         this._renderList();
         this._updatePanel();
-
-        // Best-effort: also mark read on GitHub's side so the web inbox matches.
+        this._updateHero();
+        this._setActionStatus('Marking all read…');
         if (this._settings.get_string('github-token')) {
-            this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).catch(e => {
+            this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).then(() => {
+                this._setActionStatus('All marked read');
+                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            }).catch(e => {
                 logError(e, 'github-notifier: failed to mark all read on GitHub');
+                this._setActionStatus('Could not mark all read');
+                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             });
+        } else {
+            this._setActionStatus('');
         }
     }
 
     _updatePanel() {
         const unread = this._notificationItems.length + this._activityItems.length;
+        const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
         if (unread > 0) {
             this._label.text = unread > MAX_BADGE ? `${MAX_BADGE}+` : String(unread);
             this._label.show();
+            if (alwaysUnlit) this._label.remove_style_class_name('urgent');
+            else this._label.add_style_class_name('urgent');
         } else {
             this._label.hide();
+            this._label.remove_style_class_name('urgent');
         }
 
-        // Hiding the whole indicator is opt-in and only ever applies when
-        // there's genuinely nothing to show — a pending error/status message
-        // (bad token, rate limit, etc.) always keeps it visible so it doesn't
-        // vanish silently on a problem.
         const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
         this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
     }
@@ -692,77 +851,248 @@ class Indicator extends PanelMenu.Button {
         return `${text.slice(0, maxLen - 1)}…`;
     }
 
+    // --- section helpers ---
+    _addSectionHeader(section, title, count) {
+        const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        const box = new St.BoxLayout({x_expand: true});
+        const label = new St.Label({text: `${title}  ${count}`, style_class: 'github-notifier-section-header', x_expand: true});
+        box.add_child(label);
+        headerItem.add_child(box);
+        section.addMenuItem(headerItem);
+    }
+
+    _addSeparator(section) {
+        const sepItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        const sep = new St.Widget({style_class: 'github-notifier-separator', x_expand: true});
+        sepItem.add_child(sep);
+        section.addMenuItem(sepItem);
+    }
+
+    _addEmpty(section, text) {
+        const item = new PopupMenu.PopupMenuItem(text, {reactive: false});
+        item.style_class = 'github-notifier-empty';
+        item.label.style_class = 'github-notifier-empty';
+        section.addMenuItem(item);
+    }
+
+    _addRow(section, item) {
+        const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
+        menuItem.connect('activate', () => {
+            Gio.AppInfo.launch_default_for_uri(item.url, null);
+            if (item.kind === 'notification' && item.rawId)
+                this._markThreadRead(item);
+            else
+                this._dismissActivityItem(item);
+        });
+
+        const rowBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-row-inner', y_align: Clutter.ActorAlign.CENTER});
+        // GNOME-native symbolic icon (replaces nerd-font glyph)
+        const iconName = this._iconForItem(item);
+        const glyph = new St.Icon({
+            icon_name: iconName,
+            style_class: 'popup-menu-icon github-notifier-glyph' + (item.kind === 'star' ? ' urgent' : ' dim'),
+            y_align: Clutter.ActorAlign.CENTER,
+            icon_size: 16,
+        });
+        rowBox.add_child(glyph);
+
+        const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const titleLabel = new St.Label({text: this._truncate(item.title, 68), style_class: 'github-notifier-row-title', x_expand: true});
+        titleLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        titleLabel.clutter_text.line_wrap = false;
+        const detailLabel = new St.Label({text: this._detailForItem(item), style_class: 'github-notifier-row-detail', x_expand: true});
+        detailLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        textBox.add_child(titleLabel);
+        textBox.add_child(detailLabel);
+        rowBox.add_child(textBox);
+
+        const chevron = new St.Icon({icon_name: 'go-next-symbolic', style_class: 'popup-menu-icon github-notifier-chevron', y_align: Clutter.ActorAlign.CENTER, icon_size: 12});
+        rowBox.add_child(chevron);
+
+        menuItem.add_child(rowBox);
+
+        // read strip for notifications
+        if (item.kind === 'notification' && item.rawId) {
+            const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+            const btn = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
+            });
+            btn.connect('clicked', () => {
+                this._markThreadRead(item);
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(btn);
+            menuItem.add_child(strip);
+        } else {
+            const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+            const btn = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
+            });
+            btn.connect('clicked', () => {
+                this._dismissActivityItem(item);
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(btn);
+            menuItem.add_child(strip);
+        }
+
+        section.addMenuItem(menuItem);
+    }
+
+    _addFooter(section, opts) {
+        // opts: {expandable, expanded, count, onToggle, paginated, page, pageCount, onPrev, onNext, showOpen, openUrl, showMarkAll, markAllArmed, onMarkAll, showRefresh, onRefresh, isPaused}
+        const footerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        const box = new St.BoxLayout({style_class: 'github-notifier-footer', x_align: Clutter.ActorAlign.CENTER, x_expand: true});
+        const makeBtn = (text, cb, urgent) => {
+            const btn = new St.Button({label: text, style_class: 'github-notifier-footer-button' + (urgent ? ' urgent' : ''), can_focus: true});
+            btn.connect('clicked', cb);
+            box.add_child(btn);
+            return btn;
+        };
+        if (opts.expandable) {
+            const label = opts.expanded ? 'Show less' : (opts.count > ACTIVITY_EXPANDED ? 'Show 25' : `Show all ${opts.count}`);
+            makeBtn(label, opts.onToggle);
+        }
+        if (opts.showMarkAll) {
+            const label = opts.markAllArmed ? 'Confirm?' : 'Mark all read';
+            makeBtn(label, opts.onMarkAll, opts.markAllArmed);
+        }
+        if (opts.paginated) {
+            const prev = makeBtn('‹', opts.onPrev);
+            prev.can_focus = true;
+            if (opts.page <= 0) prev.reactive = false;
+            const lab = new St.Label({text: `${opts.page + 1} / ${opts.pageCount}`, y_align: Clutter.ActorAlign.CENTER, style_class: 'github-notifier-hero-meta'});
+            lab.set_style('padding: 0 4px;');
+            box.add_child(lab);
+            const next = makeBtn('›', opts.onNext);
+            if (opts.page + 1 >= opts.pageCount) next.reactive = false;
+        }
+        if (opts.showOpen) {
+            makeBtn('Open in GitHub  ›', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
+        }
+        // refresh / pause controls only when handlers provided (global footer)
+        if (opts.onPauseToggle && opts.onRefresh) {
+            makeBtn(opts.isPaused ? 'Resume' : 'Pause', opts.onPauseToggle);
+            makeBtn('Refresh', opts.onRefresh);
+        }
+
+        footerItem.add_child(box);
+        section.addMenuItem(footerItem);
+    }
+
     _renderList() {
-        this._listSection.removeAll();
-        const combined = this._notificationItems.concat(this._activityItems)
-            .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+        // clear sections
+        this._notifSection.removeAll();
+        this._issuesSection.removeAll();
+        this._starsSection.removeAll();
+        this._footerSection.removeAll();
 
-        if (combined.length === 0) {
-            this._listSection.addMenuItem(new PopupMenu.PopupMenuItem('Nothing unread', {reactive: false}));
-            return;
+        const hasAny = this._notificationItems.length > 0 || this._activityItems.length > 0;
+
+        // status banner visibility already handled in _poll; keep hidden when no error unless empty?
+        if (!hasAny && !this._statusIsError) {
+            // show hero already, but ensure empty state still renders sections
         }
-        // Group by repo (subtitle) while keeping time order
-        let lastRepo = null;
-        for (const item of combined.slice(0, 15)) {
-            if (item.subtitle !== lastRepo) {
-                const header = new PopupMenu.PopupMenuItem(item.subtitle, {reactive: false});
-                header.label.add_style_class_name('github-notifier-repo-header');
-                header.label.style = 'font-weight: bold; opacity: 0.85;';
-                this._listSection.addMenuItem(header);
-                lastRepo = item.subtitle;
-            }
-            const menuItem = new PopupMenu.PopupBaseMenuItem();
-            const text = `${this._truncate(item.title, 70)}  —  ${item.subtitle}`;
-            const label = new St.Label({
-                text,
-                x_expand: true,
-                y_align: Clutter.ActorAlign.CENTER,
-                style_class: 'github-notifier-item-label',
-            });
-            // Belt-and-braces: truncate the string itself (above) for a
-            // reasonable default, and also ellipsize on the actor so it can
-            // never blow out the menu width regardless of font/DPI.
-            label.clutter_text.set_line_wrap(false);
-            label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-            menuItem.add_child(label);
 
-            menuItem.connect('activate', () => {
-                Gio.AppInfo.launch_default_for_uri(item.url, null);
-                // Opening it is treated the same as reading it, same as GitHub's
-                // own notification inbox — no need to also hit the checkmark.
-                if (item.kind === 'notification' && item.rawId)
-                    this._markThreadRead(item);
-                else
-                    this._dismissActivityItem(item);
+        // ---- Unread Notifications (GNOME HIG: Title Case) ----
+        this._addSeparator(this._notifSection);
+        const notifCount = this._notificationItems.length;
+        this._addSectionHeader(this._notifSection, 'Unread Notifications', notifCount);
+        if (notifCount === 0) {
+            this._addEmpty(this._notifSection, this._statusIsError ? 'No notifications loaded.' : "You're all caught up.");
+        } else {
+            const pageCount = Math.max(1, Math.ceil(notifCount / NOTIF_PAGE_SIZE));
+            if (this._notificationsPage >= pageCount) this._notificationsPage = pageCount - 1;
+            if (this._notificationsPage < 0) this._notificationsPage = 0;
+            const start = this._notificationsPage * NOTIF_PAGE_SIZE;
+            const slice = this._notificationItems.slice(start, start + NOTIF_PAGE_SIZE);
+            for (const item of slice) this._addRow(this._notifSection, item);
+            const paginated = pageCount > 1;
+            const showMarkAll = notifCount > 0;
+            this._addFooter(this._notifSection, {
+                expandable: false,
+                paginated,
+                page: this._notificationsPage,
+                pageCount,
+                onPrev: () => { this._notificationsPage = Math.max(0, this._notificationsPage - 1); this._renderList(); },
+                onNext: () => { this._notificationsPage = Math.min(pageCount - 1, this._notificationsPage + 1); this._renderList(); },
+                showOpen: true,
+                openUrl: 'https://github.com/notifications',
+                showMarkAll,
+                markAllArmed: this._markAllArmed,
+                onMarkAll: () => this._markAllRead(),
             });
+        }
 
-            if (item.kind === 'notification' && item.rawId) {
-                // Real GitHub notification-inbox items: mark read remotely too.
-                const readButton = new St.Button({
-                    style_class: 'github-notifier-mark-read',
-                    child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
-                    can_focus: true,
-                });
-                readButton.connect('clicked', () => {
-                    this._markThreadRead(item);
-                });
-                menuItem.add_child(readButton);
+        // ---- ISSUES / PRS ----
+        const issuePrItems = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr')
+            .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+        if (issuePrItems.length > 0 || this._settings.get_boolean('watch-issues-prs')) {
+            this._addSeparator(this._issuesSection);
+            this._addSectionHeader(this._issuesSection, 'New Issues & Pull Requests', issuePrItems.length);
+            if (issuePrItems.length === 0) {
+                this._addEmpty(this._issuesSection, 'No new issues or PRs.');
             } else {
-                // Issue/PR/star activity has no "read" state on GitHub's side —
-                // this just removes it from the local list without opening it.
-                const dismissButton = new St.Button({
-                    style_class: 'github-notifier-mark-read',
-                    child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
-                    can_focus: true,
+                const expandable = issuePrItems.length > ACTIVITY_PREVIEW;
+                const shown = issuePrItems.slice(0, this._issuesExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
+                for (const item of shown) this._addRow(this._issuesSection, item);
+                this._addFooter(this._issuesSection, {
+                    expandable,
+                    expanded: this._issuesExpanded,
+                    count: issuePrItems.length,
+                    onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
+                    showOpen: issuePrItems.length > 0,
+                    openUrl: issuePrItems[0] ? `https://github.com/${issuePrItems[0].subtitle}/issues` : 'https://github.com',
                 });
-                dismissButton.connect('clicked', () => {
-                    this._dismissActivityItem(item);
-                });
-                menuItem.add_child(dismissButton);
             }
-
-            this._listSection.addMenuItem(menuItem);
         }
+
+        // ---- STARS ----
+        const starItems = this._activityItems.filter(i => i.kind === 'star')
+            .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+        if (starItems.length > 0 || this._settings.get_boolean('watch-stars')) {
+            this._addSeparator(this._starsSection);
+            this._addSectionHeader(this._starsSection, 'New Stars', starItems.length);
+            if (starItems.length === 0) {
+                this._addEmpty(this._starsSection, 'No new stars.');
+            } else {
+                const expandable = starItems.length > ACTIVITY_PREVIEW;
+                const shown = starItems.slice(0, this._starsExpanded ? ACTIVITY_EXPANDED : ACTIVITY_PREVIEW);
+                for (const item of shown) this._addRow(this._starsSection, item);
+                this._addFooter(this._starsSection, {
+                    expandable,
+                    expanded: this._starsExpanded,
+                    count: starItems.length,
+                    onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
+                    showOpen: starItems.length > 0,
+                    openUrl: starItems[0] ? `https://github.com/${starItems[0].subtitle}/stargazers` : 'https://github.com',
+                });
+            }
+        }
+
+        // global footer — always for pause/refresh + rate
+        this._addFooter(this._footerSection, {
+            showOpen: true,
+            openUrl: 'https://github.com/notifications',
+            showMarkAll: false,
+            isPaused: this._paused,
+            onPauseToggle: () => this._togglePause(),
+            onRefresh: () => this._poll(),
+        });
+
+        // when truly empty
+        if (!hasAny) {
+            // already showed per-section empties, ensure at least one indicator
+            if (issuePrItems.length === 0 && starItems.length === 0 && notifCount === 0) {
+                // footer already added
+            }
+        }
+        // update rate footer after sections
+        this._updateRateFooter();
     }
 
     _ensureSource() {
@@ -779,7 +1109,6 @@ class Indicator extends PanelMenu.Button {
 
     _notify(newItems) {
         const source = this._ensureSource();
-        // Avoid a notification storm: summarize if there are many at once.
         if (newItems.length > 3) {
             const notification = new MessageTray.Notification({
                 source,
@@ -797,7 +1126,6 @@ class Indicator extends PanelMenu.Button {
                 title: item.title,
                 body: item.subtitle,
             });
-            // Clicking the toast itself opens the item, same as clicking it in the menu.
             notification.connect('activated', () => {
                 Gio.AppInfo.launch_default_for_uri(item.url, null);
                 if (item.kind === 'notification' && item.rawId)
@@ -819,7 +1147,6 @@ class Indicator extends PanelMenu.Button {
                 else
                     this._dismissActivityItem(item);
             });
-            // Rate limit retry action for any 403 sentinel (if present)
             if (this._rateLimitResetEpoch > Math.floor(Date.now() / 1000)) {
                 notification.addAction('Retry now', () => this._poll());
             }
@@ -827,10 +1154,6 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
-    // Fired once per repo the first time it's polled, so adding a repo to the
-    // watch list doesn't look identical to "nothing happened" — without this,
-    // silently recording a baseline count is indistinguishable from a bug.
-    // Not added to the badge/dropdown since it isn't unread activity.
     _notifyBaseline(notes) {
         const source = this._ensureSource();
         const notification = new MessageTray.Notification({
@@ -847,6 +1170,10 @@ class Indicator extends PanelMenu.Button {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
         }
+        if (this._markAllTimer) {
+            GLib.source_remove(this._markAllTimer);
+            this._markAllTimer = null;
+        }
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
@@ -854,6 +1181,14 @@ class Indicator extends PanelMenu.Button {
         if (this._hideEmptyChangedId) {
             this._settings.disconnect(this._hideEmptyChangedId);
             this._hideEmptyChangedId = null;
+        }
+        if (this._unlitChangedId) {
+            this._settings.disconnect(this._unlitChangedId);
+            this._unlitChangedId = null;
+        }
+        if (this._usernameChangedId) {
+            this._settings.disconnect(this._usernameChangedId);
+            this._usernameChangedId = null;
         }
         if (this._networkChangedId) {
             this._networkMonitor.disconnect(this._networkChangedId);

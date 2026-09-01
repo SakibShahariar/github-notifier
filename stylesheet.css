@@ -1,24 +1,170 @@
+/* --- top bar badge --- */
 .github-notifier-label {
     margin-left: 4px;
     font-weight: bold;
 }
+.github-notifier-label.urgent {
+    color: #f85149;
+}
 
-.github-notifier-mark-read {
+/* --- hero header (PanelHero) --- */
+.github-notifier-hero {
+    padding: 10px 12px 8px 12px;
+    spacing: 10px;
+}
+.github-notifier-hero-icon {
+    font-size: 22px;
+    padding-right: 2px;
+}
+.github-notifier-hero-title {
+    font-weight: bold;
+    font-size: 1.05em;
+}
+.github-notifier-hero-meta {
+    font-size: 0.85em;
+    color: rgba(255,255,255,0.65);
+}
+.github-notifier-hero-gear {
+    border-radius: 8px;
+    padding: 6px;
+}
+.github-notifier-hero-gear:hover {
+    background-color: rgba(255,255,255,0.10);
+}
+
+/* --- status / warning banner — GNOME-like subtle --- */
+.github-notifier-banner {
+    margin: 4px 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 0.9em;
+}
+.github-notifier-banner-ready {
+    background-color: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+}
+.github-notifier-action-status {
+    font-size: 0.85em;
+    color: rgba(255,255,255,0.60);
+    text-align: center;
+    padding: 4px 0;
+}
+
+/* --- section header - GNOME HIG: Title Case, muted, not uppercase --- */
+.github-notifier-section-header {
+    font-weight: 600;
+    font-size: 0.85em;
+    letter-spacing: 0.01em;
+    color: rgba(255,255,255,0.7);
+    padding: 10px 12px 4px 12px;
+}
+.github-notifier-separator {
+    height: 1px;
+    background-color: rgba(255,255,255,0.10);
+    margin: 6px 0;
+}
+
+/* --- LinkRow (CursorSurface) --- */
+.github-notifier-row {
+    padding: 8px 0;
+    border-radius: 8px;
+}
+.github-notifier-row:hover,
+.github-notifier-row:selected {
+    background-color: rgba(255,255,255,0.06);
+}
+.github-notifier-row-inner {
+    padding: 0 9px;
+    spacing: 9px;
+}
+.github-notifier-glyph {
+    /* now St.Icon, not label - keep size via icon_size prop */
+    min-width: 16px;
+    icon-size: 16px;
+}
+.github-notifier-glyph.dim { color: rgba(255,255,255,0.65); }
+.github-notifier-glyph.urgent { color: #f28b82; } /* Shell-adjacent muted red, not GitHub #f85149 */
+.github-notifier-glyph.pulse { color: #f28b82; }
+
+.github-notifier-row-title {
+    font-size: 0.95em;
+    color: #ffffff;
+}
+.github-notifier-row-detail {
+    font-size: 0.80em;
+    color: rgba(255,255,255,0.55);
+}
+.github-notifier-chevron {
+    color: rgba(255,255,255,0.45);
+    icon-size: 12px;
+    padding-left: 6px;
+}
+
+/* read strip */
+.github-notifier-read-strip {
+    width: 32px;
+    border-left: 1px solid rgba(255,255,255,0.16);
+    background-color: transparent;
+}
+.github-notifier-read-button {
     padding: 4px;
-    border-radius: 4px;
+    border-radius: 6px;
+}
+.github-notifier-read-button:hover {
+    background-color: rgba(255,255,255,0.10);
 }
 
-.github-notifier-mark-read:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
+/* item label fallback */
 .github-notifier-item-label {
     max-width: 420px;
 }
 
+/* repo header */
 .github-notifier-repo-header {
     font-weight: bold;
     opacity: 0.85;
     padding: 4px 0 2px 0;
     font-size: 0.9em;
+}
+
+/* footer buttons */
+.github-notifier-footer {
+    spacing: 8px;
+    padding: 4px 0 6px 0;
+}
+.github-notifier-footer-button {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 0.80em;
+    border: 1px solid rgba(255,255,255,0.18);
+    background-color: transparent;
+}
+.github-notifier-footer-button:hover {
+    background-color: rgba(255,255,255,0.10);
+    border-color: rgba(255,255,255,0.28);
+}
+.github-notifier-footer-button.urgent {
+    color: #f85149;
+    border-color: rgba(248,81,73,0.45);
+}
+.github-notifier-footer-button:insensitive {
+    opacity: 0.45;
+}
+
+/* empty text */
+.github-notifier-empty {
+    color: rgba(255,255,255,0.55);
+    font-size: 0.90em;
+    text-align: center;
+    padding: 8px 0;
+}
+
+/* scroll hint - rate limit */
+.github-notifier-rate {
+    font-size: 0.75em;
+    color: rgba(255,255,255,0.45);
+    text-align: center;
+    padding: 6px 0 2px 0;
 }
