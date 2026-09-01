@@ -143,17 +143,15 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         };
 
         const createRepoRow = (initialText) => {
-            const row = new Adw.EntryRow({title: ''});
+            const row = new Adw.EntryRow({title: 'Repository'});
             row.set_text(initialText);
             row.add_prefix(new Gtk.Image({icon_name: 'system-software-install-symbolic', pixel_size: 16}));
-            // keep header empty but ensure entry expands; Adw.EntryRow with empty title still works
             const warnIcon = new Gtk.Image({icon_name: 'dialog-warning-symbolic', pixel_size: 16, tooltip_text: 'Invalid — use owner/repo'});
             warnIcon.set_visible(false);
             row._warnIcon = warnIcon;
             row.add_suffix(warnIcon);
-            const delBtn = new Gtk.Button({icon_name: 'user-trash-symbolic', valign: Gtk.Align.CENTER, tooltip_text: 'Remove repository'});
+            const delBtn = new Gtk.Button({icon_name: 'edit-delete-symbolic', valign: Gtk.Align.CENTER, tooltip_text: 'Remove repository'});
             delBtn.add_css_class('flat');
-            delBtn.add_css_class('circular');
             delBtn.connect('clicked', () => {
                 const idx = repoRows.indexOf(row);
                 if (idx >= 0) repoRows.splice(idx, 1);
