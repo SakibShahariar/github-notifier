@@ -272,23 +272,147 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
+    /** GNOME 51+ reduced-motion; older shells always allow motion. */
+    _prefersReducedMotion() {
+        try {
+            if (St.Settings && St.ReducedMotion) {
+                const {reducedMotion} = St.Settings.get();
+                return reducedMotion === St.ReducedMotion.REDUCE;
+            }
+        } catch (_e) {
+            /* St.ReducedMotion is GNOME 51+ */
+        }
+        return false;
+    }
+
+    /**
+     * Soft ease helper — no-ops when reduced motion is on or actor is gone.
+     * props: {opacity, scale_x, scale_y, time, mode, onComplete}
+     */
+    _ease(actor, props = {}) {
+        if (!actor || this._destroyed || this._prefersReducedMotion()) {
+            if (props.opacity !== undefined)
+                actor.opacity = props.opacity;
+            if (props.scale_x !== undefined)
+                actor.scale_x = props.scale_x;
+            if (props.scale_y !== undefined)
+                actor.scale_y = props.scale_y;
+            if (typeof props.onComplete === 'function')
+                props.onComplete();
+            return;
+        }
+        const {
+            opacity,
+            scale_x: scaleX,
+            scale_y: scaleY,
+            time = 150,
+            mode = Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete,
+        } = props;
+        const params = {duration: time, mode};
+        if (opacity !== undefined)
+            params.opacity = opacity;
+        if (scaleX !== undefined)
+            params.scale_x = scaleX;
+        if (scaleY !== undefined)
+            params.scale_y = scaleY;
+        if (typeof onComplete === 'function')
+            params.onComplete = onComplete;
+        try {
+            actor.ease(params);
+        } catch (_e) {
+            if (opacity !== undefined)
+                actor.opacity = opacity;
+            if (scaleX !== undefined)
+                actor.scale_x = scaleX;
+            if (scaleY !== undefined)
+                actor.scale_y = scaleY;
+            if (typeof onComplete === 'function')
+                onComplete();
+        }
+    }
+
+    /** Brief badge “pop” when the unread count rises. */
+    _animateBadgePop() {
+        if (!this._label || this._prefersReducedMotion())
+            return;
+        this._label.set_pivot_point(0.5, 0.5);
+        this._label.scale_x = 1.0;
+        this._label.scale_y = 1.0;
+        this._ease(this._label, {
+            scale_x: 1.18,
+            scale_y: 1.18,
+            time: 90,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                this._ease(this._label, {
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    time: 120,
+                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                });
+            },
+        });
+    }
+
+    /** Soft pulse on the Octocat when new activity arrives. */
+    _animateIconPulse() {
+        if (!this._icon || this._prefersReducedMotion())
+            return;
+        this._icon.set_pivot_point(0.5, 0.5);
+        this._ease(this._icon, {
+            scale_x: 1.12,
+            scale_y: 1.12,
+            time: 100,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                this._ease(this._icon, {
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    time: 140,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                });
+            },
+        });
+    }
+
     /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
     _setStatusBanner(text, kind = 'info') {
         if (!this._statusItem) return;
         this._statusItem.remove_style_class_name('github-notifier-banner-error');
         this._statusItem.remove_style_class_name('github-notifier-banner-info');
         if (!text) {
-            this._statusItem.visible = false;
+            if (this._statusItem.visible && !this._prefersReducedMotion()) {
+                this._ease(this._statusItem, {
+                    opacity: 0,
+                    time: 120,
+                    onComplete: () => {
+                        this._statusItem.visible = false;
+                        this._statusItem.opacity = 255;
+                    },
+                });
+            } else {
+                this._statusItem.visible = false;
+                this._statusItem.opacity = 255;
+            }
             this._statusIsError = false;
             return;
         }
         this._statusItem.label.text = text;
-        this._statusItem.visible = true;
         this._statusIsError = kind === 'error';
         if (kind === 'error')
             this._statusItem.add_style_class_name('github-notifier-banner-error');
         else
             this._statusItem.add_style_class_name('github-notifier-banner-info');
+
+        const wasHidden = !this._statusItem.visible;
+        this._statusItem.visible = true;
+        if (wasHidden && !this._prefersReducedMotion()) {
+            this._statusItem.opacity = 0;
+            this._ease(this._statusItem, {opacity: 255, time: 160});
+        } else {
+            this._statusItem.opacity = 255;
+        }
     }
 
     _disarmMarkAll() {
@@ -899,6 +1023,7 @@ class Indicator extends PanelMenu.Button {
 
     _updatePanel() {
         const unread = this._notificationItems.length + this._activityItems.length;
+        const prev = this._lastUnreadCount ?? 0;
         const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
         if (unread > 0) {
             this._label.text = unread > MAX_BADGE ? `${MAX_BADGE}+` : String(unread);
@@ -908,6 +1033,8 @@ class Indicator extends PanelMenu.Button {
         } else {
             this._label.hide();
             this._label.remove_style_class_name('urgent');
+            this._label.scale_x = 1.0;
+            this._label.scale_y = 1.0;
         }
 
         // Dim the Octocat itself when "keep icon unlit" is on (even with unread)
@@ -917,6 +1044,13 @@ class Indicator extends PanelMenu.Button {
             else
                 this._icon.remove_style_class_name('github-notifier-icon-unlit');
         }
+
+        // Subtle motion when new items arrive (not on every poll drop)
+        if (unread > prev) {
+            this._animateBadgePop();
+            this._animateIconPulse();
+        }
+        this._lastUnreadCount = unread;
 
         if (this._statusIsError)
             this._setTooltip(this, 'GitHub Notifier — attention needed');
