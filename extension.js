@@ -69,7 +69,7 @@ class Indicator extends PanelMenu.Button {
         box.add_child(this._label);
         this.add_child(box);
         this._label.hide();
-        this.set_tooltip_text('GitHub Notifier');
+        this._setTooltip(this, 'GitHub Notifier');
 
         // --- menu ---
         this._buildMenuSkeleton();
@@ -113,7 +113,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
         });
-        gearButton.set_tooltip_text('Settings');
+        this._setTooltip(gearButton, 'Settings');
         gearButton.connect('clicked', () => this._ext.openPreferences());
         heroBox.add_child(heroIcon);
         heroBox.add_child(textBox);
@@ -250,6 +250,25 @@ class Indicator extends PanelMenu.Button {
             this._actionStatusItem.visible = true;
         } else {
             this._actionStatusItem.visible = false;
+        }
+    }
+
+    /**
+     * Set tooltip in a Shell-version-safe way.
+     * PanelMenu.Button has no set_tooltip_text(); St widgets use the
+     * tooltip_text property. Fall back to accessible_name.
+     */
+    _setTooltip(actor, text) {
+        if (!actor || text == null)
+            return;
+        try {
+            actor.tooltip_text = text;
+        } catch (_e) {
+            try {
+                actor.accessible_name = text;
+            } catch (_e2) {
+                /* ignore */
+            }
         }
     }
 
@@ -900,11 +919,11 @@ class Indicator extends PanelMenu.Button {
         }
 
         if (this._statusIsError)
-            this.set_tooltip_text('GitHub Notifier — attention needed');
+            this._setTooltip(this, 'GitHub Notifier — attention needed');
         else if (unread > 0)
-            this.set_tooltip_text(`GitHub Notifier — ${unread} unread`);
+            this._setTooltip(this, `GitHub Notifier — ${unread} unread`);
         else
-            this.set_tooltip_text('GitHub Notifier');
+            this._setTooltip(this, 'GitHub Notifier');
 
         const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
         this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
@@ -983,7 +1002,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
         });
-        btn.set_tooltip_text(item.kind === 'notification' ? 'Mark read' : 'Dismiss');
+        this._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
                 this._markThreadRead(item);
@@ -1014,7 +1033,7 @@ class Indicator extends PanelMenu.Button {
                 can_focus: true,
                 child: new St.Icon({icon_name: iconName, icon_size: 14, style_class: 'popup-menu-icon'}),
             });
-            if (tooltip) btn.set_tooltip_text(tooltip);
+            if (tooltip) this._setTooltip(btn, tooltip);
             btn.connect('clicked', cb);
             box.add_child(btn);
             return btn;
