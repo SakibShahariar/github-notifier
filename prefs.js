@@ -1,6 +1,8 @@
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -38,6 +40,87 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         hostRow.set_text(settings.get_string('github-host'));
         hostRow.connect('notify::text', () => settings.set_string('github-host', hostRow.get_text().trim()));
         accountGroup.add(hostRow);
+
+        // Test connection against /user (or /rate_limit as fallback messaging)
+        const testRow = new Adw.ActionRow({
+            title: 'Test connection',
+            subtitle: 'Validate token and API host',
+        });
+        testRow.add_prefix(new Gtk.Image({icon_name: 'network-transmit-receive-symbolic', pixel_size: 16}));
+        const testBtn = new Gtk.Button({label: 'Test', valign: Gtk.Align.CENTER});
+        testBtn.add_css_class('pill');
+        testRow.add_suffix(testBtn);
+        testRow.set_activatable_widget(testBtn);
+        accountGroup.add(testRow);
+
+        let testing = false;
+        testBtn.connect('clicked', () => {
+            if (testing)
+                return;
+            const token = settings.get_string('github-token').trim();
+            if (!token) {
+                testRow.subtitle = 'Add a token first';
+                return;
+            }
+            testing = true;
+            testBtn.set_sensitive(false);
+            testRow.subtitle = 'Checking…';
+
+            let host = settings.get_string('github-host').trim() || 'api.github.com';
+            let apiBase;
+            if (host === 'api.github.com')
+                apiBase = `https://${host}`;
+            else if (host.includes('/'))
+                apiBase = `https://${host.replace(/\/+$/, '')}`;
+            else
+                apiBase = `https://${host}/api/v3`;
+
+            const session = new Soup.Session({timeout: 15});
+            const uri = GLib.Uri.parse(`${apiBase}/user`, GLib.UriFlags.NONE);
+            const msg = new Soup.Message({method: 'GET', uri});
+            msg.request_headers.append('Accept', 'application/vnd.github+json');
+            msg.request_headers.append('X-GitHub-Api-Version', '2022-11-28');
+            msg.request_headers.append('User-Agent', 'gnome-shell-github-notifier');
+            msg.request_headers.append('Authorization', `Bearer ${token}`);
+
+            session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null, (_s, res) => {
+                testing = false;
+                testBtn.set_sensitive(true);
+                try {
+                    const bytes = session.send_and_read_finish(res);
+                    const status = msg.get_status();
+                    if (status === 401) {
+                        testRow.subtitle = 'Invalid or expired token';
+                        return;
+                    }
+                    if (status === 403) {
+                        testRow.subtitle = 'Forbidden — check scopes or rate limit';
+                        return;
+                    }
+                    if (status < 200 || status >= 300) {
+                        testRow.subtitle = `API returned ${status}`;
+                        return;
+                    }
+                    let login = '';
+                    try {
+                        const data = JSON.parse(new TextDecoder('utf-8').decode(bytes.get_data()));
+                        login = data.login || '';
+                    } catch (_e) {
+                        /* ignore parse errors; status already OK */
+                    }
+                    if (login) {
+                        testRow.subtitle = `Connected as ${login}`;
+                        const curUser = settings.get_string('github-username').trim();
+                        if (!curUser)
+                            settings.set_string('github-username', login);
+                    } else {
+                        testRow.subtitle = 'Connected';
+                    }
+                } catch (e) {
+                    testRow.subtitle = `Network error: ${e.message}`;
+                }
+            });
+        });
 
         // Page 2: Watching
         const watchPage = new Adw.PreferencesPage({
