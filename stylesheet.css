@@ -13,6 +13,10 @@
 }
 
 /* --- hero header — theme-native, no hardcoded colors --- */
+.github-notifier-hero-item {
+    /* menu item shell only; padding lives on the inner box */
+    padding: 0;
+}
 .github-notifier-hero {
     padding: 10px 14px 8px 14px;
     spacing: 10px;
@@ -42,6 +46,13 @@
     border-radius: 8px;
     border: 1px solid transparent;
     font-size: 0.95em;
+}
+.github-notifier-banner-info {
+    opacity: 0.95;
+}
+.github-notifier-banner-error {
+    font-weight: 600;
+    opacity: 1;
 }
 .github-notifier-action-status {
     font-size: 0.90em;
@@ -80,7 +91,6 @@
 }
 .github-notifier-glyph.dim { opacity: 0.95; }
 .github-notifier-glyph.urgent { opacity: 1; }
-.github-notifier-glyph.pulse { opacity: 1; }
 
 .github-notifier-row-title {
     font-size: 1em;
@@ -106,19 +116,6 @@
 .github-notifier-read-button {
     padding: 8px;
     border-radius: 99px;
-}
-
-/* item label fallback */
-.github-notifier-item-label {
-    max-width: 420px;
-}
-
-/* repo header */
-.github-notifier-repo-header {
-    font-weight: 700;
-    opacity: 1;
-    padding: 6px 0 4px 0;
-    font-size: 0.90em;
 }
 
 /* footer — fully opaque for Blur My Shell (no dim) */

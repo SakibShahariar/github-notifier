@@ -69,6 +69,7 @@ class Indicator extends PanelMenu.Button {
         box.add_child(this._label);
         this.add_child(box);
         this._label.hide();
+        this.set_tooltip_text('GitHub Notifier');
 
         // --- menu ---
         this._buildMenuSkeleton();
@@ -93,7 +94,7 @@ class Indicator extends PanelMenu.Button {
         // --- hero ---
         const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
         const heroItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
-        heroItem.style_class = 'github-notifier-hero';
+        heroItem.style_class = 'github-notifier-hero-item';
         const heroBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-hero'});
         const heroIcon = new St.Icon({
             gicon: Gio.icon_new_for_string(iconPath),
@@ -112,6 +113,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
         });
+        gearButton.set_tooltip_text('Settings');
         gearButton.connect('clicked', () => this._ext.openPreferences());
         heroBox.add_child(heroIcon);
         heroBox.add_child(textBox);
@@ -249,6 +251,25 @@ class Indicator extends PanelMenu.Button {
         } else {
             this._actionStatusItem.visible = false;
         }
+    }
+
+    /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
+    _setStatusBanner(text, kind = 'info') {
+        if (!this._statusItem) return;
+        this._statusItem.remove_style_class_name('github-notifier-banner-error');
+        this._statusItem.remove_style_class_name('github-notifier-banner-info');
+        if (!text) {
+            this._statusItem.visible = false;
+            this._statusIsError = false;
+            return;
+        }
+        this._statusItem.label.text = text;
+        this._statusItem.visible = true;
+        this._statusIsError = kind === 'error';
+        if (kind === 'error')
+            this._statusItem.add_style_class_name('github-notifier-banner-error');
+        else
+            this._statusItem.add_style_class_name('github-notifier-banner-info');
     }
 
     _disarmMarkAll() {
@@ -404,18 +425,14 @@ class Indicator extends PanelMenu.Button {
 
         const token = this._settings.get_string('github-token');
         if (!token) {
-            this._statusItem.label.text = 'Add a GitHub token in Settings';
-            this._statusItem.visible = true;
-            this._statusIsError = true;
+            this._setStatusBanner('Add a GitHub token in Settings', 'error');
             this._updateHero();
             this._updatePanel();
             return;
         }
 
         if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._statusItem.label.text = 'No internet connection';
-            this._statusItem.visible = true;
-            this._statusIsError = false;
+            this._setStatusBanner('No internet connection', 'info');
             this._updateHero();
             this._updatePanel();
             return;
@@ -424,9 +441,7 @@ class Indicator extends PanelMenu.Button {
         const nowEpoch = Math.floor(Date.now() / 1000);
         if (this._rateLimitResetEpoch > nowEpoch) {
             const waitMin = Math.ceil((this._rateLimitResetEpoch - nowEpoch) / 60);
-            this._statusItem.label.text = `Rate limited — retrying in ~${waitMin} min`;
-            this._statusItem.visible = true;
-            this._statusIsError = true;
+            this._setStatusBanner(`Rate limited — retrying in ~${waitMin} min`, 'error');
             this._updateHero();
             this._updatePanel();
             return;
@@ -512,25 +527,19 @@ class Indicator extends PanelMenu.Button {
                 this._notifyBaseline(baselineNotes);
 
             if (errors.length > 0) {
-                this._statusItem.label.text = `Updated with ${errors.length} issue(s) — see logs`;
-                this._statusItem.visible = true;
-                this._statusIsError = true;
+                this._setStatusBanner(`Updated with ${errors.length} issue(s) — see logs`, 'error');
             } else if (baselineNotes.length > 0) {
-                this._statusItem.label.text = `Started tracking ${baselineNotes.length} new watch(es)`;
-                this._statusItem.visible = true;
-                this._statusIsError = false;
+                this._setStatusBanner(`Started tracking ${baselineNotes.length} new watch(es)`, 'info');
                 // auto-hide after 4s like omarchy banner
                 GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
                     if (!this._destroyed && this._statusItem.label.text.startsWith('Started tracking')) {
-                        this._statusItem.visible = false;
-                        this._statusIsError = false;
+                        this._setStatusBanner(null);
                         this._updatePanel();
                     }
                     return GLib.SOURCE_REMOVE;
                 });
             } else {
-                this._statusItem.visible = false;
-                this._statusIsError = false;
+                this._setStatusBanner(null);
                 this._lastFetchedAt = new Date().toISOString();
                 this._updateRateFooter();
             }
@@ -541,13 +550,11 @@ class Indicator extends PanelMenu.Button {
                 return;
             logError(e, 'github-notifier poll failed');
             if (e instanceof ApiError && e.status === 401)
-                this._statusItem.label.text = 'Invalid token — check Settings';
+                this._setStatusBanner('Invalid token — check Settings', 'error');
             else if (e instanceof ApiError && e.status === 403)
-                this._statusItem.label.text = 'Rate limited by GitHub — will retry later';
+                this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
             else
-                this._statusItem.label.text = `Error: ${e.message}`;
-            this._statusItem.visible = true;
-            this._statusIsError = true;
+                this._setStatusBanner(`Error: ${e.message}`, 'error');
             this._updateHero();
             this._updatePanel();
         } finally {
@@ -892,6 +899,13 @@ class Indicator extends PanelMenu.Button {
                 this._icon.remove_style_class_name('github-notifier-icon-unlit');
         }
 
+        if (this._statusIsError)
+            this.set_tooltip_text('GitHub Notifier — attention needed');
+        else if (unread > 0)
+            this.set_tooltip_text(`GitHub Notifier — ${unread} unread`);
+        else
+            this.set_tooltip_text('GitHub Notifier');
+
         const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
         this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
     }
@@ -969,6 +983,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
         });
+        btn.set_tooltip_text(item.kind === 'notification' ? 'Mark read' : 'Dismiss');
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
                 this._markThreadRead(item);
@@ -1023,8 +1038,9 @@ class Indicator extends PanelMenu.Button {
             if (opts.page + 1 >= opts.pageCount) next.reactive = false;
         }
         if (opts.showOpen) {
+            const openLabel = opts.openLabel || 'Open in GitHub';
             const openBox = new St.BoxLayout({style: 'spacing: 6px;', x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER});
-            openBox.add_child(new St.Label({text: 'Open in GitHub'}));
+            openBox.add_child(new St.Label({text: openLabel}));
             openBox.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
             const openBtn = new St.Button({style_class: 'github-notifier-footer-button', can_focus: true, child: openBox});
             openBtn.connect('clicked', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
@@ -1098,6 +1114,7 @@ class Indicator extends PanelMenu.Button {
                 count: issuePrItems.length,
                 onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
                 showOpen: true,
+                openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${issuePrItems[0].subtitle}/issues`,
             });
         }
@@ -1117,6 +1134,7 @@ class Indicator extends PanelMenu.Button {
                 count: starItems.length,
                 onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
                 showOpen: true,
+                openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${starItems[0].subtitle}/stargazers`,
             });
         }
@@ -1124,6 +1142,7 @@ class Indicator extends PanelMenu.Button {
         // global footer — always for pause/refresh + rate
         this._addFooter(this._footerSection, {
             showOpen: true,
+            openLabel: 'Open in GitHub',
             openUrl: `${this._webBase()}/notifications`,
             showMarkAll: false,
             isPaused: this._paused,

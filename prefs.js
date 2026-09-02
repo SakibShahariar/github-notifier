@@ -133,8 +133,8 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         watchPage.add(watchGroup);
 
         const mentionsRow = new Adw.SwitchRow({
-            title: 'Mentions &amp; review requests',
-            subtitle: 'Inbox notifications',
+            title: 'Unread notifications',
+            subtitle: 'Full inbox mirror (mentions, reviews, subscribed threads)',
         });
         mentionsRow.add_prefix(new Gtk.Image({icon_name: 'mail-unread-symbolic', pixel_size: 16}));
         settings.bind('watch-mentions', mentionsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
