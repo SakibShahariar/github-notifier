@@ -7,6 +7,11 @@
     font-weight: bold;
 }
 
+/* Dim panel Octocat when "Keep icon unlit" is enabled */
+.github-notifier-icon-unlit {
+    opacity: 0.55;
+}
+
 /* --- hero header — theme-native, no hardcoded colors --- */
 .github-notifier-hero {
     padding: 10px 14px 8px 14px;
@@ -22,7 +27,7 @@
 }
 .github-notifier-hero-meta {
     font-size: 0.90em;
-    opacity: 0.75;
+    opacity: 0.90;
 }
 .github-notifier-hero-gear {
     border-radius: 99px;
@@ -40,23 +45,23 @@
 }
 .github-notifier-action-status {
     font-size: 0.90em;
-    opacity: 0.75;
+    opacity: 0.90;
     text-align: center;
     padding: 4px 0;
 }
 
-/* --- section header — slightly larger, higher contrast --- */
+/* --- section header — fully opaque for Blur My Shell --- */
 .github-notifier-section-header {
     font-weight: 700;
     font-size: 0.90em;
     letter-spacing: 0.03em;
-    opacity: 0.85;
+    opacity: 1;
     padding: 10px 14px 6px 14px;
 }
 .github-notifier-separator {
     height: 1px;
     background-color: currentColor;
-    opacity: 0.12;
+    opacity: 0.18;
     margin: 4px 0;
 }
 
@@ -73,7 +78,7 @@
     min-width: 18px;
     icon-size: 18px;
 }
-.github-notifier-glyph.dim { opacity: 0.85; }
+.github-notifier-glyph.dim { opacity: 0.95; }
 .github-notifier-glyph.urgent { opacity: 1; }
 .github-notifier-glyph.pulse { opacity: 1; }
 
@@ -83,10 +88,10 @@
 }
 .github-notifier-row-detail {
     font-size: 0.90em;
-    opacity: 0.75;
+    opacity: 0.90;
 }
 .github-notifier-chevron {
-    opacity: 0.60;
+    opacity: 0.85;
     icon-size: 14px;
     padding-left: 8px;
 }
@@ -111,12 +116,12 @@
 /* repo header */
 .github-notifier-repo-header {
     font-weight: 700;
-    opacity: 0.80;
+    opacity: 1;
     padding: 6px 0 4px 0;
     font-size: 0.90em;
 }
 
-/* footer — no hardcoded bg/border, uses theme's button styling */
+/* footer — fully opaque for Blur My Shell (no dim) */
 .github-notifier-footer {
     spacing: 6px;
     padding: 6px 0 4px 0;
@@ -125,21 +130,23 @@
     padding: 8px 14px;
     border-radius: 8px;
     font-size: 0.90em;
-    font-weight: 500;
+    font-weight: 600;
+    opacity: 1;
 }
 .github-notifier-footer-button:insensitive {
-    opacity: 0.45;
+    opacity: 0.55;
 }
 
 /* icon-only footer buttons (pagination) */
 .github-notifier-footer-icon-button {
     padding: 8px;
     border-radius: 8px;
+    opacity: 1;
 }
 
 /* empty text */
 .github-notifier-empty {
-    opacity: 0.70;
+    opacity: 0.85;
     font-size: 0.90em;
     text-align: center;
     padding: 10px 0;
@@ -148,7 +155,7 @@
 /* scroll hint - rate limit */
 .github-notifier-rate {
     font-size: 0.80em;
-    opacity: 0.60;
+    opacity: 0.85;
     text-align: center;
     padding: 6px 0 4px 0;
 }
