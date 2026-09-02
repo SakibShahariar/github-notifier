@@ -453,6 +453,19 @@ class Indicator extends PanelMenu.Button {
                 }
             }
 
+            // Always prune last-state.repos to the current watch list (or empty)
+            {
+                const reposStr = this._settings.get_string('watched-repos');
+                const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
+                const watched = new Set(Array.from(new Set(rawRepos)));
+                if (state.repos && typeof state.repos === 'object') {
+                    for (const key of Object.keys(state.repos)) {
+                        if (!watched.has(key))
+                            delete state.repos[key];
+                    }
+                }
+            }
+
             if (this._settings.get_boolean('watch-issues-prs') || this._settings.get_boolean('watch-stars')) {
                 const reposStr = this._settings.get_string('watched-repos');
                 const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
@@ -870,6 +883,14 @@ class Indicator extends PanelMenu.Button {
         } else {
             this._label.hide();
             this._label.remove_style_class_name('urgent');
+        }
+
+        // Dim the Octocat itself when "keep icon unlit" is on (even with unread)
+        if (this._icon) {
+            if (alwaysUnlit)
+                this._icon.add_style_class_name('github-notifier-icon-unlit');
+            else
+                this._icon.remove_style_class_name('github-notifier-icon-unlit');
         }
 
         const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
