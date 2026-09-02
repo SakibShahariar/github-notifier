@@ -38,7 +38,6 @@ class Indicator extends PanelMenu.Button {
         this._session.timeout = 15;
         this._notificationItems = []; // live mirror of GitHub's current unread inbox
         this._activityItems = []; // accumulated issue/PR/star events, cleared on mark-all-read
-        this._unread = 0;
         this._timeoutId = null;
         this._source = null; // MessageTray.Source, created lazily
         this._destroyed = false;
