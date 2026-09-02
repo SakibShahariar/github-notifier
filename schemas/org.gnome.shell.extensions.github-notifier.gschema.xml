@@ -34,7 +34,9 @@
 
     <key name="poll-interval" type="i">
       <default>120</default>
+      <range min="30" max="3600"/>
       <summary>Polling interval in seconds</summary>
+      <description>How often to poll GitHub (30–3600 seconds).</description>
     </key>
 
     <key name="watch-mentions" type="b">
