@@ -7,12 +7,11 @@
     font-weight: bold;
 }
 
-/* Dim panel Octocat when "Keep icon unlit" is enabled */
 .github-notifier-icon-unlit {
     opacity: 0.55;
 }
 
-/* --- hero — single padding surface --- */
+/* --- hero --- */
 .github-notifier-hero-item {
     padding: 0;
 }
@@ -35,12 +34,16 @@
     border-radius: 99px;
     padding: 6px;
 }
+.github-notifier-hero-gear:hover,
+.github-notifier-hero-gear:focus {
+    background-color: rgba(128, 128, 128, 0.18);
+}
 
-/* --- status banner --- */
+/* --- banners --- */
 .github-notifier-banner {
     margin: 4px 12px;
     padding: 8px 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     border: 1px solid transparent;
     font-size: 0.90em;
 }
@@ -52,7 +55,6 @@
     opacity: 1;
 }
 
-/* Action status + rate: keep clear of menu edges */
 .github-notifier-action-status {
     font-size: 0.85em;
     opacity: 0.80;
@@ -66,7 +68,7 @@
     padding: 8px 16px 10px 16px;
 }
 
-/* --- section header — quiet, GNOME-like --- */
+/* --- section header --- */
 .github-notifier-section-header {
     font-weight: 600;
     font-size: 0.85em;
@@ -81,13 +83,22 @@
     margin: 6px 12px;
 }
 
-/* --- rows — flat menu items, theme hover only --- */
+/*
+ * Rows: rounded hover/selected highlight (inset so corners stay visible).
+ * margin + border-radius prevents the full-bleed box look.
+ */
 .github-notifier-row {
-    padding: 4px 0;
-    border-radius: 0;
+    padding: 2px 0;
+    margin: 1px 8px;
+    border-radius: 10px;
+}
+.github-notifier-row:hover,
+.github-notifier-row:selected,
+.github-notifier-row:focus {
+    border-radius: 10px;
 }
 .github-notifier-row-inner {
-    padding: 4px 16px;
+    padding: 6px 10px;
     spacing: 10px;
 }
 .github-notifier-glyph {
@@ -106,40 +117,51 @@
     opacity: 0.70;
 }
 
-/* read strip */
 .github-notifier-read-strip {
     width: 36px;
-    padding-right: 10px;
-    border-left: none;
+    padding-right: 4px;
     background-color: transparent;
 }
 .github-notifier-read-button {
     padding: 6px;
     border-radius: 99px;
 }
+.github-notifier-read-button:hover,
+.github-notifier-read-button:focus {
+    background-color: rgba(128, 128, 128, 0.22);
+}
 
-/* footer */
+/* footer controls — explicit hover (St.Button is not a popup-menu-item) */
 .github-notifier-footer {
     spacing: 4px;
     padding: 8px 12px 6px 12px;
 }
 .github-notifier-footer-button {
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.85em;
     font-weight: 500;
     opacity: 1;
+}
+.github-notifier-footer-button:hover,
+.github-notifier-footer-button:focus {
+    background-color: rgba(128, 128, 128, 0.18);
+}
+.github-notifier-footer-button:active {
+    background-color: rgba(128, 128, 128, 0.28);
 }
 .github-notifier-footer-button:insensitive {
     opacity: 0.45;
 }
 .github-notifier-footer-icon-button {
     padding: 6px;
-    border-radius: 6px;
-    opacity: 1;
+    border-radius: 8px;
+}
+.github-notifier-footer-icon-button:hover,
+.github-notifier-footer-icon-button:focus {
+    background-color: rgba(128, 128, 128, 0.18);
 }
 
-/* empty text */
 .github-notifier-empty {
     opacity: 0.70;
     font-size: 0.90em;
