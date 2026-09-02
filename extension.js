@@ -211,9 +211,14 @@ class Indicator extends PanelMenu.Button {
         this._heroIcon = null;
         this._heroGear = null;
 
-        // Matugen: reload on popup open (no background watch) + initial apply
+        // Matugen: reload on popup open (no background watch) + energetic entrance (hardened: delay-based, single relayout)
         this.menu.connect('open-state-changed', (menu, open) => {
-            if (open) this._applyMatugenTheme();
+            if (open) {
+                this._applyMatugenTheme();
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => { this._animateHeaderEntrance(); return GLib.SOURCE_REMOVE; });
+            } else {
+                this._stopRefreshSpin();
+            }
         });
 
         this._restartTimer();
@@ -419,12 +424,25 @@ class Indicator extends PanelMenu.Button {
         return false;
     }
 
+    hasMotion() {
+        try {
+            const s = St.Settings.get();
+            if (s && 'enable_animations' in s && s.enable_animations === false) return false;
+            if (St.ReducedMotion && s.reducedMotion === St.ReducedMotion.REDUCE) return false;
+        } catch (_e) {}
+        try {
+            const cs = Clutter.Settings.get_default?.();
+            if (cs && 'enable_animations' in cs && cs.enable_animations === false) return false;
+        } catch (_e) {}
+        return !this._prefersReducedMotion();
+    }
+
     /**
      * Soft ease helper — no-ops when reduced motion is on or actor is gone.
      * props: {opacity, scale_x, scale_y, time, mode, onComplete}
      */
     _ease(actor, props = {}) {
-        if (!actor || this._destroyed || this._prefersReducedMotion()) {
+        if (!actor || this._destroyed || !this.hasMotion()) {
             if (props.opacity !== undefined)
                 actor.opacity = props.opacity;
             if (props.scale_x !== undefined)
@@ -475,7 +493,7 @@ class Indicator extends PanelMenu.Button {
 
     /** Energetic badge bounce when unread count rises. */
     _animateBadgePop() {
-        if (!this._label || this._prefersReducedMotion())
+        if (!this._label || !this.hasMotion())
             return;
         this._label.set_pivot_point(0.5, 0.5);
         this._label.scale_x = 0.55;
@@ -508,7 +526,7 @@ class Indicator extends PanelMenu.Button {
 
     /** Strong Octocat pulse + slight hop when new activity arrives. */
     _animateIconPulse() {
-        if (!this._icon || this._prefersReducedMotion())
+        if (!this._icon || !this.hasMotion())
             return;
         this._icon.set_pivot_point(0.5, 0.5);
         this._icon.translation_y = 0;
@@ -539,13 +557,57 @@ class Indicator extends PanelMenu.Button {
         });
     }
 
+    _startRefreshSpin() {
+        const icon = this._heroGear?.child ?? this._heroGear;
+        if (!icon || !this.hasMotion()) return;
+        if (icon.get_transition?.('rotation-angle-z')) return;
+        try {
+            icon.set_pivot_point(0.5, 0.5);
+            const loop = () => {
+                if (!this._polling || this._destroyed || !icon.get_stage?.()) return;
+                icon.ease({ rotation_angle_z: (icon.rotation_angle_z || 0) + 360, duration: 900, mode: Clutter.AnimationMode.LINEAR, onComplete: () => { if (this._polling && !this._destroyed) loop(); } });
+            };
+            loop();
+        } catch (e) {}
+    }
+
+    _stopRefreshSpin() {
+        const icon = this._heroGear?.child ?? this._heroGear;
+        if (!icon) return;
+        try { icon.remove_all_transitions(); icon.ease({ rotation_angle_z: 0, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch (e) { try { icon.rotation_angle_z = 0; } catch (ee) {} }
+    }
+
+    _animateHeaderEntrance() {
+        if (!this.hasMotion() || !this._heroBox) return;
+        try {
+            this._heroBox.set_pivot_point(0.5, 0.5);
+            this._heroBox.opacity = 0;
+            this._heroBox.set_scale(0.96, 0.96);
+            this._ease(this._heroBox, { opacity: 255, scale_x: 1, scale_y: 1, time: 280, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            if (this._heroIcon) {
+                this._heroIcon.set_pivot_point(0.5, 0.5);
+                this._heroIcon.set_scale(0.5, 0.5);
+                this._ease(this._heroIcon, { scale_x: 1, scale_y: 1, time: 420, mode: Clutter.AnimationMode.EASE_OUT_BACK });
+            }
+        } catch (e) {}
+    }
+
+    _addButtonHoverScale(button) {
+        if (!button || !this.hasMotion()) return;
+        try {
+            button.set_pivot_point(0.5, 0.5);
+            button.connect('enter-event', () => { if (!this.hasMotion() || this._destroyed) return; this._ease(button, { scale_x: 1.06, scale_y: 1.06, time: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); });
+            button.connect('leave-event', () => { if (this._destroyed) return; this._ease(button, { scale_x: 1, scale_y: 1, time: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); });
+        } catch (e) {}
+    }
+
     /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
     _setStatusBanner(text, kind = 'info') {
         if (!this._statusItem) return;
         this._statusItem.remove_style_class_name('github-notifier-banner-error');
         this._statusItem.remove_style_class_name('github-notifier-banner-info');
         if (!text) {
-            if (this._statusItem.visible && !this._prefersReducedMotion()) {
+            if (this._statusItem.visible && this.hasMotion()) {
                 this._ease(this._statusItem, {
                     opacity: 0,
                     translation_y: -4,
@@ -574,7 +636,7 @@ class Indicator extends PanelMenu.Button {
 
         const wasHidden = !this._statusItem.visible;
         this._statusItem.visible = true;
-        if (wasHidden && !this._prefersReducedMotion()) {
+        if (wasHidden && this.hasMotion()) {
             this._statusItem.opacity = 0;
             this._statusItem.translation_y = -8;
             this._ease(this._statusItem, {
@@ -615,8 +677,6 @@ class Indicator extends PanelMenu.Button {
             if (theme) {
                 theme.load_stylesheet(file);
                 this._matugenThemeFile = file;
-                try { global.stage?.queue_relayout(); } catch (e) {}
-                try { Main.panel?.queue_relayout(); } catch (e) {}
                 try { this.menu?.box?.queue_relayout(); } catch (e) {}
             } else {
                 this._matugenThemeFile = file;
@@ -829,6 +889,7 @@ class Indicator extends PanelMenu.Button {
 
         this._polling = true;
         this._updateHero();
+        this._startRefreshSpin();
         const state = this._loadState();
         let notificationItems = [];
         let activityItems = [];
@@ -940,6 +1001,7 @@ class Indicator extends PanelMenu.Button {
         } finally {
             this._polling = false;
             this._updateHero();
+            this._stopRefreshSpin();
         }
     }
 
@@ -1383,6 +1445,14 @@ class Indicator extends PanelMenu.Button {
         menuItem.add_child(container);
 
         section.addMenuItem(menuItem);
+        if (this.hasMotion()) {
+            const idx = section._rowAnimIdx || 0;
+            section._rowAnimIdx = idx + 1;
+            menuItem.opacity = 0;
+            menuItem.translation_y = -4;
+            menuItem.ease({ opacity: 255, translation_y: 0, delay: idx * 35, duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        }
+        if (this.hasMotion()) this._addButtonHoverScale(btn);
     }
 
     _addFooter(section, opts) {
@@ -1393,6 +1463,7 @@ class Indicator extends PanelMenu.Button {
             const btn = new St.Button({label: text, style_class: 'github-notifier-footer-button' + (urgent ? ' urgent' : ''), can_focus: true});
             btn.connect('clicked', cb);
             box.add_child(btn);
+            if (this.hasMotion()) this._addButtonHoverScale(btn);
             return btn;
         };
         const makeIconBtn = (iconName, cb, tooltip) => {
@@ -1404,6 +1475,7 @@ class Indicator extends PanelMenu.Button {
             if (tooltip) this._setTooltip(btn, tooltip);
             btn.connect('clicked', cb);
             box.add_child(btn);
+            if (this.hasMotion()) this._addButtonHoverScale(btn);
             return btn;
         };
         if (opts.expandable) {
@@ -1449,6 +1521,9 @@ class Indicator extends PanelMenu.Button {
         this._issuesSection.removeAll();
         this._starsSection.removeAll();
         this._footerSection.removeAll();
+        this._notifSection._rowAnimIdx = 0;
+        this._issuesSection._rowAnimIdx = 0;
+        this._starsSection._rowAnimIdx = 0;
 
         const hasAny = this._notificationItems.length > 0 || this._activityItems.length > 0;
 
@@ -1620,6 +1695,7 @@ class Indicator extends PanelMenu.Button {
 
     destroy() {
         this._destroyed = true;
+        try { this._stopRefreshSpin(); } catch (e) {}
         try { this._removeMatugenTheme(); } catch (e) {}
         if (this._timeoutId) {
             GLib.source_remove(this._timeoutId);
