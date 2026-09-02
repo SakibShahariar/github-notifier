@@ -297,6 +297,8 @@ class Indicator extends PanelMenu.Button {
                 actor.scale_x = props.scale_x;
             if (props.scale_y !== undefined)
                 actor.scale_y = props.scale_y;
+            if (props.translation_y !== undefined)
+                actor.translation_y = props.translation_y;
             if (typeof props.onComplete === 'function')
                 props.onComplete();
             return;
@@ -305,8 +307,9 @@ class Indicator extends PanelMenu.Button {
             opacity,
             scale_x: scaleX,
             scale_y: scaleY,
+            translation_y: translationY,
             time = 150,
-            mode = Clutter.AnimationMode.EASE_OUT_QUAD,
+            mode = Clutter.AnimationMode.EASE_OUT_CUBIC,
             onComplete,
         } = props;
         const params = {duration: time, mode};
@@ -316,6 +319,8 @@ class Indicator extends PanelMenu.Button {
             params.scale_x = scaleX;
         if (scaleY !== undefined)
             params.scale_y = scaleY;
+        if (translationY !== undefined)
+            params.translation_y = translationY;
         if (typeof onComplete === 'function')
             params.onComplete = onComplete;
         try {
@@ -327,50 +332,74 @@ class Indicator extends PanelMenu.Button {
                 actor.scale_x = scaleX;
             if (scaleY !== undefined)
                 actor.scale_y = scaleY;
+            if (translationY !== undefined)
+                actor.translation_y = translationY;
             if (typeof onComplete === 'function')
                 onComplete();
         }
     }
 
-    /** Brief badge “pop” when the unread count rises. */
+    /** Energetic badge bounce when unread count rises. */
     _animateBadgePop() {
         if (!this._label || this._prefersReducedMotion())
             return;
         this._label.set_pivot_point(0.5, 0.5);
-        this._label.scale_x = 1.0;
-        this._label.scale_y = 1.0;
+        this._label.scale_x = 0.55;
+        this._label.scale_y = 0.55;
+        this._label.opacity = 180;
         this._ease(this._label, {
-            scale_x: 1.18,
-            scale_y: 1.18,
-            time: 90,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            scale_x: 1.45,
+            scale_y: 1.45,
+            opacity: 255,
+            time: 140,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
             onComplete: () => {
                 this._ease(this._label, {
-                    scale_x: 1.0,
-                    scale_y: 1.0,
-                    time: 120,
-                    mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                    scale_x: 0.92,
+                    scale_y: 0.92,
+                    time: 90,
+                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                    onComplete: () => {
+                        this._ease(this._label, {
+                            scale_x: 1.0,
+                            scale_y: 1.0,
+                            time: 110,
+                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                        });
+                    },
                 });
             },
         });
     }
 
-    /** Soft pulse on the Octocat when new activity arrives. */
+    /** Strong Octocat pulse + slight hop when new activity arrives. */
     _animateIconPulse() {
         if (!this._icon || this._prefersReducedMotion())
             return;
         this._icon.set_pivot_point(0.5, 0.5);
+        this._icon.translation_y = 0;
         this._ease(this._icon, {
-            scale_x: 1.12,
-            scale_y: 1.12,
-            time: 100,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            scale_x: 1.35,
+            scale_y: 1.35,
+            translation_y: -3,
+            time: 120,
+            mode: Clutter.AnimationMode.EASE_OUT_BACK,
             onComplete: () => {
                 this._ease(this._icon, {
-                    scale_x: 1.0,
-                    scale_y: 1.0,
-                    time: 140,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    scale_x: 0.88,
+                    scale_y: 0.88,
+                    translation_y: 1,
+                    time: 100,
+                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
+                    onComplete: () => {
+                        this._ease(this._icon, {
+                            scale_x: 1.0,
+                            scale_y: 1.0,
+                            translation_y: 0,
+                            time: 130,
+                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+                        });
+                    },
                 });
             },
         });
@@ -385,15 +414,19 @@ class Indicator extends PanelMenu.Button {
             if (this._statusItem.visible && !this._prefersReducedMotion()) {
                 this._ease(this._statusItem, {
                     opacity: 0,
-                    time: 120,
+                    translation_y: -4,
+                    time: 100,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
                     onComplete: () => {
                         this._statusItem.visible = false;
                         this._statusItem.opacity = 255;
+                        this._statusItem.translation_y = 0;
                     },
                 });
             } else {
                 this._statusItem.visible = false;
                 this._statusItem.opacity = 255;
+                this._statusItem.translation_y = 0;
             }
             this._statusIsError = false;
             return;
@@ -409,9 +442,16 @@ class Indicator extends PanelMenu.Button {
         this._statusItem.visible = true;
         if (wasHidden && !this._prefersReducedMotion()) {
             this._statusItem.opacity = 0;
-            this._ease(this._statusItem, {opacity: 255, time: 160});
+            this._statusItem.translation_y = -8;
+            this._ease(this._statusItem, {
+                opacity: 255,
+                translation_y: 0,
+                time: 180,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
+            });
         } else {
             this._statusItem.opacity = 255;
+            this._statusItem.translation_y = 0;
         }
     }
 
