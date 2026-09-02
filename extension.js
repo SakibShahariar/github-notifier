@@ -43,28 +43,29 @@ function lightenHex(hex, amount = 0x14) {
 }
 
 function loadMatugenColors() {
+    // Fallback synced to current ~/.config/matugen/matugen-colors.css (dark pink 2026-09-02) — never -st-accent-color
     const fallback = {
-        background: '#1a1111',
+        background: '#191114',
         error: '#ffb4ab',
         error_container: '#93000a',
         on_error_container: '#ffdad6',
-        on_primary: '#571e1c',
-        on_primary_container: '#ffdad7',
-        on_secondary_container: '#ffdad7',
-        on_surface: '#f1dedd',
-        on_surface_variant: '#d8c2bf',
-        on_tertiary_container: '#ffdea6',
-        outline: '#a08c8a',
-        outline_variant: '#534342',
-        primary: '#ffb3ae',
-        primary_container: '#733330',
-        secondary: '#e7bdb9',
-        secondary_container: '#5d3f3d',
-        surface: '#1a1111',
-        surface_container: '#271d1d',
-        surface_container_high: '#322827',
-        tertiary: '#e2c28c',
-        tertiary_container: '#594319',
+        on_primary: '#541d33',
+        on_primary_container: '#ffd9e3',
+        on_secondary_container: '#ffd9e3',
+        on_surface: '#efdfe2',
+        on_surface_variant: '#d5c2c6',
+        on_tertiary_container: '#ffdcc3',
+        outline: '#9e8c90',
+        outline_variant: '#514347',
+        primary: '#ffb0ca',
+        primary_container: '#6f334a',
+        secondary: '#e2bdc7',
+        secondary_container: '#5a3f48',
+        surface: '#191114',
+        surface_container: '#261d20',
+        surface_container_high: '#31282a',
+        tertiary: '#efbc95',
+        tertiary_container: '#623f20',
     };
     const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
     try {
@@ -657,6 +658,7 @@ class Indicator extends PanelMenu.Button {
             this._matugenColors = colors;
             const css = buildMatugenCss(colors);
             const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), 'github-notifier-matugen.css']);
+            // Robust stage lookup (Wayland/X11 differ) — mirrors update-checker@local
             let theme = null;
             try {
                 const stage = global.stage ?? global.display?.get_stage?.() ?? Main.layoutManager?.dummyStage ?? null;
@@ -677,12 +679,15 @@ class Indicator extends PanelMenu.Button {
             if (theme) {
                 theme.load_stylesheet(file);
                 this._matugenThemeFile = file;
+                // Single box relayout is enough (update-checker hardened: 3 -> 1)
                 try { this.menu?.box?.queue_relayout(); } catch (e) {}
             } else {
                 this._matugenThemeFile = file;
             }
             log(`GitHubNotifier matugen applied primary=${colors.primary} primary_container=${colors.primary_container} -> ${cachePath}`);
+            // Comprehensive inline fallback — guarantees visual even if St.Theme load is delayed/cached
             this._applyInlineMatugenColors(colors);
+            // Rebuild current list so banners/rows/footer pick up new stylesheet/inline immediately if popup is open
             try {
                 if (this.menu?.isOpen) this._renderList();
             } catch (e) {}
@@ -698,6 +703,8 @@ class Indicator extends PanelMenu.Button {
             if (this._heroTitle) this._heroTitle.set_style(`color: ${c.on_primary_container};`);
             if (this._heroMeta) this._heroMeta.set_style(`color: ${hexToRgba(c.on_primary_container, 0.75)};`);
             if (this._heroGear) this._heroGear.set_style(`color: ${c.on_primary_container};`);
+            // Inline for already-rendered banner/rate/footer if popup was open before rebuild
+            // (rebuild via _renderList will also apply inline during creation)
             try { this.menu?.box?.queue_relayout(); } catch (e) {}
         } catch (e) {}
     }
@@ -1368,31 +1375,38 @@ class Indicator extends PanelMenu.Button {
         return `${text.slice(0, maxLen - 1)}…`;
     }
 
-    // --- section helpers ---
+    // --- section helpers — inline Matugen like update-checker@local (guarantees popup reflects new wallpaper even if theme cached) ---
     _addSectionHeader(section, title, count) {
+        const c = this._matugenColors || loadMatugenColors();
         const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const box = new St.BoxLayout({x_expand: true});
         const label = new St.Label({text: `${title}  ${count}`, style_class: 'github-notifier-section-header', x_expand: true});
+        label.set_style(`color: ${c.on_surface};`);
         box.add_child(label);
         headerItem.add_child(box);
         section.addMenuItem(headerItem);
     }
 
     _addSeparator(section) {
+        const c = this._matugenColors || loadMatugenColors();
         const sepItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const sep = new St.Widget({style_class: 'github-notifier-separator', x_expand: true});
+        sep.set_style(`background-color: ${c.outline_variant};`);
         sepItem.add_child(sep);
         section.addMenuItem(sepItem);
     }
 
     _addEmpty(section, text) {
+        const c = this._matugenColors || loadMatugenColors();
         const item = new PopupMenu.PopupMenuItem(text, {reactive: false});
         item.style_class = 'github-notifier-empty';
         item.label.style_class = 'github-notifier-empty';
+        item.label.set_style(`color: ${c.on_surface_variant};`);
         section.addMenuItem(item);
     }
 
     _addRow(section, item) {
+        const c = this._matugenColors || loadMatugenColors();
         const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
         menuItem.connect('activate', () => {
             Gio.AppInfo.launch_default_for_uri(item.url, null);
@@ -1411,13 +1425,16 @@ class Indicator extends PanelMenu.Button {
             y_align: Clutter.ActorAlign.CENTER,
             icon_size: 18,
         });
+        glyph.set_style(`color: ${item.kind === 'star' ? c.primary : c.secondary};`);
         rowBox.add_child(glyph);
 
         const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         const titleLabel = new St.Label({text: this._truncate(item.title, 68), style_class: 'github-notifier-row-title', x_expand: true});
+        titleLabel.set_style(`color: ${c.on_surface};`);
         titleLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         titleLabel.clutter_text.line_wrap = false;
         const detailLabel = new St.Label({text: this._detailForItem(item), style_class: 'github-notifier-row-detail', x_expand: true});
+        detailLabel.set_style(`color: ${c.on_surface_variant};`);
         detailLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
         textBox.add_child(titleLabel);
         textBox.add_child(detailLabel);
@@ -1432,6 +1449,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
         });
+        btn.set_style(`color: ${c.secondary};`);
         this._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
@@ -1456,11 +1474,14 @@ class Indicator extends PanelMenu.Button {
     }
 
     _addFooter(section, opts) {
+        const c = this._matugenColors || loadMatugenColors();
         // opts: {expandable, expanded, count, onToggle, paginated, page, pageCount, onPrev, onNext, showOpen, openUrl, showMarkAll, markAllArmed, onMarkAll, showRefresh, onRefresh, isPaused}
         const footerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         const box = new St.BoxLayout({style_class: 'github-notifier-footer', x_align: Clutter.ActorAlign.CENTER, x_expand: true});
         const makeBtn = (text, cb, urgent) => {
             const btn = new St.Button({label: text, style_class: 'github-notifier-footer-button' + (urgent ? ' urgent' : ''), can_focus: true});
+            if (urgent) btn.set_style(`background-color: ${c.tertiary_container}; color: ${c.on_tertiary_container}; border-color: transparent;`);
+            else btn.set_style(`background-color: ${c.surface_container_high}; color: ${c.on_surface}; border-color: transparent;`);
             btn.connect('clicked', cb);
             box.add_child(btn);
             if (this.hasMotion()) this._addButtonHoverScale(btn);
@@ -1472,6 +1493,7 @@ class Indicator extends PanelMenu.Button {
                 can_focus: true,
                 child: new St.Icon({icon_name: iconName, icon_size: 14, style_class: 'popup-menu-icon'}),
             });
+            btn.set_style(`background-color: ${c.surface_container_high}; color: ${c.on_surface}; border-color: transparent;`);
             if (tooltip) this._setTooltip(btn, tooltip);
             btn.connect('clicked', cb);
             box.add_child(btn);
@@ -1502,8 +1524,10 @@ class Indicator extends PanelMenu.Button {
             openBox.add_child(new St.Label({text: openLabel}));
             openBox.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
             const openBtn = new St.Button({style_class: 'github-notifier-footer-button', can_focus: true, child: openBox});
+            openBtn.set_style(`background-color: ${c.surface_container_high}; color: ${c.on_surface}; border-color: transparent;`);
             openBtn.connect('clicked', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
             box.add_child(openBtn);
+            if (this.hasMotion()) this._addButtonHoverScale(openBtn);
         }
         // refresh / pause controls only when handlers provided (global footer)
         if (opts.onPauseToggle && opts.onRefresh) {
