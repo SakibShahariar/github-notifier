@@ -2,7 +2,7 @@
 
 > Mentions, reviews, issues/PRs and stars — in your top panel.
 
-![GNOME 45-50](https://img.shields.io/badge/GNOME-45--50-blue)
+![GNOME 45-51](https://img.shields.io/badge/GNOME-45--51-blue)
 
 ### What it does
 
