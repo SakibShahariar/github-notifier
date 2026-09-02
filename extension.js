@@ -43,29 +43,29 @@ function lightenHex(hex, amount = 0x14) {
 }
 
 function loadMatugenColors() {
-    // Fallback synced to current ~/.config/matugen/matugen-colors.css (gold 2026-09-02 12:17) — never -st-accent-color
+    // Neutral fallback — never -st-accent-color. Dynamic path reads live ~/.config/matugen/matugen-colors.css
     const fallback = {
-        background: '#17130b',
-        error: '#ffb4ab',
-        error_container: '#93000a',
-        on_error_container: '#ffdad6',
-        on_primary: '#412d00',
-        on_primary_container: '#ffdea6',
-        on_secondary_container: '#f7dfbb',
-        on_surface: '#ece1d4',
-        on_surface_variant: '#d1c5b4',
-        on_tertiary_container: '#ceebc1',
-        outline: '#9a8f80',
-        outline_variant: '#4e4639',
-        primary: '#edc06c',
-        primary_container: '#5e4200',
-        secondary: '#dac4a0',
-        secondary_container: '#54452a',
-        surface: '#17130b',
-        surface_container: '#241f17',
-        surface_container_high: '#2f2921',
-        tertiary: '#b3cea7',
-        tertiary_container: '#354d2e',
+        background: '#1a1a1a',
+        error: '#ff6b6b',
+        error_container: '#8b0000',
+        on_error_container: '#ffcccc',
+        on_primary: '#ffffff',
+        on_primary_container: '#e8e8e8',
+        on_secondary_container: '#e0e0e0',
+        on_surface: '#e0e0e0',
+        on_surface_variant: '#b0b0b0',
+        on_tertiary_container: '#e8e8e8',
+        outline: '#888888',
+        outline_variant: '#444444',
+        primary: '#88aaff',
+        primary_container: '#334466',
+        secondary: '#aaaaaa',
+        secondary_container: '#444455',
+        surface: '#1a1a1a',
+        surface_container: '#222222',
+        surface_container_high: '#2a2a2a',
+        tertiary: '#aa88cc',
+        tertiary_container: '#443355',
     };
     const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
     try {

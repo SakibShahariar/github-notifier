@@ -20,35 +20,35 @@
     padding: 12px 16px 10px 16px;
     spacing: 10px;
     border-radius: 12px;
-    background-color: #5e4200; /* primary_container — Matugen fallback */
+    background-color: #334466; /* primary_container — neutral fallback */
     margin: 6px 8px 8px 8px;
     transition-duration: 200ms;
 }
 .github-notifier-hero-icon {
     icon-size: 24px;
-    color: #412d00; /* on_primary — Matugen */
+    color: #ffffff; /* on_primary — neutral fallback */
 }
 .github-notifier-hero-title {
     font-weight: 600;
     font-size: 1em;
-    color: #ffdea6; /* on_primary_container — Matugen */
+    color: #e8e8e8; /* on_primary_container — neutral fallback */
 }
 .github-notifier-hero-meta {
     font-size: 0.90em;
-    color: rgba(255, 222, 166, 0.75); /* on_primary_container 75% — Matugen */
+    color: rgba(232, 232, 232, 0.75); /* on_primary_container 75% — neutral fallback */
 }
 .github-notifier-hero-gear {
     border-radius: 99px;
     padding: 6px;
-    color: #ffdea6; /* on_primary_container — Matugen */
+    color: #e8e8e8; /* on_primary_container — neutral fallback */
     transition-duration: 150ms;
 }
 .github-notifier-hero-gear:hover,
 .github-notifier-hero-gear:focus {
-    background-color: rgba(218, 196, 160, 0.18); /* secondary 18% — Matugen */
+    background-color: rgba(170, 170, 170, 0.18); /* secondary 18% — neutral fallback */
 }
 .github-notifier-hero-gear:active {
-    background-color: rgba(179, 206, 167, 0.22); /* tertiary 22% — Matugen */
+    background-color: rgba(170, 136, 204, 0.22); /* tertiary 22% — neutral fallback */
 }
 
 /* --- banners --- */
@@ -58,17 +58,17 @@
     border-radius: 8px;
     border: 1px solid transparent;
     font-size: 0.90em;
-    background-color: #241f17; /* surface_container — Matugen */
+    background-color: #222222; /* surface_container — neutral fallback */
     transition-duration: 200ms;
 }
 .github-notifier-banner-info {
-    background-color: rgba(84, 69, 42, 0.55); /* secondary_container 55% — Matugen */
-    color: #f7dfbb; /* on_secondary_container — Matugen */
+    background-color: rgba(68, 68, 85, 0.55); /* secondary_container 55% — neutral fallback */
+    color: #e0e0e0; /* on_secondary_container — neutral fallback */
     opacity: 1;
 }
 .github-notifier-banner-error {
-    background-color: #93000a; /* error_container — Matugen */
-    color: #ffdad6; /* on_error_container — Matugen */
+    background-color: #8b0000; /* error_container — neutral fallback */
+    color: #ffcccc; /* on_error_container — neutral fallback */
     font-weight: 600;
     opacity: 1;
 }
@@ -81,7 +81,7 @@
 }
 .github-notifier-rate {
     font-size: 0.80em;
-    color: rgba(209, 197, 180, 0.85); /* on_surface_variant 85% — Matugen */
+    color: rgba(176, 176, 176, 0.85); /* on_surface_variant 85% — neutral fallback */
     text-align: center;
     padding: 8px 16px 10px 16px;
 }
@@ -91,12 +91,12 @@
     font-weight: 600;
     font-size: 0.85em;
     letter-spacing: 0;
-    color: #ece1d4; /* on_surface — Matugen */
+    color: #e0e0e0; /* on_surface — neutral fallback */
     padding: 10px 16px 4px 16px;
 }
 .github-notifier-separator {
     height: 1px;
-    background-color: #4e4639; /* outline_variant — Matugen */
+    background-color: #444444; /* outline_variant — neutral fallback */
     opacity: 1;
     margin: 6px 12px;
 }
@@ -115,7 +115,7 @@
 .github-notifier-row:selected,
 .github-notifier-row:focus {
     border-radius: 10px;
-    background-color: #2f2921; /* surface_container_high — Matugen */
+    background-color: #2a2a2a; /* surface_container_high — neutral fallback */
 }
 .github-notifier-row-inner {
     padding: 6px 10px;
@@ -125,17 +125,17 @@
     min-width: 16px;
     icon-size: 16px;
 }
-.github-notifier-glyph.dim { color: #dac4a0; opacity: 1; } /* secondary — Matugen */
-.github-notifier-glyph.urgent { color: #edc06c; opacity: 1; } /* primary — Matugen */
+.github-notifier-glyph.dim { color: #aaaaaa; opacity: 1; } /* secondary — neutral fallback */
+.github-notifier-glyph.urgent { color: #88aaff; opacity: 1; } /* primary — neutral fallback */
 
 .github-notifier-row-title {
     font-size: 0.95em;
     font-weight: 400;
-    color: #ece1d4; /* on_surface — Matugen */
+    color: #e0e0e0; /* on_surface — neutral fallback */
 }
 .github-notifier-row-detail {
     font-size: 0.85em;
-    color: #d1c5b4; /* on_surface_variant — Matugen */
+    color: #b0b0b0; /* on_surface_variant — neutral fallback */
 }
 
 .github-notifier-read-strip {
@@ -146,15 +146,15 @@
 .github-notifier-read-button {
     padding: 6px;
     border-radius: 99px;
-    color: #dac4a0; /* secondary — Matugen */
+    color: #aaaaaa; /* secondary — neutral fallback */
     transition-duration: 150ms;
 }
 .github-notifier-read-button:hover,
 .github-notifier-read-button:focus {
-    background-color: rgba(218, 196, 160, 0.18); /* secondary 18% — Matugen */
+    background-color: rgba(170, 170, 170, 0.18); /* secondary 18% — neutral fallback */
 }
 .github-notifier-read-button:active {
-    background-color: rgba(179, 206, 167, 0.22); /* tertiary 22% — Matugen */
+    background-color: rgba(170, 136, 204, 0.22); /* tertiary 22% — neutral fallback */
 }
 
 /* footer controls — explicit hover (St.Button is not a popup-menu-item) */
@@ -167,28 +167,28 @@
     border-radius: 8px;
     font-size: 0.85em;
     font-weight: 500;
-    background-color: #2f2921; /* surface_container_high — Matugen */
-    color: #ece1d4; /* on_surface — Matugen */
+    background-color: #2a2a2a; /* surface_container_high — neutral fallback */
+    color: #e0e0e0; /* on_surface — neutral fallback */
     border: none;
     transition-duration: 150ms;
 }
 .github-notifier-footer-button:hover,
 .github-notifier-footer-button:focus {
-    background-color: #54452a; /* secondary_container — Matugen */
-    color: #f7dfbb; /* on_secondary_container — Matugen */
+    background-color: #444455; /* secondary_container — neutral fallback */
+    color: #e0e0e0; /* on_secondary_container — neutral fallback */
 }
 .github-notifier-footer-button:active {
-    background-color: #4e4639; /* outline_variant — Matugen */
+    background-color: #444444; /* outline_variant — neutral fallback */
 }
 .github-notifier-footer-button:insensitive {
     opacity: 0.45;
 }
 .github-notifier-footer-button.urgent {
-    background-color: #354d2e; /* tertiary_container — Matugen */
-    color: #ceebc1; /* on_tertiary_container — Matugen */
+    background-color: #443355; /* tertiary_container — neutral fallback */
+    color: #e8e8e8; /* on_tertiary_container — neutral fallback */
 }
 .github-notifier-footer-button.urgent:hover {
-    background-color: #496142; /* lightened tertiary_container — Matugen */
+    background-color: #554466; /* lightened tertiary_container — neutral fallback */
 }
 .github-notifier-footer-icon-button {
     padding: 6px;
@@ -196,11 +196,11 @@
 }
 .github-notifier-footer-icon-button:hover,
 .github-notifier-footer-icon-button:focus {
-    background-color: rgba(218, 196, 160, 0.18);
+    background-color: rgba(170, 170, 170, 0.18);
 }
 
 .github-notifier-empty {
-    color: #d1c5b4; /* on_surface_variant — Matugen */
+    color: #b0b0b0; /* on_surface_variant — neutral fallback */
     font-size: 0.90em;
     text-align: center;
     padding: 12px 16px;
