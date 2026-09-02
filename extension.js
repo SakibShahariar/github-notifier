@@ -990,9 +990,6 @@ class Indicator extends PanelMenu.Button {
         textBox.add_child(detailLabel);
         rowBox.add_child(textBox);
 
-        const chevron = new St.Icon({icon_name: 'go-next-symbolic', style_class: 'popup-menu-icon github-notifier-chevron', y_align: Clutter.ActorAlign.CENTER, icon_size: 14});
-        rowBox.add_child(chevron);
-
         // combine row and read-strip in single container (PopupBaseMenuItem is a Bin)
         const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         container.add_child(rowBox);
