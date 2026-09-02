@@ -657,7 +657,8 @@ class Indicator extends PanelMenu.Button {
             const colors = loadMatugenColors();
             this._matugenColors = colors;
             const css = buildMatugenCss(colors);
-            const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), 'github-notifier-matugen.css']);
+            // Use unique cache file per apply to bypass Wayland St.Theme caching (same path = no reload)
+            const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), `github-notifier-matugen-${Date.now()}.css`]);
             // Robust stage lookup (Wayland/X11 differ) — mirrors update-checker@local
             let theme = null;
             try {
@@ -698,6 +699,7 @@ class Indicator extends PanelMenu.Button {
 
     _applyInlineMatugenColors(c) {
         try {
+            log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container}`);
             if (this._heroBox) this._heroBox.set_style(`background-color: ${c.primary_container}; border-color: transparent;`);
             if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary};`);
             if (this._heroTitle) this._heroTitle.set_style(`color: ${c.on_primary_container};`);
