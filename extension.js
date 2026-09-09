@@ -208,15 +208,35 @@ class Indicator extends PanelMenu.Button {
 
         this._matugenColors = null;
         this._matugenThemeFile = null;
+        this._matugenMtime = 0;
         this._heroBox = null;
         this._heroIcon = null;
         this._heroGear = null;
+        this._menuBuilt = false;
+        this._lastRenderHash = '';
+        this._matugenMonitor = null;
+
+        this._setupMatugenMonitor();
 
         // Matugen: reload on popup open (no background watch) + energetic entrance (hardened: delay-based, single relayout)
         this.menu.connect('open-state-changed', (menu, open) => {
             if (open) {
-                this._applyMatugenTheme();
-                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => { this._animateHeaderEntrance(); return GLib.SOURCE_REMOVE; });
+                // Defer menu build + matugen + render to next idle tick so the
+                // popup frame paints first (avoids click-to-show lag).
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    if (this._destroyed)
+                        return GLib.SOURCE_REMOVE;
+                    if (!this._menuBuilt) {
+                        this._buildMenuContent();
+                        this._menuBuilt = true;
+                    }
+                    // Force re-render in case data changed while menu was closed
+                    this._lastRenderHash = '';
+                    this._applyMatugenThemeDeferred();
+                    this._animateHeaderEntrance();
+                    this._renderList();
+                    return GLib.SOURCE_REMOVE;
+                });
             } else {
                 this._stopRefreshSpin();
             }
@@ -295,6 +315,9 @@ class Indicator extends PanelMenu.Button {
         this._rateItem.visible = false;
 
         this._updateHero();
+    }
+
+    _buildMenuContent() {
         this._renderList();
     }
 
@@ -653,9 +676,47 @@ class Indicator extends PanelMenu.Button {
     }
 
     _applyMatugenTheme() {
+        this._loadMatugenColorsIfChanged();
+        if (this._matugenColors) {
+            this._applyMatugenThemeInternal(this._matugenColors);
+        }
+    }
+
+    _applyMatugenThemeDeferred() {
+        this._loadMatugenColorsIfChanged();
+        if (this._matugenColors) {
+            this._applyMatugenThemeInternal(this._matugenColors);
+        }
+    }
+
+    _loadMatugenColorsIfChanged(force = false) {
+        const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
         try {
-            const colors = loadMatugenColors();
-            this._matugenColors = colors;
+            let mtime = -1;
+            try {
+                const file = Gio.File.new_for_path(path);
+                if (file.query_exists(null)) {
+                    const info = file.query_info('standard::modification-time', Gio.FileQueryInfoFlags.NONE, null);
+                    const dt = info.get_modification_time();
+                    mtime = (dt && typeof dt.to_unix === 'function') ? dt.to_unix() : (dt ? dt.to_unix_utc() : -1);
+                }
+            } catch (e) {
+                mtime = -1;
+            }
+            log(`GitHubNotifier _loadMatugenColorsIfChanged: force=${force} mtime=${mtime} cachedMtime=${this._matugenMtime} hasColors=${!!this._matugenColors}`);
+            if (force || mtime !== this._matugenMtime || !this._matugenColors) {
+                this._matugenMtime = mtime;
+                this._matugenColors = loadMatugenColors();
+                log(`GitHubNotifier _loadMatugenColorsIfChanged: loaded primary=${this._matugenColors?.primary}`);
+            }
+        } catch (e) {
+            logError(e, 'GitHubNotifier matugen load failed');
+            this._matugenColors = loadMatugenColors();
+        }
+    }
+
+    _applyMatugenThemeInternal(colors) {
+        try {
             const css = buildMatugenCss(colors);
             // Use unique cache file per apply to bypass Wayland St.Theme caching (same path = no reload)
             const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), `github-notifier-matugen-${Date.now()}.css`]);
@@ -711,6 +772,26 @@ class Indicator extends PanelMenu.Button {
         } catch (e) {}
     }
 
+    _setupMatugenMonitor() {
+        const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
+        const file = Gio.File.new_for_path(path);
+        try {
+            this._matugenMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
+            this._matugenMonitor.connect('changed', (monitor, file, otherFile, eventType) => {
+                log(`GitHubNotifier matugen monitor event: ${eventType}`);
+                if (eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT || eventType === Gio.FileMonitorEvent.CHANGED) {
+                    this._loadMatugenColorsIfChanged(true);
+                    if (this._matugenColors) {
+                        log(`GitHubNotifier monitor: applying colors primary=${this._matugenColors.primary}`);
+                        this._applyMatugenThemeInternal(this._matugenColors);
+                    }
+                }
+            });
+        } catch (e) {
+            logError(e, 'GitHubNotifier matugen monitor failed');
+        }
+    }
+
     _removeMatugenTheme() {
         if (this._matugenThemeFile) {
             try {
@@ -718,6 +799,10 @@ class Indicator extends PanelMenu.Button {
                 if (theme) theme.unload_stylesheet(this._matugenThemeFile);
             } catch (e) {}
             this._matugenThemeFile = null;
+        }
+        if (this._matugenMonitor) {
+            try { this._matugenMonitor.cancel(); } catch (e) {}
+            this._matugenMonitor = null;
         }
     }
 
@@ -1542,6 +1627,25 @@ class Indicator extends PanelMenu.Button {
     }
 
     _renderList() {
+        // Skip render if data hasn't changed
+        const newHash = JSON.stringify({
+            notifications: this._notificationItems.map(i => i.id).join(','),
+            activity: this._activityItems.map(i => i.id).join(','),
+            notificationsPage: this._notificationsPage,
+            issuesExpanded: this._issuesExpanded,
+            starsExpanded: this._starsExpanded,
+            markAllArmed: this._markAllArmed,
+            paused: this._paused,
+            statusIsError: this._statusIsError,
+            statusText: this._statusItem?.label?.text || '',
+            rateLimitReset: this._rateLimitResetEpoch,
+            lastFetchedAt: this._lastFetchedAt,
+        });
+        if (newHash === this._lastRenderHash) {
+            return;
+        }
+        this._lastRenderHash = newHash;
+
         // clear sections
         this._notifSection.removeAll();
         this._issuesSection.removeAll();
