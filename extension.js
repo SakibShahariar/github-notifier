@@ -191,6 +191,17 @@ class Indicator extends PanelMenu.Button {
         this._label.hide();
         this._setTooltip(this, 'GitHub Notifier');
 
+        this._matugenColors = null;
+        this._matugenThemeFile = null;
+        this._matugenMtime = 0;
+        this._heroBox = null;
+        this._heroItem = null;
+        this._heroIcon = null;
+        this._heroGear = null;
+        this._menuBuilt = false;
+        this._lastRenderHash = '';
+        this._matugenMonitor = null;
+
         // --- menu ---
         this._buildMenuSkeleton();
 
@@ -205,17 +216,6 @@ class Indicator extends PanelMenu.Button {
             if (available && !this._destroyed)
                 this._poll();
         });
-
-        this._matugenColors = null;
-        this._matugenThemeFile = null;
-        this._matugenMtime = 0;
-        this._heroBox = null;
-        this._heroItem = null;
-        this._heroIcon = null;
-        this._heroGear = null;
-        this._menuBuilt = false;
-        this._lastRenderHash = '';
-        this._matugenMonitor = null;
 
         this._setupMatugenMonitor();
 
