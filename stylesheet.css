@@ -1,3 +1,8 @@
+/* --- menu container --- */
+.github-notifier-menu {
+    min-width: 440px;
+}
+
 /* --- top bar badge --- */
 .github-notifier-label {
     margin-left: 4px;
@@ -17,11 +22,10 @@
     padding: 0;
 }
 .github-notifier-hero {
-    padding: 12px;
-    spacing: 10px;
     border-radius: 12px;
-    background-color: #334466; /* primary_container — neutral fallback */
-    margin: 6px 0 10px 0;
+    border: none;
+    padding: 12px;
+    margin: 6px 8px 10px 8px; /* Added margins back to match card look */
     transition-duration: 200ms;
 }
 .github-notifier-hero-icon {

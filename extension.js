@@ -190,6 +190,9 @@ class Indicator extends PanelMenu.Button {
         this.add_child(box);
         this._label.hide();
         this._setTooltip(this, 'GitHub Notifier');
+        
+        // Scope menu styling to this extension to match update-checker
+        this.menu.box.add_style_class_name('github-notifier-menu');
 
         this._matugenColors = null;
         this._matugenThemeFile = null;
@@ -763,9 +766,7 @@ class Indicator extends PanelMenu.Button {
     _applyInlineMatugenColors(c) {
         try {
             log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container} hasHeroBox=${!!this._heroBox} menuIsOpen=${!!this.menu?.isOpen}`);
-            // Color the hero card AND its parent menu item so no popup background
-            // bleeds through the card's margins (matches update-checker's full card).
-            if (this._heroItem) this._heroItem.set_style(`background-color: ${c.primary_container};`);
+            // Color the hero card (matches update-checker's card).
             if (this._heroBox) this._heroBox.set_style(`background-color: ${c.primary_container}; border-color: transparent;`);
             if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary};`);
             if (this._heroTitle) this._heroTitle.set_style(`color: ${c.on_primary_container};`);
