@@ -28,8 +28,15 @@
     margin: 6px 8px 10px 8px; /* Added margins back to match card look */
     transition-duration: 200ms;
 }
+.github-notifier-hero-icon-box {
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background-color: #334466; /* primary — neutral fallback */
+    transition-duration: 200ms;
+}
 .github-notifier-hero-icon {
-    icon-size: 24px;
+    icon-size: 20px;
     color: #ffffff; /* on_primary — neutral fallback */
 }
 .github-notifier-hero-title {
