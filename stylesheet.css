@@ -17,11 +17,11 @@
     padding: 0;
 }
 .github-notifier-hero {
-    padding: 12px 16px 10px 16px;
+    padding: 12px;
     spacing: 10px;
     border-radius: 12px;
     background-color: #334466; /* primary_container — neutral fallback */
-    margin: 6px 8px 8px 8px;
+    margin: 6px 0 10px 0;
     transition-duration: 200ms;
 }
 .github-notifier-hero-icon {
