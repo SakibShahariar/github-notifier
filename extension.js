@@ -199,7 +199,6 @@ class Indicator extends PanelMenu.Button {
         this._matugenMtime = 0;
         this._heroBox = null;
         this._heroItem = null;
-        this._heroIconBox = null;
         this._heroIcon = null;
         this._heroGear = null;
         this._menuBuilt = false;
@@ -258,18 +257,11 @@ class Indicator extends PanelMenu.Button {
         const heroItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
         heroItem.style_class = 'github-notifier-hero-item';
         const heroBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-hero'});
-        const heroIconBox = new St.Widget({
-            style_class: 'github-notifier-hero-icon-box',
-            layout_manager: new Clutter.BinLayout(),
-        });
         const heroIcon = new St.Icon({
             gicon: Gio.icon_new_for_string(iconPath),
-            style_class: 'github-notifier-hero-icon',
-            icon_size: 20,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'system-status-icon github-notifier-hero-icon',
+            icon_size: 24,
         });
-        heroIconBox.add_child(heroIcon);
         const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         this._heroTitle = new St.Label({text: 'GitHub', style_class: 'github-notifier-hero-title'});
         this._heroMeta = new St.Label({text: 'Checking…', style_class: 'github-notifier-hero-meta'});
@@ -284,12 +276,11 @@ class Indicator extends PanelMenu.Button {
         });
         this._heroBox = heroBox;
         this._heroItem = heroItem;
-        this._heroIconBox = heroIconBox;
         this._heroIcon = heroIcon;
         this._heroGear = gearButton;
         this._setTooltip(gearButton, 'Settings');
         gearButton.connect('clicked', () => this._ext.openPreferences());
-        heroBox.add_child(heroIconBox);
+        heroBox.add_child(heroIcon);
         heroBox.add_child(textBox);
         heroBox.add_child(gearButton);
         heroItem.add_child(heroBox);
@@ -777,8 +768,7 @@ class Indicator extends PanelMenu.Button {
             log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container} hasHeroBox=${!!this._heroBox} menuIsOpen=${!!this.menu?.isOpen}`);
             // Color the hero card (matches update-checker's card).
             if (this._heroBox) this._heroBox.set_style(`background-color: ${c.primary_container}; border-color: transparent;`);
-            if (this._heroIconBox) this._heroIconBox.set_style(`background-color: ${c.primary};`);
-            if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary};`);
+            if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary_container};`);
             if (this._heroTitle) this._heroTitle.set_style(`color: ${c.on_primary_container};`);
             if (this._heroMeta) this._heroMeta.set_style(`color: ${hexToRgba(c.on_primary_container, 0.75)};`);
             if (this._heroGear) this._heroGear.set_style(`color: ${c.on_primary_container};`);
