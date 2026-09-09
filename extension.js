@@ -210,6 +210,7 @@ class Indicator extends PanelMenu.Button {
         this._matugenThemeFile = null;
         this._matugenMtime = 0;
         this._heroBox = null;
+        this._heroItem = null;
         this._heroIcon = null;
         this._heroGear = null;
         this._menuBuilt = false;
@@ -271,6 +272,7 @@ class Indicator extends PanelMenu.Button {
             child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
         });
         this._heroBox = heroBox;
+        this._heroItem = heroItem;
         this._heroIcon = heroIcon;
         this._heroGear = gearButton;
         this._setTooltip(gearButton, 'Settings');
@@ -683,7 +685,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _applyMatugenThemeDeferred() {
-        this._loadMatugenColorsIfChanged();
+        this._loadMatugenColorsIfChanged(true);
         if (this._matugenColors) {
             this._applyMatugenThemeInternal(this._matugenColors);
         }
@@ -760,7 +762,10 @@ class Indicator extends PanelMenu.Button {
 
     _applyInlineMatugenColors(c) {
         try {
-            log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container}`);
+            log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container} hasHeroBox=${!!this._heroBox} menuIsOpen=${!!this.menu?.isOpen}`);
+            // Color the hero card AND its parent menu item so no popup background
+            // bleeds through the card's margins (matches update-checker's full card).
+            if (this._heroItem) this._heroItem.set_style(`background-color: ${c.primary_container};`);
             if (this._heroBox) this._heroBox.set_style(`background-color: ${c.primary_container}; border-color: transparent;`);
             if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary};`);
             if (this._heroTitle) this._heroTitle.set_style(`color: ${c.on_primary_container};`);
@@ -769,6 +774,14 @@ class Indicator extends PanelMenu.Button {
             // Inline for already-rendered banner/rate/footer if popup was open before rebuild
             // (rebuild via _renderList will also apply inline during creation)
             try { this.menu?.box?.queue_relayout(); } catch (e) {}
+            if (this._heroBox) {
+                try {
+                    const inline = this._heroBox.get_style?.() ?? '(none)';
+                    const node = this._heroBox.get_theme_node?.() ?? null;
+                    const bg = node?.get_background_color?.();
+                    log(`GitHubNotifier inline matugen: heroBox inlineStyle="${inline}" computedBg=${bg}`);
+                } catch (e) { logError(e, 'GitHubNotifier inline diagnostic'); }
+            }
         } catch (e) {}
     }
 
