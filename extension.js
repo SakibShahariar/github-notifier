@@ -196,6 +196,7 @@ class Indicator extends PanelMenu.Button {
 
         this._matugenColors = null;
         this._matugenThemeFile = null;
+        this._matugenCss = null; // last applied CSS content (avoid reload when unchanged)
         this._matugenMtime = 0;
         this._heroBox = null;
         this._heroItem = null;
@@ -248,7 +249,13 @@ class Indicator extends PanelMenu.Button {
 
         this._restartTimer();
         this._poll(); // kick off immediately
-        this._applyMatugenTheme();
+        // Defer Matugen stylesheet load so the panel settles first — avoids
+        // shell-wide UI refresh from St.Theme load_stylesheet at enable time.
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!this._destroyed)
+                this._applyMatugenTheme();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _buildMenuSkeleton() {
@@ -723,36 +730,44 @@ class Indicator extends PanelMenu.Button {
     _applyMatugenThemeInternal(colors) {
         try {
             const css = buildMatugenCss(colors);
-            // Use unique cache file per apply to bypass Wayland St.Theme caching (same path = no reload)
-            const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), `github-notifier-matugen-${Date.now()}.css`]);
-            // Robust stage lookup (Wayland/X11 differ) — mirrors update-checker@local
-            let theme = null;
-            try {
-                const stage = global.stage ?? global.display?.get_stage?.() ?? Main.layoutManager?.dummyStage ?? null;
-                if (stage) {
-                    const ctx = St.ThemeContext.get_for_stage(stage);
-                    theme = ctx?.get_theme() ?? null;
+            // Fixed path — avoid creating a new file (and forced unload/load)
+            // on every call. Only touch St.Theme when content actually changed.
+            const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), 'github-notifier-matugen.css']);
+            const cssChanged = css !== this._matugenCss;
+
+            if (cssChanged) {
+                // Robust stage lookup (Wayland/X11 differ) — mirrors update-checker@local
+                let theme = null;
+                try {
+                    const stage = global.stage ?? global.display?.get_stage?.() ?? Main.layoutManager?.dummyStage ?? null;
+                    if (stage) {
+                        const ctx = St.ThemeContext.get_for_stage(stage);
+                        theme = ctx?.get_theme() ?? null;
+                    }
+                } catch (e) {}
+                if (!theme) {
+                    try { theme = St.ThemeContext.get_for_stage(global.stage)?.get_theme() ?? null; } catch (e) {}
                 }
-            } catch (e) {}
-            if (!theme) {
-                try { theme = St.ThemeContext.get_for_stage(global.stage)?.get_theme() ?? null; } catch (e) {}
+                // Unload previous only when we are about to load a different one
+                if (theme && this._matugenThemeFile) {
+                    try { theme.unload_stylesheet(this._matugenThemeFile); } catch (e) {}
+                }
+                const ok = GLib.file_set_contents(cachePath, css);
+                if (!ok) throw new Error('file_set_contents failed');
+                const file = Gio.File.new_for_path(cachePath);
+                if (theme) {
+                    theme.load_stylesheet(file);
+                    this._matugenThemeFile = file;
+                    try { this.menu?.box?.queue_relayout(); } catch (e) {}
+                } else {
+                    this._matugenThemeFile = file;
+                }
+                this._matugenCss = css;
+                log(`GitHubNotifier matugen applied primary=${colors.primary} primary_container=${colors.primary_container} -> ${cachePath}`);
             }
-            if (theme && this._matugenThemeFile) {
-                try { theme.unload_stylesheet(this._matugenThemeFile); } catch (e) {}
-            }
-            const ok = GLib.file_set_contents(cachePath, css);
-            if (!ok) throw new Error('file_set_contents failed');
-            const file = Gio.File.new_for_path(cachePath);
-            if (theme) {
-                theme.load_stylesheet(file);
-                this._matugenThemeFile = file;
-                // Single box relayout is enough (update-checker hardened: 3 -> 1)
-                try { this.menu?.box?.queue_relayout(); } catch (e) {}
-            } else {
-                this._matugenThemeFile = file;
-            }
-            log(`GitHubNotifier matugen applied primary=${colors.primary} primary_container=${colors.primary_container} -> ${cachePath}`);
-            // Comprehensive inline fallback — guarantees visual even if St.Theme load is delayed/cached
+
+            // Always apply inline styles — cheap and guarantees visual even if
+            // St.Theme load is delayed/cached.
             this._applyInlineMatugenColors(colors);
             // Rebuild current list so banners/rows/footer pick up new stylesheet/inline immediately if popup is open
             try {
@@ -814,6 +829,7 @@ class Indicator extends PanelMenu.Button {
             } catch (e) {}
             this._matugenThemeFile = null;
         }
+        this._matugenCss = null;
         if (this._matugenMonitor) {
             try { this._matugenMonitor.cancel(); } catch (e) {}
             this._matugenMonitor = null;
