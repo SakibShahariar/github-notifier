@@ -12,6 +12,23 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
+/** Remove legacy timestamped matugen CSS files from older builds. */
+function cleanOldMatugenCache(prefix) {
+    try {
+        const dir = Gio.File.new_for_path(GLib.get_user_cache_dir());
+        const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+        let info;
+        while ((info = enumerator.next_file(null)) !== null) {
+            const name = info.get_name();
+            if (name.startsWith(prefix) && /^.+-\d+\.css$/.test(name)) {
+                try { dir.get_child(name).delete(null); } catch (e) {}
+            }
+        }
+        enumerator.close(null);
+    } catch (e) {}
+}
+
+
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
