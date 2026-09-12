@@ -214,6 +214,21 @@ class Indicator extends PanelMenu.Button {
         this._unlitChangedId = this._settings.connect('changed::icon-always-unlit', () => this._updatePanel());
         // live hero update when username changes
         this._usernameChangedId = this._settings.connect('changed::github-username', () => this._updateHero());
+        const refreshIfMenuOpen = () => {
+            if (this._destroyed || !this.menu?.isOpen)
+                return;
+            this._lastRenderHash = '';
+            this._renderList();
+        };
+        this._tokenChangedId = this._settings.connect('changed::github-token', () => {
+            if (this.menu?.isOpen)
+                this._poll();
+        });
+        this._reposChangedId = this._settings.connect('changed::watched-repos', refreshIfMenuOpen);
+        this._hostChangedId = this._settings.connect('changed::github-host', () => {
+            if (this.menu?.isOpen)
+                this._poll();
+        });
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
@@ -247,9 +262,35 @@ class Indicator extends PanelMenu.Button {
         });
 
         this._restartTimer();
-        this._poll(); // kick off immediately
-        // Defer Matugen stylesheet load so the panel settles first — avoids
-        // shell-wide UI refresh from St.Theme load_stylesheet at enable time.
+        // Defer first poll until shell startup completes (or ~5–8s).
+        const startPoll = () => {
+            if (this._destroyed)
+                return;
+            if (this._startupId) {
+                GLib.source_remove(this._startupId);
+                this._startupId = null;
+            }
+            if (this._startupCompleteId) {
+                try { Main.layoutManager.disconnect(this._startupCompleteId); } catch (e) {}
+                this._startupCompleteId = null;
+            }
+            this._poll();
+        };
+        this._startupId = null;
+        this._startupCompleteId = null;
+        if (Main.layoutManager._startingUp) {
+            this._startupCompleteId = Main.layoutManager.connect('startup-complete', () => startPoll());
+            this._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
+                startPoll();
+                return GLib.SOURCE_REMOVE;
+            });
+        } else {
+            this._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+                startPoll();
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+        // Defer Matugen stylesheet load so the panel settles first
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             if (!this._destroyed)
                 this._applyMatugenTheme();
@@ -829,6 +870,10 @@ class Indicator extends PanelMenu.Button {
             this._matugenThemeFile = null;
         }
         this._matugenCss = null;
+        if (this._matugenDebounceId) {
+            GLib.source_remove(this._matugenDebounceId);
+            this._matugenDebounceId = null;
+        }
         if (this._matugenMonitor) {
             try { this._matugenMonitor.cancel(); } catch (e) {}
             this._matugenMonitor = null;
@@ -1896,11 +1941,32 @@ class Indicator extends PanelMenu.Button {
 
 export default class GithubNotifierExtension extends Extension {
     enable() {
+        cleanOldMatugenCache('github-notifier-matugen-');
         this._indicator = new Indicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 
     disable() {
+        const ind = this._indicator;
+        if (ind) {
+            if (ind._startupId) {
+                GLib.source_remove(ind._startupId);
+                ind._startupId = null;
+            }
+            if (ind._startupCompleteId) {
+                try { Main.layoutManager.disconnect(ind._startupCompleteId); } catch (e) {}
+                ind._startupCompleteId = null;
+            }
+            if (ind._matugenDebounceId) {
+                GLib.source_remove(ind._matugenDebounceId);
+                ind._matugenDebounceId = null;
+            }
+            if (ind._timeoutId) {
+                GLib.source_remove(ind._timeoutId);
+                ind._timeoutId = null;
+            }
+            ind._destroyed = true;
+        }
         this._indicator?.destroy();
         this._indicator = null;
     }
