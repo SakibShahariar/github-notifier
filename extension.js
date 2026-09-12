@@ -223,11 +223,11 @@ class Indicator extends PanelMenu.Button {
 
         this._setupMatugenMonitor();
 
-        // Matugen: reload on popup open (no background watch) + energetic entrance (hardened: delay-based, single relayout)
+        // Theme changes only happen while the menu is closed (focus leaves the
+        // popup). Skip Matugen on open — colors already applied at launch / by
+        // the file monitor. Still build/render + entrance animation.
         this.menu.connect('open-state-changed', (menu, open) => {
             if (open) {
-                // Defer menu build + matugen + render to next idle tick so the
-                // popup frame paints first (avoids click-to-show lag).
                 GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                     if (this._destroyed)
                         return GLib.SOURCE_REMOVE;
@@ -237,7 +237,6 @@ class Indicator extends PanelMenu.Button {
                     }
                     // Force re-render in case data changed while menu was closed
                     this._lastRenderHash = '';
-                    this._applyMatugenThemeDeferred();
                     this._animateHeaderEntrance();
                     this._renderList();
                     return GLib.SOURCE_REMOVE;
