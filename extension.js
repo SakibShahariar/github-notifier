@@ -326,7 +326,7 @@ class Indicator extends PanelMenu.Button {
             style_class: 'system-status-icon github-notifier-hero-icon',
             icon_size: 24,
         });
-        const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const textBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         this._heroTitle = new St.Label({text: 'GitHub', style_class: 'github-notifier-hero-title'});
         this._heroMeta = new St.Label({text: 'Checking…', style_class: 'github-notifier-hero-meta'});
         // ellipsize meta so it fits ~420px
@@ -1606,7 +1606,7 @@ class Indicator extends PanelMenu.Button {
         glyph.set_style(`color: ${item.kind === 'star' ? c.primary : c.secondary};`);
         rowBox.add_child(glyph);
 
-        const textBox = new St.BoxLayout({vertical: true, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const textBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         const titleLabel = new St.Label({text: this._truncate(item.title, 68), style_class: 'github-notifier-row-title', x_expand: true});
         titleLabel.set_style(`color: ${c.on_surface};`);
         titleLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
