@@ -1622,12 +1622,18 @@ class Indicator extends PanelMenu.Button {
         const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         container.add_child(rowBox);
         const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+        const readIcon = new St.Icon({
+            icon_name: 'object-select-symbolic',
+            style_class: 'github-notifier-read-icon',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
         const btn = new St.Button({
             style_class: 'github-notifier-read-button',
             can_focus: true,
-            child: new St.Icon({icon_name: 'object-select-symbolic', style_class: 'popup-menu-icon'}),
+            child: readIcon,
         });
-        btn.set_style(`color: ${c.secondary};`);
+        btn.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
         this._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)

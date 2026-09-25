@@ -145,12 +145,17 @@
 
 .github-notifier-read-strip {
     width: 36px;
-    padding-right: 4px;
+    padding: 0 6px;
     background-color: transparent;
 }
+.github-notifier-read-icon {
+    icon-size: 16px;
+    margin: 0;
+    padding: 0;
+}
 .github-notifier-read-button {
-    padding: 6px;
-    border-radius: 99px;
+    padding: 4px;
+    border-radius: 9px;
     color: #aaaaaa; /* secondary — neutral fallback */
     transition-duration: 150ms;
 }
