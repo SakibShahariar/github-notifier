@@ -1,10 +1,10 @@
 # GitHub Notifier
 
-> Mentions, reviews, issues/PRs and stars — in your top panel.
+> Mentions, reviews, issues/PRs, and stars — right in your GNOME top panel.
 
-![GNOME 45-51](https://img.shields.io/badge/GNOME-45--51-blue)
+![GNOME 45–51](https://img.shields.io/badge/GNOME-45--51-blue)
 
-A GNOME Shell extension that watches the GitHub API and keeps your notifications in the panel: a live mirror of your unread inbox, plus new issues/PRs and stars on repos you care about — without opening a browser.
+GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into the top panel. It displays your unread GitHub inbox, watches selected repositories for new issues and pull requests, and tracks star-count changes — without needing to keep GitHub open in a browser.
 
 ## Screenshot
 
@@ -12,68 +12,100 @@ A GNOME Shell extension that watches the GitHub API and keeps your notifications
 
 ## Features
 
-| | |
+| Feature | Description |
 |---|---|
-| 💬 **Inbox** | Full unread GitHub notifications (live mirror of `/notifications`, not a local diff) |
-| 📝 **Watch** | New issues/PRs on chosen repos |
-| ⭐ **Stars** | New stars count |
-| 🔔 **Toasts** | `Open` / `Mark read` + grouped by repo |
+| 💬 **Inbox** | Mirrors your unread GitHub notifications. |
+| 📝 **Repository watching** | Checks selected repositories for new issues and pull requests. |
+| ⭐ **Star tracking** | Detects changes in repository star counts. |
+| 🔔 **Desktop notifications** | Notifications with Open and Mark read actions, grouped by repository. |
+| ⏸️ **Pause polling** | Temporarily stop checks from the panel menu. |
+| 👁️ **Hide when empty** | Keep the panel icon hidden when there is nothing to show, unless an error needs attention. |
 
-Inbox uses `participating=false`, so you see the same unread list as github.com/notifications (mentions, review requests, subscribed threads, etc.).
+The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
 
-`Mark all as read` clears locally + `PUT /notifications {last_read_at}` on GitHub. Pause from menu; `Hide when empty` keeps the icon hidden unless there's an error.
+**Mark all as read** updates the local view and sends a request to GitHub to mark notifications as read.
 
 ## Requirements
 
-* GNOME Shell 45–51
-* A GitHub **access token** (see [Configure](#configure)) — the extension needs it for all API calls
-* A **full internet** connection (the extension pauses on portal/LOCAL connectivity to avoid timeout storms)
+- GNOME Shell 45–51. Compatibility depends on the GNOME version and should be verified against the extension's current release.
+- A GitHub personal access token with the permissions required for the API features you use.
+- An internet connection. The extension pauses polling when the connection is detected as limited or local-only.
 
-## Install
+## Installation
+
+From a downloaded or cloned copy of this repository, run:
 
 ```bash
+mkdir -p ~/.local/share/gnome-shell/extensions/
 cp -r github-notifier@local ~/.local/share/gnome-shell/extensions/
 glib-compile-schemas ~/.local/share/gnome-shell/extensions/github-notifier@local/schemas/
-# X11: Alt+F2 → r | Wayland: logout
+```
+
+Then enable the extension:
+
+```bash
 gnome-extensions enable github-notifier@local
 ```
 
-Prefs: panel → `Settings…` or `gnome-extensions prefs github-notifier@local`
+On X11, you can restart GNOME Shell with **Alt+F2**, then enter `r`. On Wayland, log out and log back in if required.
 
-## Configure
+Open the extension preferences from the panel menu or run:
 
-| Setting | Notes |
+```bash
+gnome-extensions prefs github-notifier@local
+```
+
+## Configuration
+
+| Setting | Description |
 |---|---|
-| **Token** | `github.com/settings/tokens` — Classic `notifications`+`repo`, or fine-grained Issues/PRs + Metadata |
-| **Username** | your GitHub handle |
-| **API host** | `api.github.com` or `github.example.com` (GHES → `/api/v3`) |
-| **Repos** | `owner/repo, owner/repo` — banner if empty while watches on |
-| **Poll** | 30–3600s, default 120s |
+| **Token** | Your GitHub personal access token. Create one from [GitHub Settings](https://github.com/settings/personal-access-tokens). |
+| **Username** | Your GitHub username. |
+| **API host** | GitHub's API host, or the API endpoint for your GitHub Enterprise Server instance. |
+| **Repositories** | Comma-separated repository names in `owner/repo` format. |
+| **Poll interval** | How often to check for updates: 30–3600 seconds, with a default of 120 seconds. |
 
-Sections: **Account** / **Watching** / **Settings**
+Settings are organized into **Account**, **Watching**, and **Settings** sections.
+
+### Token permissions and security
+
+Use a token with only the permissions needed for your setup. Private repositories may require additional repository access. Actions that modify notification read status need the relevant write permission; a read-only token will not support every action.
+
+The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed.
 
 ## How it works
 
-* Polls `/notifications`, `/repos/{repo}/issues` (page 2 verified when 20 new), `/repos/{repo}` stars.
-* Baseline `now tracking` toast on first poll.
-* `150` notifs cap → `More than shown` sentinel; `!` stays visible on 401/403.
+- Polls GitHub's notifications API for unread notifications.
+- Checks selected repositories for issues and pull requests.
+- Checks repository star counts for changes.
+- Uses a configurable polling interval and limits the number of notifications displayed.
+- Shows a tracking-status notification when monitoring starts.
 
-<details>
-<summary>Notes</summary>
+The panel may display an error indicator when GitHub requests fail. Rate limits and permission errors are different conditions and should be diagnosed accordingly.
 
-* Icon `icons/github-symbolic.svg` — `fill=currentColor`, recolors with theme. GitHub mark is trademark.
-* Token is stored plain in `dconf` (GSettings). Prefer a **fine-grained, read-only** PAT with only the scopes you need; revoke if the machine is shared or compromised.
-* Rate limit 5000/hr authenticated (shared across all clients using the token).
-* API host may be `api.github.com` or a GHES host; web links follow the same host via `_webBase()`.
-</details>
+## GitHub Enterprise Server
+
+Configure the API host for your Enterprise instance. GitHub.com and Enterprise installations may use different API and web URL formats.
+
+If your Enterprise instance is hosted under a URL path rather than directly at the domain root, verify that generated browser links preserve that path. Support for a particular Enterprise deployment layout depends on the current implementation.
 
 ## Troubleshooting
 
-* Shell errors/logs: `journalctl -f /usr/bin/gnome-shell`
-* Interactive debug console (X11): press **Alt+F2** and enter `lg`
-* Not seeing anything? Make sure the token is valid, the repo names are `owner/repo` format, and the network is on a FULL connection.
+- **No notifications:** Check that the token is valid and has the required permissions.
+- **Repository watching does not work:** Verify each repository uses the `owner/repo` format and that the token can access it.
+- **Rate-limit errors:** Reduce polling frequency or wait for the applicable GitHub rate limit to reset.
+- **Connection-related issues:** Check that your network is fully connected.
+- **GNOME Shell logs:** Follow the shell log with:
+
+  ```bash
+  journalctl -f /usr/bin/gnome-shell
+  ```
+
+- **Looking Glass:** On X11, press **Alt+F2** and enter `lg` to open GNOME Shell's debugging tool.
 
 ## Uninstall
+
+Disable the extension, remove its directory, and reset its settings:
 
 ```bash
 gnome-extensions disable github-notifier@local
@@ -83,4 +115,6 @@ dconf reset -f /org/gnome/shell/extensions/github-notifier/
 
 ## Feedback
 
-Bugs, ideas, or PRs are welcome at [github.com/SakibShahariar/github-notifier](https://github.com/SakibShahariar/github-notifier).
+Bug reports, feature ideas, and contributions are welcome:
+
+[GitHub repository](https://github.com/SakibShahariar/github-notifier)
