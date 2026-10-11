@@ -115,6 +115,4 @@ dconf reset -f /org/gnome/shell/extensions/github-notifier/
 
 ## Feedback
 
-Bug reports, feature ideas, and contributions are welcome:
-
-[GitHub repository](https://github.com/SakibShahariar/github-notifier)
+Found a bug or have an idea? Open an [issue](https://github.com/SakibShahariar/github-notifier/issues) or contribute via a pull request.
