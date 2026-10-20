@@ -19,7 +19,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
 
         const accountGroup = new Adw.PreferencesGroup({
             title: 'GitHub account',
-            description: 'PAT needs notifications + repo scopes.',
+            description: 'Use a classic personal access token. The inbox needs the notifications scope; repo scope is only needed for private repositories you watch.',
         });
         accountPage.add(accountGroup);
 
