@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
+import {getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -2077,6 +2077,52 @@ class Indicator extends PanelMenu.Button {
         return false;
     }
 
+    _githubCliLaunchConfig(item) {
+        const commandArgs = getGitHubCliArguments(item);
+        const ghPath = GLib.find_program_in_path('gh');
+        if (!commandArgs || !ghPath)
+            return null;
+
+        const terminals = [
+            {name: 'kgx', args: ['--']},
+            {name: 'ptyxis', args: ['--new-window', '--']},
+            {name: 'gnome-terminal', args: ['--']},
+            {name: 'x-terminal-emulator', args: ['-e']},
+        ];
+        for (const terminal of terminals) {
+            const path = GLib.find_program_in_path(terminal.name);
+            if (path)
+                return {argv: [path, ...terminal.args, ghPath, ...commandArgs]};
+        }
+        return null;
+    }
+
+    _openWithGitHubCli(item) {
+        const config = this._githubCliLaunchConfig(item);
+        if (!config) {
+            this._setActionStatus('GitHub CLI or a supported terminal is unavailable');
+            this._addTransientTimeout(4, () => {
+                this._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
+            return false;
+        }
+
+        try {
+            GLib.spawn_async(null, config.argv, null, GLib.SpawnFlags.SEARCH_PATH, null);
+            this._handleOpenedItem(item);
+            return true;
+        } catch (e) {
+            logError(e, 'github-notifier: failed to launch GitHub CLI');
+            this._setActionStatus(`Could not launch GitHub CLI: ${e.message}`);
+            this._addTransientTimeout(4, () => {
+                this._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
+            return false;
+        }
+    }
+
     _handleOpenedItem(item) {
         if (item.kind === 'notification' && item.rawId) {
             if (this._settings.get_boolean('mark-read-on-open'))
@@ -2119,6 +2165,25 @@ class Indicator extends PanelMenu.Button {
         const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         container.add_child(rowBox);
         const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+        const githubCliConfig = this._githubCliLaunchConfig(item);
+        if (githubCliConfig) {
+            const cliButton = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({
+                    icon_name: 'utilities-terminal-symbolic',
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                }),
+            });
+            cliButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+            this._setTooltip(cliButton, 'Open with GitHub CLI');
+            cliButton.connect('clicked', () => {
+                this._openWithGitHubCli(item);
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(cliButton);
+        }
         const readIcon = new St.Icon({
             icon_name: 'object-select-symbolic',
             style_class: 'github-notifier-read-icon',
