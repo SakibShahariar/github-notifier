@@ -177,6 +177,9 @@ class Indicator extends PanelMenu.Button {
         this._retryAfterEpoch = 0; // server-directed retry delay (Retry-After)
         this._networkFailureCount = 0;
         this._networkRetryAfterEpoch = 0;
+        this._pollCancellable = null;
+        this._pollDeadlineId = null;
+        this._restartPollRequested = false;
         this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
         this._polling = false; // prevents overlapping poll cycles
         this._accountRefreshPending = false; // rerun after an in-flight poll when host/token changes
@@ -1035,9 +1038,9 @@ class Indicator extends PanelMenu.Button {
         return msg;
     }
 
-    async _sendOnce(method, uri, token, body, headers = {}) {
+    async _sendOnce(method, uri, token, body, headers = {}, cancellable = null) {
         const msg = this._buildMessage(method, uri, token, body, headers);
-        const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+        const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, cancellable);
         return {bytes, msg};
     }
 
@@ -1052,20 +1055,21 @@ class Indicator extends PanelMenu.Button {
 
     async _apiRequest(method, path, {body = null, headers = {}} = {}) {
         const requestScope = this._stateScope();
+        const cancellable = this._polling ? this._pollCancellable : null;
         const token = this._settings.get_string('github-token');
         const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
 
         let bytes, msg;
         try {
-            ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers));
+            ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers, cancellable));
         } catch (firstError) {
-            if (this._destroyed)
+            if (this._destroyed || (cancellable && cancellable.is_cancelled()))
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             await this._sleep(1000);
-            if (this._destroyed)
+            if (this._destroyed || (cancellable && cancellable.is_cancelled()))
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             try {
-                ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers));
+                ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers, cancellable));
             } catch (secondError) {
                 throw new ApiError(`Network error: ${secondError.message}`, 0);
             }
@@ -1156,6 +1160,19 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- polling ----------
+    _refreshNow() {
+        if (this._destroyed || this._paused)
+            return;
+        if (this._polling) {
+            // A manual refresh should not be ignored behind a stalled request.
+            // Cancel the active cycle and queue exactly one fresh cycle in finally.
+            this._restartPollRequested = true;
+            this._pollCancellable?.cancel();
+            return;
+        }
+        this._poll();
+    }
+
     async _poll() {
         if (this._paused || this._destroyed || this._polling || this._markingAllRead)
             return;
@@ -1197,6 +1214,15 @@ class Indicator extends PanelMenu.Button {
 
         this._polling = true;
         const pollScope = this._stateScope();
+        const pollCancellable = new Gio.Cancellable();
+        this._pollCancellable = pollCancellable;
+        // Bound the total cycle even when many individually slow requests are queued.
+        this._pollDeadlineId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 60, () => {
+            this._pollDeadlineId = null;
+            if (this._pollCancellable === pollCancellable && !pollCancellable.is_cancelled())
+                pollCancellable.cancel();
+            return GLib.SOURCE_REMOVE;
+        });
         this._updateHero();
         this._startRefreshSpin();
         const state = this._loadState();
@@ -1328,7 +1354,7 @@ class Indicator extends PanelMenu.Button {
             this._updateHero();
             this._updatePanel();
         } catch (e) {
-            if (this._destroyed)
+            if (this._destroyed || this._restartPollRequested)
                 return;
             if (this._stateScope() !== pollScope) {
                 this._accountRefreshPending = true;
@@ -1372,12 +1398,20 @@ class Indicator extends PanelMenu.Button {
             this._updateHero();
             this._updatePanel();
         } finally {
+            if (this._pollDeadlineId) {
+                GLib.source_remove(this._pollDeadlineId);
+                this._pollDeadlineId = null;
+            }
+            if (this._pollCancellable === pollCancellable)
+                this._pollCancellable = null;
             this._polling = false;
             if (this._serverPollIntervalSeconds > 0 || this._networkRetryAfterEpoch > 0)
                 this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
-            if (this._accountRefreshPending && !this._destroyed) {
+            const restartAfterRefresh = this._restartPollRequested && !this._destroyed && !this._paused;
+            this._restartPollRequested = false;
+            if ((this._accountRefreshPending || restartAfterRefresh) && !this._destroyed) {
                 this._accountRefreshPending = false;
                 GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                     if (!this._destroyed)
@@ -2093,7 +2127,7 @@ class Indicator extends PanelMenu.Button {
             showMarkAll: false,
             isPaused: this._paused,
             onPauseToggle: () => this._togglePause(),
-            onRefresh: () => this._poll(),
+            onRefresh: () => this._refreshNow(),
         });
 
         // when truly empty
@@ -2165,7 +2199,7 @@ class Indicator extends PanelMenu.Button {
                     this._dismissActivityItem(item);
             });
             if (this._rateLimitResetEpoch > Math.floor(Date.now() / 1000)) {
-                notification.addAction('Retry now', () => this._poll());
+                notification.addAction('Retry now', () => this._refreshNow());
             }
             source.addNotification(notification);
         }
@@ -2183,6 +2217,11 @@ class Indicator extends PanelMenu.Button {
 
     destroy() {
         this._destroyed = true;
+        this._pollCancellable?.cancel();
+        if (this._pollDeadlineId) {
+            GLib.source_remove(this._pollDeadlineId);
+            this._pollDeadlineId = null;
+        }
         try { this._stopRefreshSpin(); } catch (e) {}
         try { this._removeMatugenTheme(); } catch (e) {}
         if (this._timeoutId) {
