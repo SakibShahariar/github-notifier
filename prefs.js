@@ -312,8 +312,8 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
 
         const intervalRow = new Adw.SpinRow({
             title: 'Interval',
-            subtitle: 'Seconds, min 30s',
-            adjustment: new Gtk.Adjustment({lower: 30, upper: 3600, step_increment: 30}),
+            subtitle: 'Seconds, min 60s',
+            adjustment: new Gtk.Adjustment({lower: 60, upper: 3600, step_increment: 30}),
         });
         intervalRow.add_prefix(new Gtk.Image({icon_name: 'alarm-symbolic', pixel_size: 16}));
         settings.bind('poll-interval', intervalRow, 'value', Gio.SettingsBindFlags.DEFAULT);
