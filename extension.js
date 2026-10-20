@@ -1177,8 +1177,12 @@ class Indicator extends PanelMenu.Button {
             logError(e, 'github-notifier poll failed');
             if (e instanceof ApiError && e.status === 401)
                 this._setStatusBanner('Invalid token — check Settings', 'error');
-            else if (e instanceof ApiError && e.status === 403)
-                this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
+            else if (e instanceof ApiError && e.status === 403) {
+                if (e.message.toLowerCase().includes('rate limited'))
+                    this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
+                else
+                    this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
+            }
             else
                 this._setStatusBanner(`Error: ${e.message}`, 'error');
             this._updateHero();
@@ -1355,7 +1359,7 @@ class Indicator extends PanelMenu.Button {
                         maxId = issue.number;
                 }
                 const hasMoreNew = data2.some(issue => issue.number > repoState.lastIssueNumber);
-                if (hasMoreNew || data2.length === 20) {
+                if (hasMoreNew) {
                     items.push({
                         id: `${repo}-more-${maxId}`,
                         title: 'More new issues/PRs than shown — check the repo directly',
