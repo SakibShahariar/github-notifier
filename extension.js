@@ -245,6 +245,11 @@ class Indicator extends PanelMenu.Button {
             // Queue a fresh poll; the old result is discarded before it can be saved.
             if (this._polling)
                 this._accountRefreshPending = true;
+            // Rate-limit headers are host/account-specific; do not carry the old
+            // account's API backoff into the newly selected account.
+            this._rateLimitResetEpoch = 0;
+            this._retryAfterEpoch = 0;
+            this._serverPollIntervalSeconds = 0;
             const state = this._loadState();
             this._notificationItems = Array.isArray(state.notificationItems)
                 ? state.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
@@ -1065,6 +1070,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     async _apiRequest(method, path, {body = null, headers = {}} = {}) {
+        const requestScope = this._stateScope();
         const token = this._settings.get_string('github-token');
         const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
 
@@ -1085,16 +1091,19 @@ class Indicator extends PanelMenu.Button {
         }
 
         const status = msg.get_status();
+        // Ignore throttling metadata from a request that completed after the
+        // user switched accounts or API hosts.
+        const requestScopeIsCurrent = requestScope === this._stateScope();
         const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
         const reset = msg.response_headers.get_one('X-RateLimit-Reset');
         const retryAfter = msg.response_headers.get_one('Retry-After');
         const pollInterval = msg.response_headers.get_one('X-Poll-Interval');
-        if (method === 'GET' && path.startsWith('/notifications') && pollInterval) {
+        if (requestScopeIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
             const parsedInterval = Number.parseInt(pollInterval, 10);
             if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
                 this._serverPollIntervalSeconds = parsedInterval;
         }
-        if (retryAfter) {
+        if (requestScopeIsCurrent && retryAfter) {
             const seconds = Number.parseInt(retryAfter, 10);
             const retryDate = Number.isFinite(seconds) && String(seconds) === retryAfter.trim()
                 ? Date.now() / 1000 + Math.max(0, seconds)
@@ -1102,11 +1111,11 @@ class Indicator extends PanelMenu.Button {
             if (Number.isFinite(retryDate))
                 this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.ceil(retryDate));
         }
-        if (remaining === '0' && reset)
+        if (requestScopeIsCurrent && remaining === '0' && reset)
             this._rateLimitResetEpoch = parseInt(reset, 10);
-        if ((status === 403 || status === 429) && !retryAfter && !(remaining === '0' && reset))
+        if (requestScopeIsCurrent && (status === 403 || status === 429) && !retryAfter && !(remaining === '0' && reset))
             this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.floor(Date.now() / 1000) + 60);
-        if (status >= 200 && status < 300) {
+        if (requestScopeIsCurrent && status >= 200 && status < 300) {
             this._rateLimitResetEpoch = 0;
             this._retryAfterEpoch = 0;
         }
