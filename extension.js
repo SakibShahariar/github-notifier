@@ -172,7 +172,9 @@ class Indicator extends PanelMenu.Button {
         this._ext = extensionObject;
         this._settings = extensionObject.getSettings();
         this._session = new Soup.Session();
-        this._session.timeout = 15;
+        // Fail faster when the network is unavailable; one short retry below
+        // prevents a single request from stalling the entire poll cycle.
+        this._session.timeout = 8;
         this._notificationItems = []; // live mirror of GitHub's current unread inbox
         this._activityItems = []; // accumulated issue/PR/star events, cleared on mark-all-read
         this._timeoutId = null;
@@ -974,7 +976,7 @@ class Indicator extends PanelMenu.Button {
         } catch (firstError) {
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
-            await this._sleep(3000);
+            await this._sleep(1000);
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             try {
@@ -1087,7 +1089,7 @@ class Indicator extends PanelMenu.Button {
                 try {
                     notificationItems = await this._pollNotifications(state);
                 } catch (e) {
-                    if (e instanceof ApiError && (e.status === 401 || e.status === 403))
+                    if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
                         throw e;
                     // Preserve the last known inbox when a refresh fails.
                     // An empty array here would incorrectly erase the badge/list.
@@ -1125,7 +1127,7 @@ class Indicator extends PanelMenu.Button {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
                         } catch (e) {
-                            if (e instanceof ApiError && (e.status === 401 || e.status === 403))
+                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
                                 throw e;
                             errors.push(`${repo} issues: ${e.message}`);
                             logError(e, `github-notifier: issues poll failed for ${repo}`);
