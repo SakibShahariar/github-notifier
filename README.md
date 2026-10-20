@@ -20,6 +20,8 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | 🔔 **Desktop notifications** | Per-item notifications with Open and Mark read actions, plus a summary for notification bursts. |
 | ⏸️ **Pause polling** | Temporarily stop checks from the panel menu. |
 | 👁️ **Hide when empty** | Keep the panel icon hidden when there is nothing to show, unless an error needs attention. |
+| **Mark read on open** | Choose whether opening a notification also marks it as read on GitHub. |
+| **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available. |
 
 The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
 
@@ -72,6 +74,7 @@ gnome-extensions prefs github-notifier@local
 | **API host** | GitHub's API host, or the API endpoint for your GitHub Enterprise Server instance. |
 | **Repositories** | Comma-separated repository names in `owner/repo` format. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
+| **Mark notifications read when opened** | Turn off to open notification links without automatically marking them read. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
 
@@ -80,6 +83,16 @@ Settings are organized into **Account**, **Watching**, and **Settings** sections
 **The inbox requires a classic personal access token**: GitHub's notifications endpoints do not currently support fine-grained personal access tokens. Grant the classic token the `notifications` scope for the inbox. Repository watching uses the issues, pull requests, and repository endpoints; use the `repo` scope if you need access to private repositories, and avoid granting it when you only use public repositories and your setup works without it. GitHub's notifications API also accepts `repo` in place of `notifications`, but `notifications` is the narrower choice for inbox access. Marking notifications read requires the token to have the relevant write access; if that action is rejected, the item remains visible.
 
 The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed.
+
+## Automated checks
+
+GitHub Actions runs source-level checks on pushes to `main`:
+
+- JavaScript syntax checks for the extension, preferences, and shared repository validator.
+- JSON parsing for `metadata.json`.
+- Strict validation of the GSettings schema.
+
+These checks do not replace testing inside GNOME Shell; runtime behavior and compatibility still need verification in a GNOME session.
 
 ## How it works
 
