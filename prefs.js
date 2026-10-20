@@ -245,7 +245,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             repoRows.push(row);
             // initial validation without double-sync
             const txt = row.get_text().trim();
-            const isInvalid = txt.length > 0 && !REPO_RE.test(txt);
+            const isInvalid = txt.length > 0 && !isValidRepository(txt);
             if (isInvalid) row.add_css_class('error');
             warnIcon.set_visible(isInvalid);
             return row;
