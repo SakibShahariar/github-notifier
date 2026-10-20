@@ -82,7 +82,7 @@ Settings are organized into **Account**, **Watching**, and **Settings** sections
 
 **The inbox requires a classic personal access token**: GitHub's notifications endpoints do not currently support fine-grained personal access tokens. Grant the classic token the `notifications` scope for the inbox. Repository watching uses the issues, pull requests, and repository endpoints; use the `repo` scope if you need access to private repositories, and avoid granting it when you only use public repositories and your setup works without it. GitHub's notifications API also accepts `repo` in place of `notifications`, but `notifications` is the narrower choice for inbox access. Marking notifications read requires the token to have the relevant write access; if that action is rejected, the item remains visible.
 
-The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed.
+The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed. See [the token storage security review](docs/security-model.md) for the Secret Service evaluation and migration requirements.
 
 ## Automated checks
 
