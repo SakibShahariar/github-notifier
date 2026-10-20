@@ -191,6 +191,8 @@ class Indicator extends PanelMenu.Button {
         this._destroyed = false;
         this._paused = false;
         this._rateLimitResetEpoch = 0; // unix seconds; 0 = not rate-limited
+        this._retryAfterEpoch = 0; // server-directed retry delay (Retry-After)
+        this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
         this._polling = false; // prevents overlapping poll cycles
         this._statusIsError = false; // keeps the indicator visible while a problem is showing
         this._notificationsPage = 0;
@@ -429,7 +431,8 @@ class Indicator extends PanelMenu.Button {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
         }
-        const interval = Math.max(60, this._settings.get_int('poll-interval'));
+        const configuredInterval = Math.max(60, this._settings.get_int('poll-interval'));
+        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds);
         this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             this._poll();
             return GLib.SOURCE_CONTINUE;
@@ -1067,15 +1070,32 @@ class Indicator extends PanelMenu.Button {
         const status = msg.get_status();
         const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
         const reset = msg.response_headers.get_one('X-RateLimit-Reset');
+        const retryAfter = msg.response_headers.get_one('Retry-After');
+        const pollInterval = msg.response_headers.get_one('X-Poll-Interval');
+        if (method === 'GET' && path.startsWith('/notifications') && pollInterval) {
+            const parsedInterval = Number.parseInt(pollInterval, 10);
+            if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
+                this._serverPollIntervalSeconds = Math.min(parsedInterval, 3600);
+        }
+        if (retryAfter) {
+            const seconds = Number.parseInt(retryAfter, 10);
+            const retryDate = Number.isFinite(seconds) && String(seconds) === retryAfter.trim()
+                ? Date.now() / 1000 + Math.max(0, seconds)
+                : Date.parse(retryAfter) / 1000;
+            if (Number.isFinite(retryDate))
+                this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.ceil(retryDate));
+        }
         if (remaining === '0' && reset)
             this._rateLimitResetEpoch = parseInt(reset, 10);
-        else if (status >= 200 && status < 300)
+        else if (status >= 200 && status < 300) {
             this._rateLimitResetEpoch = 0;
+            this._retryAfterEpoch = 0;
+        }
 
         if (status === 401)
             throw new ApiError('Invalid or expired token', 401);
-        if (status === 403 && remaining === '0')
-            throw new ApiError('Rate limited by GitHub API', 403);
+        if ((status === 403 && remaining === '0') || status === 429)
+            throw new ApiError('Rate limited by GitHub API', status);
         if (status === 404)
             throw new ApiError(`Not found: ${path}`, 404);
         if (status < 200 || status >= 300)
@@ -1154,8 +1174,9 @@ class Indicator extends PanelMenu.Button {
         }
 
         const nowEpoch = Math.floor(Date.now() / 1000);
-        if (this._rateLimitResetEpoch > nowEpoch) {
-            const waitMin = Math.ceil((this._rateLimitResetEpoch - nowEpoch) / 60);
+        const retryEpoch = Math.max(this._rateLimitResetEpoch, this._retryAfterEpoch);
+        if (retryEpoch > nowEpoch) {
+            const waitMin = Math.ceil((retryEpoch - nowEpoch) / 60);
             this._setStatusBanner(`Rate limited — retrying in ~${waitMin} min`, 'error');
             this._updateHero();
             this._updatePanel();
@@ -1284,9 +1305,16 @@ class Indicator extends PanelMenu.Button {
             logError(e, 'github-notifier poll failed');
             if (e instanceof ApiError && e.status === 401) {
                 this._setStatusBanner('Invalid token — check Settings', 'error');
-            } else if (e instanceof ApiError && e.status === 403) {
-                if (e.message.toLowerCase().includes('rate limited'))
-                    this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
+            } else if (e instanceof ApiError && (e.status === 403 || e.status === 429)) {
+                if (e.message.toLowerCase().includes('rate limited')) {
+                    const retryEpoch = Math.max(this._rateLimitResetEpoch, this._retryAfterEpoch);
+                    const waitMin = retryEpoch > Math.floor(Date.now() / 1000)
+                        ? Math.ceil((retryEpoch - Date.now() / 1000) / 60)
+                        : null;
+                    this._setStatusBanner(waitMin
+                        ? `Rate limited by GitHub — retrying in ~${waitMin} min`
+                        : 'Rate limited by GitHub — will retry later', 'error');
+                } else
                 else
                     this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
             } else if (e instanceof ApiError && e.status === 0) {
@@ -1300,6 +1328,8 @@ class Indicator extends PanelMenu.Button {
             this._updatePanel();
         } finally {
             this._polling = false;
+            if (this._serverPollIntervalSeconds > 0)
+                this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
         }
