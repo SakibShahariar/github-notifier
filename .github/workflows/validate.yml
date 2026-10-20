@@ -31,6 +31,9 @@ jobs:
             node --check --input-type=module < "$file"
           done
 
+      - name: Run repository validation tests
+        run: node --test tests/*.test.mjs
+
       - name: Validate extension metadata JSON
         run: python3 -m json.tool metadata.json > /dev/null
 
