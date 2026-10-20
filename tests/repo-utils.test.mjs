@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {getNotificationCategory, isValidRepository} = await import(helperUrl);
+const {getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -64,4 +64,21 @@ test('maps GitHub notification reasons to filter categories', () => {
     for (const [item, expected] of cases) {
         assert.equal(getNotificationCategory(item), expected, JSON.stringify(item));
     }
+});
+
+test('parses and normalizes a comma-separated muted repository list', () => {
+    assert.deepEqual(
+        parseRepositoryList(' Gnome/gnome-shell, owner/repo, gnome/GNOME-SHELL, invalid, ,owner/repo '),
+        ['gnome/gnome-shell', 'owner/repo']
+    );
+    assert.deepEqual(parseRepositoryList(null), []);
+    assert.deepEqual(parseRepositoryList('not-a-repo, owner/'), []);
+});
+
+test('matches muted repositories case-insensitively', () => {
+    const muted = new Set(parseRepositoryList('GNOME/gnome-shell, owner/repo'));
+    assert.equal(isRepositoryMuted('gnome/GNOME-SHELL', muted), true);
+    assert.equal(isRepositoryMuted('OWNER/REPO', muted), true);
+    assert.equal(isRepositoryMuted('gnome/mutter', muted), false);
+    assert.equal(isRepositoryMuted(undefined, muted), false);
 });
