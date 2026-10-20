@@ -7,6 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {isValidRepository} from './repo-utils.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -18,7 +19,6 @@ const MAX_NOTIFICATION_PAGES = 3;
 const ACTIVITY_PREVIEW = 5;
 const ACTIVITY_EXPANDED = MAX_RECENT;
 const NOTIF_PAGE_SIZE = 5;
-const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 
 // --- Matugen helpers (same idea as update-checker@local) ---
 function hexToRgba(hex, alpha) {
@@ -1241,7 +1241,7 @@ class Indicator extends PanelMenu.Button {
                 const repos = Array.from(new Set(rawRepos));
 
                 for (const repo of repos) {
-                    if (!REPO_RE.test(repo)) {
+                    if (!isValidRepository(repo)) {
                         errors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
                         continue;
                     }
