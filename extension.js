@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {isValidRepository} from './repo-utils.js';
+import {getNotificationCategory, isValidRepository} from './repo-utils.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -520,20 +520,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notificationCategory(item) {
-        const reason = String(item.notificationReason || item.reasonLabel || '')
-            .trim().toLowerCase().replaceAll(' ', '_');
-        if (reason === 'mention' || reason === 'team_mention')
-            return 'mentions';
-        if (['review_requested', 'requested_reviewer', 'approval_requested', 'review_request_removed'].includes(reason))
-            return 'reviews';
-        if (reason === 'assign' || reason === 'assigned')
-            return 'assignments';
-        if (reason === 'ci_activity' || ['CheckSuite', 'WorkflowRun'].includes(item.subjectType))
-            return 'checks';
-        if (['author', 'comment', 'manual', 'state_change', 'subscribed', 'new_comment',
-            'update_on_your_thread', 'state_changed', 'activity'].includes(reason))
-            return 'conversation';
-        return 'other';
+        return getNotificationCategory(item);
     }
 
     _isNotificationTypeEnabled(item) {
