@@ -192,6 +192,8 @@ class Indicator extends PanelMenu.Button {
         this._paused = false;
         this._rateLimitResetEpoch = 0; // unix seconds; 0 = not rate-limited
         this._retryAfterEpoch = 0; // server-directed retry delay (Retry-After)
+        this._networkFailureCount = 0;
+        this._networkRetryAfterEpoch = 0;
         this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
         this._polling = false; // prevents overlapping poll cycles
         this._statusIsError = false; // keeps the indicator visible while a problem is showing
@@ -267,6 +269,11 @@ class Indicator extends PanelMenu.Button {
             if (!available || this._destroyed ||
                 monitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
                 return;
+
+            // A real network recovery is a new opportunity; don't carry the
+            // exponential delay from the previous failed connection forward.
+            this._networkFailureCount = 0;
+            this._networkRetryAfterEpoch = 0;
 
             // Network changes can fire in bursts while Wi-Fi/VPN reconnects.
             // Debounce the immediate poll rather than starting repeated cycles.
@@ -432,7 +439,8 @@ class Indicator extends PanelMenu.Button {
             this._timeoutId = null;
         }
         const configuredInterval = Math.max(60, this._settings.get_int('poll-interval'));
-        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds);
+        const backoffSeconds = Math.max(0, this._networkRetryAfterEpoch - Math.floor(Date.now() / 1000));
+        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds, backoffSeconds);
         this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             this._poll();
             return GLib.SOURCE_CONTINUE;
@@ -1269,6 +1277,10 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 return;
 
+            if (errors.length === 0 && !notificationPollFailed) {
+                this._networkFailureCount = 0;
+                this._networkRetryAfterEpoch = 0;
+            }
             this._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
             this._persistCurrentItems(state);
 
@@ -1325,7 +1337,13 @@ class Indicator extends PanelMenu.Button {
                     this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
                 }
             } else if (e instanceof ApiError && e.status === 0) {
-                this._setStatusBanner('GitHub is unreachable — check your connection', 'error');
+                this._networkFailureCount = Math.min(this._networkFailureCount + 1, 5);
+                const backoffSeconds = Math.min(900, 60 * (2 ** (this._networkFailureCount - 1)));
+                this._networkRetryAfterEpoch = Math.floor(Date.now() / 1000) + backoffSeconds;
+                const retryLabel = backoffSeconds < 60
+                    ? `${backoffSeconds} seconds`
+                    : `${Math.ceil(backoffSeconds / 60)} minute${backoffSeconds >= 120 ? 's' : ''}`;
+                this._setStatusBanner(`GitHub is unreachable — retrying in ${retryLabel}`, 'error');
             } else if (e instanceof ApiError && e.status >= 500) {
                 this._setStatusBanner('GitHub is temporarily unavailable — will retry later', 'error');
             } else {
@@ -1335,7 +1353,7 @@ class Indicator extends PanelMenu.Button {
             this._updatePanel();
         } finally {
             this._polling = false;
-            if (this._serverPollIntervalSeconds > 0)
+            if (this._serverPollIntervalSeconds > 0 || this._networkRetryAfterEpoch > 0)
                 this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
