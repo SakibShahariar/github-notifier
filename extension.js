@@ -1747,7 +1747,6 @@ class Indicator extends PanelMenu.Button {
             statusIsError: this._statusIsError,
             statusText: this._statusItem?.label?.text || '',
             rateLimitReset: this._rateLimitResetEpoch,
-            lastFetchedAt: this._lastFetchedAt,
         });
         if (newHash === this._lastRenderHash) {
             return;
