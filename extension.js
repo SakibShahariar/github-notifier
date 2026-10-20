@@ -175,8 +175,10 @@ class Indicator extends PanelMenu.Button {
         // Fail faster when the network is unavailable; one short retry below
         // prevents a single request from stalling the entire poll cycle.
         this._session.timeout = 8;
-        this._notificationItems = []; // live mirror of GitHub's current unread inbox
         const persistedState = this._loadState();
+        this._notificationItems = Array.isArray(persistedState.notificationItems)
+            ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
+            : []; // cached inbox, restored when GitHub is temporarily unavailable
         this._activityItems = Array.isArray(persistedState.activityItems)
             ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
             : []; // accumulated issue/PR/star events, restored across shell restarts
@@ -197,7 +199,9 @@ class Indicator extends PanelMenu.Button {
         this._markAllArmed = false;
         this._markAllTimer = null;
         this._markingAllRead = false; // true while PUT /notifications is in flight
-        this._lastFetchedAt = null;
+        this._lastFetchedAt = typeof persistedState.lastFetchedAt === 'string'
+            ? persistedState.lastFetchedAt
+            : null;
 
         // --- panel button contents ---
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
@@ -954,6 +958,14 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
+    _persistCurrentItems(state = null) {
+        const currentState = state || this._loadState();
+        currentState.activityItems = this._activityItems.slice(0, MAX_RECENT);
+        currentState.notificationItems = this._notificationItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
+        currentState.lastFetchedAt = this._lastFetchedAt;
+        this._saveState(currentState);
+    }
+
     // ---------- HTTP helper ----------
     _sleep(ms) {
         return new Promise(resolve => {
@@ -1218,8 +1230,7 @@ class Indicator extends PanelMenu.Button {
                 return;
 
             this._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
-            state.activityItems = this._activityItems.slice(0, MAX_RECENT);
-            this._saveState(state);
+            this._persistCurrentItems(state);
 
             if (baselineNotes.length > 0)
                 this._notifyBaseline(baselineNotes);
@@ -1524,6 +1535,7 @@ class Indicator extends PanelMenu.Button {
             return;
         }
         this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
+        this._persistCurrentItems();
         this._setActionStatus('');
         this._renderList();
         this._updatePanel();
@@ -1532,9 +1544,7 @@ class Indicator extends PanelMenu.Button {
 
     _dismissActivityItem(item) {
         this._activityItems = this._activityItems.filter(i => i.id !== item.id);
-        const state = this._loadState();
-        state.activityItems = this._activityItems.slice(0, MAX_RECENT);
-        this._saveState(state);
+        this._persistCurrentItems();
         this._renderList();
         this._updatePanel();
         this._updateHero();
@@ -1592,9 +1602,7 @@ class Indicator extends PanelMenu.Button {
                 return;
             this._notificationItems = [];
             this._activityItems = [];
-            const state = this._loadState();
-            state.activityItems = [];
-            this._saveState(state);
+            this._persistCurrentItems();
             this._notificationsPage = 0;
             this._markingAllRead = false;
             this._renderList();
