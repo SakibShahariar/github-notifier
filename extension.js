@@ -1994,15 +1994,21 @@ class Indicator extends PanelMenu.Button {
         return false;
     }
 
+    _handleOpenedItem(item) {
+        if (item.kind === 'notification' && item.rawId) {
+            if (this._settings.get_boolean('mark-read-on-open'))
+                this._markThreadRead(item);
+        } else {
+            this._dismissActivityItem(item);
+        }
+    }
+
     _addRow(section, item) {
         const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
         menuItem.connect('activate', () => {
             if (!this._openUri(item.url))
                 return;
-            if (item.kind === 'notification' && item.rawId)
-                this._markThreadRead(item);
-            else
-                this._dismissActivityItem(item);
+            this._handleOpenedItem(item);
         });
 
         const rowBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-row-inner', y_align: Clutter.ActorAlign.CENTER});
@@ -2306,18 +2312,12 @@ class Indicator extends PanelMenu.Button {
             notification.connect('activated', () => {
                 if (!this._openUri(item.url))
                     return;
-                if (item.kind === 'notification' && item.rawId)
-                    this._markThreadRead(item);
-                else
-                    this._dismissActivityItem(item);
+                this._handleOpenedItem(item);
             });
             notification.addAction('Open', () => {
                 if (!this._openUri(item.url))
                     return;
-                if (item.kind === 'notification' && item.rawId)
-                    this._markThreadRead(item);
-                else
-                    this._dismissActivityItem(item);
+                this._handleOpenedItem(item);
             });
             const dismissLabel = item.kind === 'notification' ? 'Mark read' : 'Dismiss';
             notification.addAction(dismissLabel, () => {
