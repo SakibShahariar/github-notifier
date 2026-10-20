@@ -1871,7 +1871,7 @@ class Indicator extends PanelMenu.Button {
                 expanded: this._issuesExpanded,
                 count: issuePrItems.length,
                 onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
-                showOpen: true,
+                showOpen: new Set(issuePrItems.map(item => item.subtitle)).size === 1,
                 openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${issuePrItems[0].subtitle}/issues`,
             });
@@ -1891,7 +1891,7 @@ class Indicator extends PanelMenu.Button {
                 expanded: this._starsExpanded,
                 count: starItems.length,
                 onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
-                showOpen: true,
+                showOpen: new Set(starItems.map(item => item.subtitle)).size === 1,
                 openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${starItems[0].subtitle}/stargazers`,
             });
