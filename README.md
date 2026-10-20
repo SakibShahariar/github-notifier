@@ -162,6 +162,10 @@ rm -rf ~/.local/share/gnome-shell/extensions/github-notifier@SakibShahariar
 dconf reset -f /org/gnome/shell/extensions/github-notifier/
 ```
 
+## License
+
+This project is licensed under the **GNU General Public License v3.0 or later**. See [`LICENSE`](LICENSE) for the full license text.
+
 ## Feedback
 
 Found a bug or have an idea? Open an [issue](https://github.com/SakibShahariar/github-notifier/issues). Contributions are welcome.
