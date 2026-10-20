@@ -71,13 +71,13 @@ gnome-extensions prefs github-notifier@local
 | **Username** | Your GitHub username. |
 | **API host** | GitHub's API host, or the API endpoint for your GitHub Enterprise Server instance. |
 | **Repositories** | Comma-separated repository names in `owner/repo` format. |
-| **Poll interval** | How often to check for updates: 30–3600 seconds, with a default of 120 seconds. |
+| **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
 
 ### Token permissions and security
 
-Use a token with only the permissions needed for your setup. Private repositories may require additional repository access. Actions that modify notification read status need the relevant write permission; a read-only token will not support every action.
+**The inbox requires a classic personal access token**: GitHub's notifications endpoints do not currently support fine-grained personal access tokens. Grant the classic token the `notifications` scope for the inbox. Repository watching uses the issues, pull requests, and repository endpoints; use the `repo` scope if you need access to private repositories, and avoid granting it when you only use public repositories and your setup works without it. GitHub's notifications API also accepts `repo` in place of `notifications`, but `notifications` is the narrower choice for inbox access. Marking notifications read requires the token to have the relevant write access; if that action is rejected, the item remains visible.
 
 The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed.
 
@@ -87,7 +87,7 @@ The token is currently stored in GNOME's GSettings/dconf configuration and is no
 - Checks selected repositories for issues and pull requests.
 - Checks repository star counts for changes.
 - Uses a configurable polling interval and limits the number of notifications displayed.
-- Shows a tracking-status notification when monitoring starts.
+- Reports connection and polling status in the panel when attention is needed.
 
 The panel may display an error indicator when GitHub requests fail. Rate limits and permission errors are different conditions and should be diagnosed accordingly.
 
@@ -123,4 +123,4 @@ dconf reset -f /org/gnome/shell/extensions/github-notifier/
 
 ## Feedback
 
-Found a bug or have an idea? Open an [issue](https://github.com/SakibShahariar/github-notifier/issues) or contribute via a pull request.
+Found a bug or have an idea? Open an [issue](https://github.com/SakibShahariar/github-notifier/issues). Contributions are welcome.
