@@ -6,9 +6,9 @@
       <default>''</default>
       <summary>GitHub Personal Access Token</summary>
       <description>
-        Fine-grained or classic PAT. Needs at least "notifications" read
-        access for mentions/review requests, and "public_repo" (or repo)
-        read access if you watch private repos for issues/PRs/stars.
+        Use a classic personal access token: GitHub's notifications API does
+        not support fine-grained PATs. The notifications scope enables inbox
+        access. The repo scope is needed to watch private repositories.
       </description>
     </key>
 
