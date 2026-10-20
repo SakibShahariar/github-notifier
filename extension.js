@@ -536,13 +536,13 @@ class Indicator extends PanelMenu.Button {
      */
     _ease(actor, props = {}) {
         if (!actor || this._destroyed || !this.hasMotion()) {
-            if (props.opacity !== undefined)
+            if (actor && props.opacity !== undefined)
                 actor.opacity = props.opacity;
-            if (props.scale_x !== undefined)
+            if (actor && props.scale_x !== undefined)
                 actor.scale_x = props.scale_x;
-            if (props.scale_y !== undefined)
+            if (actor && props.scale_y !== undefined)
                 actor.scale_y = props.scale_y;
-            if (props.translation_y !== undefined)
+            if (actor && props.translation_y !== undefined)
                 actor.translation_y = props.translation_y;
             if (typeof props.onComplete === 'function')
                 props.onComplete();
@@ -1559,9 +1559,12 @@ class Indicator extends PanelMenu.Button {
     }
 
     _truncate(text, maxLen) {
-        if (!text || text.length <= maxLen)
+        if (!text)
             return text;
-        return `${text.slice(0, maxLen - 1)}…`;
+        const characters = Array.from(String(text));
+        if (characters.length <= maxLen)
+            return text;
+        return `${characters.slice(0, Math.max(0, maxLen - 1)).join('')}…`;
     }
 
     // --- section helpers — inline Matugen like update-checker@local (guarantees popup reflects new wallpaper even if theme cached) ---
