@@ -1248,7 +1248,19 @@ class Indicator extends PanelMenu.Button {
                 this._notifyBaseline(baselineNotes);
 
             if (errors.length > 0) {
-                this._setStatusBanner(`Some GitHub data could not be refreshed (${errors.length} problem(s)) — see logs`, 'error');
+                const errorText = errors.join(' ').toLowerCase();
+                const intervalSeconds = Math.max(60, this._settings.get_int('poll-interval'));
+                const retryIn = intervalSeconds < 120
+                    ? `about ${intervalSeconds} seconds`
+                    : `about ${Math.ceil(intervalSeconds / 60)} minutes`;
+                let message = `Some GitHub data could not be refreshed — retrying in ${retryIn}; details in logs`;
+                if (/rate limit|rate limited|secondary rate/.test(errorText))
+                    message = `GitHub rate limit reached — retrying in ${retryIn}; details in logs`;
+                else if (/returned 5[0-9]{2}/.test(errorText))
+                    message = `GitHub is temporarily unavailable — retrying in ${retryIn}`;
+                else if (/network error|resolve|tls|timed out|connection reset|socket/.test(errorText))
+                    message = `GitHub is unreachable — retrying in ${retryIn}; details in logs`;
+                this._setStatusBanner(message, 'error');
             } else if (baselineNotes.length > 0) {
                 this._setStatusBanner(`Started tracking ${baselineNotes.length} new watch(es)`, 'info');
                 // auto-hide after 4s like omarchy banner
