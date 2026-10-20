@@ -21,3 +21,18 @@ export function getNotificationCategory(item) {
         return 'conversation';
     return 'other';
 }
+
+export function parseRepositoryList(value) {
+    if (typeof value !== 'string')
+        return [];
+    return Array.from(new Set(
+        value.split(',').map(repository => repository.trim())
+            .filter(repository => isValidRepository(repository))
+            .map(repository => repository.toLowerCase())
+    ));
+}
+
+export function isRepositoryMuted(repository, mutedRepositories) {
+    return typeof repository === 'string' &&
+        mutedRepositories.has(repository.trim().toLowerCase());
+}
