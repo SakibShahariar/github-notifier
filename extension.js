@@ -12,23 +12,6 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
-/** Remove legacy timestamped matugen CSS files from older builds. */
-function cleanOldMatugenCache(prefix) {
-    try {
-        const dir = Gio.File.new_for_path(GLib.get_user_cache_dir());
-        const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-        let info;
-        while ((info = enumerator.next_file(null)) !== null) {
-            const name = info.get_name();
-            if (name.startsWith(prefix) && /^.+-\d+\.css$/.test(name)) {
-                try { dir.get_child(name).delete(null); } catch (e) {}
-            }
-        }
-        enumerator.close(null);
-    } catch (e) {}
-}
-
-
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
@@ -850,11 +833,9 @@ class Indicator extends PanelMenu.Button {
             } catch (e) {
                 mtime = -1;
             }
-            log(`GitHubNotifier _loadMatugenColorsIfChanged: force=${force} mtime=${mtime} cachedMtime=${this._matugenMtime} hasColors=${!!this._matugenColors}`);
             if (force || mtime !== this._matugenMtime || !this._matugenColors) {
                 this._matugenMtime = mtime;
                 this._matugenColors = loadMatugenColors();
-                log(`GitHubNotifier _loadMatugenColorsIfChanged: loaded primary=${this._matugenColors?.primary}`);
             }
         } catch (e) {
             logError(e, 'GitHubNotifier matugen load failed');
@@ -915,7 +896,6 @@ class Indicator extends PanelMenu.Button {
 
     _applyInlineMatugenColors(c) {
         try {
-            log(`GitHubNotifier inline matugen: heroBox bg=${c.primary_container} title=${c.on_primary_container} hasHeroBox=${!!this._heroBox} menuIsOpen=${!!this.menu?.isOpen}`);
             // Color the hero card (matches update-checker's card).
             if (this._heroBox) this._heroBox.set_style(`background-color: ${c.primary_container}; border-color: transparent;`);
             if (this._heroIcon) this._heroIcon.set_style(`color: ${c.on_primary_container};`);
@@ -925,14 +905,6 @@ class Indicator extends PanelMenu.Button {
             // Inline for already-rendered banner/rate/footer if popup was open before rebuild
             // (rebuild via _renderList will also apply inline during creation)
             try { this.menu?.box?.queue_relayout(); } catch (e) {}
-            if (this._heroBox) {
-                try {
-                    const inline = this._heroBox.get_style?.() ?? '(none)';
-                    const node = this._heroBox.get_theme_node?.() ?? null;
-                    const bg = node?.get_background_color?.();
-                    log(`GitHubNotifier inline matugen: heroBox inlineStyle="${inline}" computedBg=${bg}`);
-                } catch (e) { logError(e, 'GitHubNotifier inline diagnostic'); }
-            }
         } catch (e) {}
     }
 
@@ -942,11 +914,9 @@ class Indicator extends PanelMenu.Button {
         try {
             this._matugenMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
             this._matugenMonitor.connect('changed', (monitor, file, otherFile, eventType) => {
-                log(`GitHubNotifier matugen monitor event: ${eventType}`);
                 if (eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT || eventType === Gio.FileMonitorEvent.CHANGED) {
                     this._loadMatugenColorsIfChanged(true);
                     if (this._matugenColors) {
-                        log(`GitHubNotifier monitor: applying colors primary=${this._matugenColors.primary}`);
                         this._applyMatugenThemeInternal(this._matugenColors);
                     }
                 }
@@ -2270,7 +2240,6 @@ class Indicator extends PanelMenu.Button {
 
 export default class GithubNotifierExtension extends Extension {
     enable() {
-        cleanOldMatugenCache('github-notifier-matugen-');
         this._indicator = new Indicator(this);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
