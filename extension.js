@@ -1077,6 +1077,7 @@ class Indicator extends PanelMenu.Button {
         this._startRefreshSpin();
         const state = this._loadState();
         let notificationItems = [];
+        let notificationPollFailed = false;
         let activityItems = [];
         const errors = [];
         const baselineNotes = [];
@@ -1088,6 +1089,10 @@ class Indicator extends PanelMenu.Button {
                 } catch (e) {
                     if (e instanceof ApiError && (e.status === 401 || e.status === 403))
                         throw e;
+                    // Preserve the last known inbox when a refresh fails.
+                    // An empty array here would incorrectly erase the badge/list.
+                    notificationPollFailed = true;
+                    notificationItems = this._notificationItems;
                     errors.push(`Notifications: ${e.message}`);
                     logError(e, 'github-notifier: notifications poll failed');
                 }
@@ -1147,7 +1152,7 @@ class Indicator extends PanelMenu.Button {
                 return;
 
             this._saveState(state);
-            this._afterPoll(notificationItems, activityItems);
+            this._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
 
             if (baselineNotes.length > 0)
                 this._notifyBaseline(baselineNotes);
@@ -1442,14 +1447,15 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- UI update ----------
-    _afterPoll(notificationItems, newActivityItems) {
+    _afterPoll(notificationItems, newActivityItems, {updateFetchedAt = true} = {}) {
         this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
         const toToast = notificationItems.filter(n => n.isNewToast);
 
         if (newActivityItems.length > 0)
             this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
 
-        this._lastFetchedAt = new Date().toISOString();
+        if (updateFetchedAt)
+            this._lastFetchedAt = new Date().toISOString();
         this._renderList();
         this._updatePanel();
         this._updateHero();
