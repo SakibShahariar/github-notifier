@@ -169,6 +169,9 @@ class Indicator extends PanelMenu.Button {
             ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
                 .slice(0, MAX_NOTIFICATION_PAGES * 50)
             : [];
+        this._pendingMarkAllRead = this._isValidPendingMarkAll(persistedState.pendingMarkAllRead)
+            ? persistedState.pendingMarkAllRead
+            : null;
         this._retryingPendingReadItems = false;
         this._timeoutId = null;
         this._networkDebounceId = null;
@@ -270,6 +273,9 @@ class Indicator extends PanelMenu.Button {
                 ? state.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
                     .slice(0, MAX_NOTIFICATION_PAGES * 50)
                 : [];
+            this._pendingMarkAllRead = this._isValidPendingMarkAll(state.pendingMarkAllRead)
+                ? state.pendingMarkAllRead
+                : null;
             this._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
             this._lastRenderHash = '';
             this._updateHero();
@@ -986,11 +992,18 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
+    _isValidPendingMarkAll(value) {
+        return !!value && typeof value.lastReadAt === 'string' &&
+            Array.isArray(value.notificationIds) && value.notificationIds.every(id => typeof id === 'string') &&
+            Array.isArray(value.activityIds) && value.activityIds.every(id => typeof id === 'string');
+    }
+
     _persistCurrentItems(state = null) {
         const currentState = state || this._loadState();
         currentState.activityItems = this._activityItems.slice(0, MAX_RECENT);
         currentState.notificationItems = this._notificationItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
         currentState.pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
+        currentState.pendingMarkAllRead = this._pendingMarkAllRead;
         currentState.lastFetchedAt = this._lastFetchedAt;
         this._saveState(currentState);
     }
@@ -1434,7 +1447,7 @@ class Indicator extends PanelMenu.Button {
                 this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
-            if (pollSucceeded && this._pendingReadItems.length > 0) {
+            if (pollSucceeded && (this._pendingReadItems.length > 0 || this._pendingMarkAllRead)) {
                 GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                     this._retryPendingReadItems();
                     return GLib.SOURCE_REMOVE;
@@ -1737,7 +1750,7 @@ class Indicator extends PanelMenu.Button {
 
     async _retryPendingReadItems() {
         if (this._destroyed || this._polling || this._retryingPendingReadItems ||
-            this._pendingReadItems.length === 0 ||
+            (this._pendingReadItems.length === 0 && !this._pendingMarkAllRead) ||
             this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL ||
             !this._settings.get_string('github-token'))
             return;
@@ -1745,6 +1758,22 @@ class Indicator extends PanelMenu.Button {
         this._retryingPendingReadItems = true;
         let changed = false;
         try {
+            if (this._pendingMarkAllRead) {
+                const pending = this._pendingMarkAllRead;
+                try {
+                    await this._apiRequest('PUT', '/notifications', {body: {last_read_at: pending.lastReadAt}});
+                    const notificationIds = new Set(pending.notificationIds);
+                    const activityIds = new Set(pending.activityIds);
+                    this._notificationItems = this._notificationItems.filter(item => !notificationIds.has(item.id));
+                    this._activityItems = this._activityItems.filter(item => !activityIds.has(item.id));
+                    this._pendingReadItems = this._pendingReadItems.filter(item => !notificationIds.has(item.id));
+                    this._pendingMarkAllRead = null;
+                    changed = true;
+                } catch (e) {
+                    logError(e, 'github-notifier: queued mark-all-read retry failed');
+                    return;
+                }
+            }
             for (const pending of this._pendingReadItems.slice()) {
                 if (this._destroyed || this._polling)
                     break;
@@ -1827,13 +1856,27 @@ class Indicator extends PanelMenu.Button {
             return;
         }
 
+        if (this._pendingMarkAllRead) {
+            this._setActionStatus('Mark all read is already queued for retry');
+            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            return;
+        }
+        const pendingMarkAll = {
+            lastReadAt: new Date().toISOString(),
+            notificationIds: this._notificationItems.map(item => item.id),
+            activityIds: this._activityItems.map(item => item.id),
+        };
         this._markingAllRead = true;
         this._setActionStatus('Marking all read…');
-        this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).then(() => {
+        this._apiRequest('PUT', '/notifications', {body: {last_read_at: pendingMarkAll.lastReadAt}}).then(() => {
             if (this._destroyed)
                 return;
-            this._notificationItems = [];
-            this._activityItems = [];
+            const notificationIds = new Set(pendingMarkAll.notificationIds);
+            const activityIds = new Set(pendingMarkAll.activityIds);
+            this._notificationItems = this._notificationItems.filter(item => !notificationIds.has(item.id));
+            this._activityItems = this._activityItems.filter(item => !activityIds.has(item.id));
+            this._pendingReadItems = this._pendingReadItems.filter(item => !notificationIds.has(item.id));
+            this._pendingMarkAllRead = null;
             this._persistCurrentItems();
             this._notificationsPage = 0;
             this._markingAllRead = false;
@@ -1850,7 +1893,9 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 return;
             logError(e, 'github-notifier: failed to mark all read on GitHub');
-            this._setActionStatus('Could not mark all read — items were kept');
+            this._pendingMarkAllRead = pendingMarkAll;
+            this._persistCurrentItems();
+            this._setActionStatus('Could not mark all read — queued for retry; items were kept');
             this._addTransientTimeout(3, () => {
                 this._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
