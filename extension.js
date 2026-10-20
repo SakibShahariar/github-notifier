@@ -251,7 +251,8 @@ class Indicator extends PanelMenu.Button {
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
-            if (available && !this._destroyed)
+            if (available && !this._destroyed &&
+                monitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
                 this._poll();
         });
 
@@ -1058,10 +1059,18 @@ class Indicator extends PanelMenu.Button {
             return;
         }
 
-        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            // Offline means the current data may be stale, not that the inbox is empty.
-            // Keep the panel indicator visible and avoid claiming "All caught up".
-            this._setStatusBanner('No internet connection — data may be out of date', 'error');
+        const connectivity = this._networkMonitor.get_connectivity();
+        if (connectivity !== Gio.NetworkConnectivity.FULL) {
+            // Distinguish a captive portal from a local-only or limited connection.
+            // In every case, existing data may be stale rather than genuinely empty.
+            let message = 'No internet connection — data may be out of date';
+            if (connectivity === Gio.NetworkConnectivity.PORTAL)
+                message = 'Sign in to the Wi-Fi network to connect to GitHub';
+            else if (connectivity === Gio.NetworkConnectivity.LIMITED)
+                message = 'Connected, but internet access is limited';
+            else if (connectivity === Gio.NetworkConnectivity.LOCAL)
+                message = 'Connected to a local network only';
+            this._setStatusBanner(message, 'error');
             this._updateHero();
             this._updatePanel();
             return;
