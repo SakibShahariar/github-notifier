@@ -73,10 +73,15 @@ gnome-extensions prefs github-notifier@local
 | **Username** | Your GitHub username. |
 | **API host** | GitHub's API host, or the API endpoint for your GitHub Enterprise Server instance. |
 | **Repositories** | Comma-separated repository names in `owner/repo` format. |
+| **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. Muting does not mark GitHub notifications as read. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
 | **Mark notifications read when opened** | Turn off to open notification links without automatically marking them read. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
+
+### Muted repositories
+
+Use the **Muted repositories** field on the Watching page to enter comma-separated repository names, such as `owner/noisy-project, org/another-project`. Names are validated before saving and matched case-insensitively. Muted repositories are skipped during issue/star polling, and their inbox items, activity entries, badge counts, and desktop banners are hidden. Existing GitHub notifications are not marked as read. When a repository is unmuted, its issue/star baseline is re-established to avoid replaying the events accumulated while it was muted.
 
 ### Notification filter categories
 
