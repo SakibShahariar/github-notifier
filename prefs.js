@@ -321,6 +321,14 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('icon-always-unlit', unlitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(unlitRow);
 
+        const markReadRow = new Adw.SwitchRow({
+            title: 'Mark notifications read when opened',
+            subtitle: 'Keep notifications unread when you open their links if disabled',
+        });
+        markReadRow.add_prefix(new Gtk.Image({icon_name: 'mail-read-symbolic', pixel_size: 16}));
+        settings.bind('mark-read-on-open', markReadRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        displayGroup.add(markReadRow);
+
         const pollGroup = new Adw.PreferencesGroup({title: 'Polling'});
         settingsPage.add(pollGroup);
 
