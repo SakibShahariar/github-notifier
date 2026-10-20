@@ -23,22 +23,22 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         });
         accountPage.add(accountGroup);
 
-        const tokenRow = new Adw.PasswordEntryRow({title: 'Personal access token'});
+        const tokenRow = new Adw.PasswordEntryRow({title: 'Personal access token', show_apply_button: true});
         tokenRow.add_prefix(new Gtk.Image({icon_name: 'dialog-password-symbolic', pixel_size: 16}));
         tokenRow.set_text(settings.get_string('github-token'));
-        tokenRow.connect('notify::text', () => settings.set_string('github-token', tokenRow.get_text()));
+        tokenRow.connect('apply', () => settings.set_string('github-token', tokenRow.get_text().trim()));
         accountGroup.add(tokenRow);
 
-        const userRow = new Adw.EntryRow({title: 'GitHub username'});
+        const userRow = new Adw.EntryRow({title: 'GitHub username', show_apply_button: true});
         userRow.add_prefix(new Gtk.Image({icon_name: 'system-users-symbolic', pixel_size: 16}));
         userRow.set_text(settings.get_string('github-username'));
-        userRow.connect('notify::text', () => settings.set_string('github-username', userRow.get_text()));
+        userRow.connect('apply', () => settings.set_string('github-username', userRow.get_text().trim()));
         accountGroup.add(userRow);
 
-        const hostRow = new Adw.EntryRow({title: 'API host'});
+        const hostRow = new Adw.EntryRow({title: 'API host', show_apply_button: true});
         hostRow.add_prefix(new Gtk.Image({icon_name: 'network-server-symbolic', pixel_size: 16}));
         hostRow.set_text(settings.get_string('github-host'));
-        hostRow.connect('notify::text', () => settings.set_string('github-host', hostRow.get_text().trim()));
+        hostRow.connect('apply', () => settings.set_string('github-host', hostRow.get_text().trim()));
         accountGroup.add(hostRow);
 
         // Test connection against /user (or /rate_limit as fallback messaging)
