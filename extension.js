@@ -1451,7 +1451,10 @@ class Indicator extends PanelMenu.Button {
             this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
 
         this._lastFetchedAt = new Date().toISOString();
-        this._renderList();
+        // The menu-open handler forces a render when it becomes visible, so
+        // polling does not need to rebuild every row while the popup is closed.
+        if (this.menu?.isOpen)
+            this._renderList();
         this._updatePanel();
         this._updateHero();
         this._updateRateFooter();
