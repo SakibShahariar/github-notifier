@@ -54,6 +54,31 @@
       <summary>Poll watched repos for new stars</summary>
     </key>
 
+    <key name="filter-mentions" type="b">
+      <default>true</default>
+      <summary>Show mentions and team mentions</summary>
+    </key>
+    <key name="filter-reviews" type="b">
+      <default>true</default>
+      <summary>Show review requests and review-related notifications</summary>
+    </key>
+    <key name="filter-assignments" type="b">
+      <default>true</default>
+      <summary>Show assignment notifications</summary>
+    </key>
+    <key name="filter-conversation" type="b">
+      <default>true</default>
+      <summary>Show comments and subscribed-thread activity</summary>
+    </key>
+    <key name="filter-checks" type="b">
+      <default>true</default>
+      <summary>Show CI and check notifications</summary>
+    </key>
+    <key name="filter-other" type="b">
+      <default>true</default>
+      <summary>Show other notification reasons</summary>
+    </key>
+
     <key name="mark-read-on-open" type="b">
       <default>true</default>
       <summary>Mark notifications as read when opened</summary>
