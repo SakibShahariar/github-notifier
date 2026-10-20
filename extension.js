@@ -925,7 +925,9 @@ class Indicator extends PanelMenu.Button {
 
     _saveState(state) {
         try {
-            this._settings.set_string('last-state', JSON.stringify(state));
+            const serialized = JSON.stringify(state);
+            if (this._settings.get_string('last-state') !== serialized)
+                this._settings.set_string('last-state', serialized);
         } catch (e) {
             logError(e, 'github-notifier: failed to save state');
         }
