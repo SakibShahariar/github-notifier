@@ -1514,33 +1514,45 @@ class Indicator extends PanelMenu.Button {
             });
             return;
         }
-        // confirmed
+        // Confirmed. Keep the current lists until GitHub acknowledges the
+        // operation; otherwise a network failure would permanently discard
+        // local-only activity and temporarily hide still-unread notifications.
         this._disarmMarkAll();
-        this._markingAllRead = true;
-        this._notificationItems = [];
-        this._activityItems = [];
-        this._notificationsPage = 0;
-        this._renderList();
-        this._updatePanel();
-        this._updateHero();
-        this._setActionStatus('Marking all read…');
-        if (this._settings.get_string('github-token')) {
-            this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).then(() => {
-                this._markingAllRead = false;
-                this._setActionStatus('All marked read');
-                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            }).catch(e => {
-                this._markingAllRead = false;
-                logError(e, 'github-notifier: failed to mark all read on GitHub');
-                this._setActionStatus('Could not mark all read');
-                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-                // Refill from GitHub so local state matches reality after failed mark-all
-                this._poll();
-            });
-        } else {
-            this._markingAllRead = false;
-            this._setActionStatus('');
+        if (!this._settings.get_string('github-token')) {
+            this._setActionStatus('Add a GitHub token in Settings');
+            return;
         }
+
+        this._markingAllRead = true;
+        this._setActionStatus('Marking all read…');
+        this._apiRequest('PUT', '/notifications', {body: {last_read_at: new Date().toISOString()}}).then(() => {
+            if (this._destroyed)
+                return;
+            this._notificationItems = [];
+            this._activityItems = [];
+            this._notificationsPage = 0;
+            this._markingAllRead = false;
+            this._renderList();
+            this._updatePanel();
+            this._updateHero();
+            this._setActionStatus('All marked read');
+            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
+                if (!this._destroyed)
+                    this._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
+        }).catch(e => {
+            this._markingAllRead = false;
+            if (this._destroyed)
+                return;
+            logError(e, 'github-notifier: failed to mark all read on GitHub');
+            this._setActionStatus('Could not mark all read — items were kept');
+            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
+                if (!this._destroyed)
+                    this._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
+        });
     }
 
     _updatePanel() {
