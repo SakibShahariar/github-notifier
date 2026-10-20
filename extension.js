@@ -1948,6 +1948,21 @@ class Indicator extends PanelMenu.Button {
             this._settings.disconnect(this._usernameChangedId);
             this._usernameChangedId = null;
         }
+        // These handlers are connected to the shared GSettings object, which
+        // outlives this indicator. Disconnect them to avoid stale callbacks
+        // and retained indicator instances across extension reloads.
+        if (this._tokenChangedId) {
+            this._settings.disconnect(this._tokenChangedId);
+            this._tokenChangedId = null;
+        }
+        if (this._reposChangedId) {
+            this._settings.disconnect(this._reposChangedId);
+            this._reposChangedId = null;
+        }
+        if (this._hostChangedId) {
+            this._settings.disconnect(this._hostChangedId);
+            this._hostChangedId = null;
+        }
         if (this._networkChangedId) {
             this._networkMonitor.disconnect(this._networkChangedId);
             this._networkChangedId = null;
