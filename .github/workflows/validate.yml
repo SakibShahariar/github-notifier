@@ -1,0 +1,39 @@
+name: Validate source
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-validation:
+    name: Static validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in extension.js prefs.js repo-utils.js; do
+            echo "Checking $file"
+            node --check --input-type=module < "$file"
+          done
+
+      - name: Validate extension metadata JSON
+        run: python3 -m json.tool metadata.json > /dev/null
+
+      - name: Validate GSettings schema
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libglib2.0-bin
+          glib-compile-schemas --strict --dry-run schemas
