@@ -33,7 +33,7 @@ const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
 const ACTIVITY_PREVIEW = 5;
-const ACTIVITY_EXPANDED = 25;
+const ACTIVITY_EXPANDED = MAX_RECENT;
 const NOTIF_PAGE_SIZE = 5;
 const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 
