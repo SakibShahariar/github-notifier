@@ -1821,6 +1821,11 @@ class Indicator extends PanelMenu.Button {
             this._setActionStatus('Add a GitHub token in Settings');
             return;
         }
+        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
+            this._setActionStatus('Offline — cannot mark all read right now');
+            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            return;
+        }
 
         this._markingAllRead = true;
         this._setActionStatus('Marking all read…');
