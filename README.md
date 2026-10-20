@@ -33,12 +33,20 @@ The inbox uses GitHub's notifications API with `participating=false`, so it incl
 
 ## Installation
 
-From a downloaded or cloned copy of this repository, run:
+Clone the repository, then install the extension files into the directory matching its UUID:
 
 ```bash
-mkdir -p ~/.local/share/gnome-shell/extensions/
-cp -r github-notifier@local ~/.local/share/gnome-shell/extensions/
-glib-compile-schemas ~/.local/share/gnome-shell/extensions/github-notifier@local/schemas/
+git clone https://github.com/SakibShahariar/github-notifier.git
+cd github-notifier
+
+UUID="github-notifier@local"
+DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
+
+mkdir -p "$DEST/schemas" "$DEST/icons"
+cp extension.js prefs.js metadata.json stylesheet.css "$DEST/"
+cp icons/* "$DEST/icons/"
+cp schemas/*.xml "$DEST/schemas/"
+glib-compile-schemas "$DEST/schemas/"
 ```
 
 Then enable the extension:
