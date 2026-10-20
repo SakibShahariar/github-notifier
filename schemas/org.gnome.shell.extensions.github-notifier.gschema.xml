@@ -54,6 +54,12 @@
       <summary>Poll watched repos for new stars</summary>
     </key>
 
+    <key name="mark-read-on-open" type="b">
+      <default>true</default>
+      <summary>Mark notifications as read when opened</summary>
+      <description>Automatically mark GitHub notifications as read after opening their link.</description>
+    </key>
+
     <key name="hide-when-empty" type="b">
       <default>false</default>
       <summary>Hide the panel icon when there is nothing unread</summary>
