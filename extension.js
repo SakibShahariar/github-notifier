@@ -1227,7 +1227,7 @@ class Indicator extends PanelMenu.Button {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoStars(repo, state, baselineNotes));
                         } catch (e) {
-                            if (e instanceof ApiError && (e.status === 401 || e.status === 403))
+                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
                                 throw e;
                             errors.push(`${repo} stars: ${e.message}`);
                             logError(e, `github-notifier: stars poll failed for ${repo}`);
