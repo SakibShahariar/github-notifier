@@ -493,8 +493,16 @@ class Indicator extends PanelMenu.Button {
         if (issuesPrCount > 0) parts.push(`${issuesPrCount} issues/PRs`);
         if (starsCount > 0) parts.push(`${starsCount} stars`);
         if (parts.length === 0) {
-            if (this._statusIsError) parts.push('Attention needed');
-            else parts.push('All caught up');
+            const statusText = this._statusItem?.label?.text || '';
+            if (this._statusIsError && /offline|internet|wi-fi|network|unreachable/i.test(statusText)) {
+                parts.push(this._lastFetchedAt
+                    ? `Offline · last updated ${this._relativeTime(this._lastFetchedAt)}`
+                    : 'Offline · no cached data yet');
+            } else if (this._statusIsError) {
+                parts.push('Attention needed');
+            } else {
+                parts.push('All caught up');
+            }
         }
         // also show paused
         if (this._paused) parts.unshift('Paused');
