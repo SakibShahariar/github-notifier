@@ -33,7 +33,7 @@ const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
 const ACTIVITY_PREVIEW = 5;
-const ACTIVITY_EXPANDED = 25;
+const ACTIVITY_EXPANDED = MAX_RECENT;
 const NOTIF_PAGE_SIZE = 5;
 const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 
@@ -536,13 +536,13 @@ class Indicator extends PanelMenu.Button {
      */
     _ease(actor, props = {}) {
         if (!actor || this._destroyed || !this.hasMotion()) {
-            if (props.opacity !== undefined)
+            if (actor && props.opacity !== undefined)
                 actor.opacity = props.opacity;
-            if (props.scale_x !== undefined)
+            if (actor && props.scale_x !== undefined)
                 actor.scale_x = props.scale_x;
-            if (props.scale_y !== undefined)
+            if (actor && props.scale_y !== undefined)
                 actor.scale_y = props.scale_y;
-            if (props.translation_y !== undefined)
+            if (actor && props.translation_y !== undefined)
                 actor.translation_y = props.translation_y;
             if (typeof props.onComplete === 'function')
                 props.onComplete();
@@ -1429,7 +1429,8 @@ class Indicator extends PanelMenu.Button {
         }
         this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
         this._setActionStatus('');
-        this._renderList();
+        if (this.menu?.isOpen)
+            this._renderList();
         this._updatePanel();
         this._updateHero();
     }
@@ -1548,9 +1549,12 @@ class Indicator extends PanelMenu.Button {
     }
 
     _truncate(text, maxLen) {
-        if (!text || text.length <= maxLen)
+        if (!text)
             return text;
-        return `${text.slice(0, maxLen - 1)}…`;
+        const characters = Array.from(String(text));
+        if (characters.length <= maxLen)
+            return text;
+        return `${characters.slice(0, Math.max(0, maxLen - 1)).join('')}…`;
     }
 
     // --- section helpers — inline Matugen like update-checker@local (guarantees popup reflects new wallpaper even if theme cached) ---
@@ -1736,7 +1740,6 @@ class Indicator extends PanelMenu.Button {
             statusIsError: this._statusIsError,
             statusText: this._statusItem?.label?.text || '',
             rateLimitReset: this._rateLimitResetEpoch,
-            lastFetchedAt: this._lastFetchedAt,
         });
         if (newHash === this._lastRenderHash) {
             return;
@@ -1802,7 +1805,7 @@ class Indicator extends PanelMenu.Button {
                 expanded: this._issuesExpanded,
                 count: issuePrItems.length,
                 onToggle: () => { this._issuesExpanded = !this._issuesExpanded; this._renderList(); },
-                showOpen: true,
+                showOpen: new Set(issuePrItems.map(item => item.subtitle)).size === 1,
                 openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${issuePrItems[0].subtitle}/issues`,
             });
@@ -1822,7 +1825,7 @@ class Indicator extends PanelMenu.Button {
                 expanded: this._starsExpanded,
                 count: starItems.length,
                 onToggle: () => { this._starsExpanded = !this._starsExpanded; this._renderList(); },
-                showOpen: true,
+                showOpen: new Set(starItems.map(item => item.subtitle)).size === 1,
                 openLabel: 'Open repo',
                 openUrl: `${this._webBase()}/${starItems[0].subtitle}/stargazers`,
             });
