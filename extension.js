@@ -1059,7 +1059,9 @@ class Indicator extends PanelMenu.Button {
         }
 
         if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._setStatusBanner('No internet connection', 'info');
+            // Offline means the current data may be stale, not that the inbox is empty.
+            // Keep the panel indicator visible and avoid claiming "All caught up".
+            this._setStatusBanner('No internet connection — data may be out of date', 'error');
             this._updateHero();
             this._updatePanel();
             return;
