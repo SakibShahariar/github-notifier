@@ -27,7 +27,7 @@ The inbox uses GitHub's notifications API with `participating=false`, so it incl
 
 ## Requirements
 
-- GNOME Shell 45–51. Compatibility depends on the GNOME version and should be verified against the extension's current release.
+- GNOME Shell 45–51. The notification source and notification constructors include a compatibility path for GNOME 45's positional API and GNOME 46+'s object-parameter API.
 - A GitHub personal access token with the permissions required for the API features you use.
 - An internet connection. The extension pauses polling when the connection is detected as limited or local-only.
 
