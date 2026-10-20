@@ -100,6 +100,14 @@ test('builds GitHub CLI arguments for issue and pull-request links', () => {
         }),
         ['pr', 'view', '456', '--repo', 'gnome/gnome-shell']
     );
+    assert.deepEqual(
+        getGitHubCliArguments({
+            kind: 'issue',
+            subtitle: 'owner/repo',
+            url: 'https://git.example.com/owner/repo/issues/789',
+        }),
+        ['issue', 'view', '789', '--repo', 'git.example.com/owner/repo']
+    );
 });
 
 test('does not create GitHub CLI commands for non-issue links or invalid data', () => {
