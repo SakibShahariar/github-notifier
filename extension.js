@@ -176,7 +176,10 @@ class Indicator extends PanelMenu.Button {
         // prevents a single request from stalling the entire poll cycle.
         this._session.timeout = 8;
         this._notificationItems = []; // live mirror of GitHub's current unread inbox
-        this._activityItems = []; // accumulated issue/PR/star events, cleared on mark-all-read
+        const persistedState = this._loadState();
+        this._activityItems = Array.isArray(persistedState.activityItems)
+            ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
+            : []; // accumulated issue/PR/star events, restored across shell restarts
         this._timeoutId = null;
         this._source = null; // MessageTray.Source, created lazily
         this._destroyed = false;
@@ -1164,8 +1167,9 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 return;
 
-            this._saveState(state);
             this._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
+            state.activityItems = this._activityItems.slice(0, MAX_RECENT);
+            this._saveState(state);
 
             if (baselineNotes.length > 0)
                 this._notifyBaseline(baselineNotes);
@@ -1473,6 +1477,9 @@ class Indicator extends PanelMenu.Button {
 
     _dismissActivityItem(item) {
         this._activityItems = this._activityItems.filter(i => i.id !== item.id);
+        const state = this._loadState();
+        state.activityItems = this._activityItems.slice(0, MAX_RECENT);
+        this._saveState(state);
         this._renderList();
         this._updatePanel();
         this._updateHero();
@@ -1530,6 +1537,9 @@ class Indicator extends PanelMenu.Button {
                 return;
             this._notificationItems = [];
             this._activityItems = [];
+            const state = this._loadState();
+            state.activityItems = [];
+            this._saveState(state);
             this._notificationsPage = 0;
             this._markingAllRead = false;
             this._renderList();
