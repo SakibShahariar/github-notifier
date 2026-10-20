@@ -32,6 +32,15 @@
       </description>
     </key>
 
+    <key name="muted-repos" type="s">
+      <default>''</default>
+      <summary>Comma-separated repositories to mute</summary>
+      <description>
+        Repositories excluded from issue and star polling, inbox display, badges,
+        and desktop notification banners. Muting does not mark GitHub notifications as read.
+      </description>
+    </key>
+
     <key name="poll-interval" type="i">
       <default>120</default>
       <range min="60" max="3600"/>
