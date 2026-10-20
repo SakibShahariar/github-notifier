@@ -455,6 +455,10 @@ class Indicator extends PanelMenu.Button {
             if (t === 'PullRequest') return 'insert-link-symbolic';
             if (t === 'Issue') return 'chat-message-new-symbolic';
             if (t === 'Commit') return 'document-edit-symbolic';
+            if (t === 'Release') return 'tag-symbolic';
+            if (t === 'CheckSuite') return 'emblem-ok-symbolic';
+            if (t === 'WorkflowRun') return 'media-playback-start-symbolic';
+            if (t === 'Discussion') return 'chat-bubbles-symbolic';
             return 'mail-unread-symbolic';
         }
         if (item.kind === 'pr') return 'insert-link-symbolic';
