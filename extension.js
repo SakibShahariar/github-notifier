@@ -1075,7 +1075,7 @@ class Indicator extends PanelMenu.Button {
         if (method === 'GET' && path.startsWith('/notifications') && pollInterval) {
             const parsedInterval = Number.parseInt(pollInterval, 10);
             if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
-                this._serverPollIntervalSeconds = Math.min(parsedInterval, 3600);
+                this._serverPollIntervalSeconds = parsedInterval;
         }
         if (retryAfter) {
             const seconds = Number.parseInt(retryAfter, 10);
@@ -1087,7 +1087,9 @@ class Indicator extends PanelMenu.Button {
         }
         if (remaining === '0' && reset)
             this._rateLimitResetEpoch = parseInt(reset, 10);
-        else if (status >= 200 && status < 300) {
+        if ((status === 403 || status === 429) && !retryAfter && !(remaining === '0' && reset))
+            this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.floor(Date.now() / 1000) + 60);
+        if (status >= 200 && status < 300) {
             this._rateLimitResetEpoch = 0;
             this._retryAfterEpoch = 0;
         }
@@ -1198,7 +1200,7 @@ class Indicator extends PanelMenu.Button {
                 try {
                     notificationItems = await this._pollNotifications(state);
                 } catch (e) {
-                    if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
+                    if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403 || e.status === 429))
                         throw e;
                     // Preserve the last known inbox when a refresh fails.
                     // An empty array here would incorrectly erase the badge/list.
@@ -1236,7 +1238,7 @@ class Indicator extends PanelMenu.Button {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
                         } catch (e) {
-                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
+                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403 || e.status === 429))
                                 throw e;
                             errors.push(`${repo} issues: ${e.message}`);
                             logError(e, `github-notifier: issues poll failed for ${repo}`);
@@ -1248,7 +1250,7 @@ class Indicator extends PanelMenu.Button {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoStars(repo, state, baselineNotes));
                         } catch (e) {
-                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403))
+                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403 || e.status === 429))
                                 throw e;
                             errors.push(`${repo} stars: ${e.message}`);
                             logError(e, `github-notifier: stars poll failed for ${repo}`);
@@ -1314,9 +1316,9 @@ class Indicator extends PanelMenu.Button {
                     this._setStatusBanner(waitMin
                         ? `Rate limited by GitHub — retrying in ~${waitMin} min`
                         : 'Rate limited by GitHub — will retry later', 'error');
-                } else
-                else
+                } else {
                     this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
+                }
             } else if (e instanceof ApiError && e.status === 0) {
                 this._setStatusBanner('GitHub is unreachable — check your connection', 'error');
             } else if (e instanceof ApiError && e.status >= 500) {
