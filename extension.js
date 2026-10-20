@@ -1284,7 +1284,14 @@ class Indicator extends PanelMenu.Button {
         const host = this._settings.get_string('github-host').trim() || 'api.github.com';
         if (host === 'api.github.com')
             return 'https://github.com';
-        return `https://${host.split('/')[0]}`;
+
+        // The configured API host may include a deployment prefix (for
+        // example, git.example.com/github) or the standard /api/v3 suffix.
+        // Browser links need the deployment prefix, but not the API suffix.
+        let webHost = host.replace(/\/+$/, '');
+        if (webHost.endsWith('/api/v3'))
+            webHost = webHost.slice(0, -'/api/v3'.length);
+        return `https://${webHost}`;
     }
 
     _subjectHtmlUrl(subject, repoFullName) {
