@@ -1218,6 +1218,7 @@ class Indicator extends PanelMenu.Button {
 
     async _pollNotifications(state) {
         state.toastedNotificationIds ||= [];
+        const isInitialBaseline = !state.notificationBaselineEstablished;
         const toasted = new Set(state.toastedNotificationIds);
         const items = [];
 
@@ -1239,7 +1240,9 @@ class Indicator extends PanelMenu.Button {
                     url: this._subjectHtmlUrl(n.subject, n.repository.full_name),
                     kind: 'notification',
                     ts: n.updated_at,
-                    isNewToast: !toasted.has(n.id),
+                    // Establish a quiet baseline on first run; existing unread
+                    // notifications should not all generate desktop toasts.
+                    isNewToast: !isInitialBaseline && !toasted.has(n.id),
                     reasonLabel: kind,
                     subjectType: n.subject.type,
                 });
@@ -1251,6 +1254,7 @@ class Indicator extends PanelMenu.Button {
         }
 
         state.toastedNotificationIds = Array.from(toasted).slice(-500);
+        state.notificationBaselineEstablished = true;
         if (pagesFetched === MAX_NOTIFICATION_PAGES && items.length === MAX_NOTIFICATION_PAGES * 50) {
             const inboxUrl = `${this._webBase()}/notifications`;
             items.push({
