@@ -5,6 +5,5 @@
   "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
   "url": "https://github.com/SakibShahariar/github-notifier",
   "version": 3,
-  "settings-schema": "org.gnome.shell.extensions.github-notifier",
-  "gettext-domain": "github-notifier"
+  "settings-schema": "org.gnome.shell.extensions.github-notifier"
 }
