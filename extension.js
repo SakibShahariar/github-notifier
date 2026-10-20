@@ -13,6 +13,24 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
+// GNOME 46 introduced object-parameter MessageTray constructors. Keep the
+// positional constructor path for GNOME 45, which this extension still lists.
+function _usesModernMessageTrayApi() {
+    return typeof MessageTray.getSystemSource === 'function';
+}
+
+function _createMessageTraySource(title, icon) {
+    return _usesModernMessageTrayApi()
+        ? new MessageTray.Source({title, icon})
+        : new MessageTray.Source(title, icon);
+}
+
+function _createMessageTrayNotification(source, title, body) {
+    return _usesModernMessageTrayApi()
+        ? new MessageTray.Notification({source, title, body})
+        : new MessageTray.Notification(source, title, body);
+}
+
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
@@ -2291,10 +2309,10 @@ class Indicator extends PanelMenu.Button {
     _ensureSource() {
         if (!this._source) {
             const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
-            this._source = new MessageTray.Source({
-                title: 'GitHub Notifier',
-                icon: Gio.icon_new_for_string(iconPath),
-            });
+            this._source = _createMessageTraySource(
+                'GitHub Notifier',
+                Gio.icon_new_for_string(iconPath),
+            );
             Main.messageTray.add(this._source);
         }
         return this._source;
@@ -2304,22 +2322,16 @@ class Indicator extends PanelMenu.Button {
         const source = this._ensureSource();
         if (newItems.length > 3) {
             const inboxUrl = `${this._webBase()}/notifications`;
-            const notification = new MessageTray.Notification({
-                source,
-                title: 'GitHub Notifier',
-                body: `${newItems.length} new updates`,
-            });
+            const notification = _createMessageTrayNotification(
+                source, 'GitHub Notifier', `${newItems.length} new updates`,
+            );
             notification.addAction('Open Inbox', () => this._openUri(inboxUrl));
             notification.connect('activated', () => this._openUri(inboxUrl));
             source.addNotification(notification);
             return;
         }
         for (const item of newItems) {
-            const notification = new MessageTray.Notification({
-                source,
-                title: item.title,
-                body: item.subtitle,
-            });
+            const notification = _createMessageTrayNotification(source, item.title, item.subtitle);
             notification.connect('activated', () => {
                 if (!this._openUri(item.url))
                     return;
@@ -2346,11 +2358,7 @@ class Indicator extends PanelMenu.Button {
 
     _notifyBaseline(notes) {
         const source = this._ensureSource();
-        const notification = new MessageTray.Notification({
-            source,
-            title: 'GitHub Notifier',
-            body: notes.join('\n'),
-        });
+        const notification = _createMessageTrayNotification(source, 'GitHub Notifier', notes.join('\n'));
         source.addNotification(notification);
     }
 
