@@ -182,6 +182,9 @@ class Indicator extends PanelMenu.Button {
             : []; // accumulated issue/PR/star events, restored across shell restarts
         this._timeoutId = null;
         this._networkDebounceId = null;
+        this._transientTimeouts = new Set();
+        this._sleepTimerIds = new Set();
+        this._pendingSleepResolvers = new Set();
         this._source = null; // MessageTray.Source, created lazily
         this._destroyed = false;
         this._paused = false;
@@ -954,11 +957,38 @@ class Indicator extends PanelMenu.Button {
     // ---------- HTTP helper ----------
     _sleep(ms) {
         return new Promise(resolve => {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
+            let sourceId = 0;
+            const finish = () => {
+                if (sourceId) {
+                    GLib.source_remove(sourceId);
+                    this._sleepTimerIds.delete(sourceId);
+                    sourceId = 0;
+                }
+                this._pendingSleepResolvers.delete(finish);
+                resolve();
+            };
+            sourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
+                this._sleepTimerIds.delete(sourceId);
+                sourceId = 0;
+                this._pendingSleepResolvers.delete(finish);
                 resolve();
                 return GLib.SOURCE_REMOVE;
             });
+            this._sleepTimerIds.add(sourceId);
+            this._pendingSleepResolvers.add(finish);
         });
+    }
+
+    _addTransientTimeout(seconds, callback) {
+        let sourceId = 0;
+        sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, seconds, () => {
+            this._transientTimeouts.delete(sourceId);
+            if (this._destroyed)
+                return GLib.SOURCE_REMOVE;
+            return callback();
+        });
+        this._transientTimeouts.add(sourceId);
+        return sourceId;
     }
 
     _buildMessage(method, uri, token, body) {
@@ -1199,8 +1229,8 @@ class Indicator extends PanelMenu.Button {
             } else if (baselineNotes.length > 0) {
                 this._setStatusBanner(`Started tracking ${baselineNotes.length} new watch(es)`, 'info');
                 // auto-hide after 4s like omarchy banner
-                GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
-                    if (!this._destroyed && this._statusItem.label.text.startsWith('Started tracking')) {
+                this._addTransientTimeout(4, () => {
+                    if (this._statusItem.label.text.startsWith('Started tracking')) {
                         this._setStatusBanner(null);
                         this._updatePanel();
                     }
@@ -1485,7 +1515,7 @@ class Indicator extends PanelMenu.Button {
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
             this._setActionStatus('Could not mark read');
-            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            this._addTransientTimeout(3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             return;
         }
         this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
@@ -1566,9 +1596,8 @@ class Indicator extends PanelMenu.Button {
             this._updatePanel();
             this._updateHero();
             this._setActionStatus('All marked read');
-            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
-                if (!this._destroyed)
-                    this._setActionStatus('');
+            this._addTransientTimeout(2, () => {
+                this._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
         }).catch(e => {
@@ -1577,9 +1606,8 @@ class Indicator extends PanelMenu.Button {
                 return;
             logError(e, 'github-notifier: failed to mark all read on GitHub');
             this._setActionStatus('Could not mark all read — items were kept');
-            GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
-                if (!this._destroyed)
-                    this._setActionStatus('');
+            this._addTransientTimeout(3, () => {
+                this._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
         });
@@ -2014,6 +2042,11 @@ class Indicator extends PanelMenu.Button {
             GLib.source_remove(this._networkDebounceId);
             this._networkDebounceId = null;
         }
+        for (const sourceId of this._transientTimeouts)
+            GLib.source_remove(sourceId);
+        this._transientTimeouts.clear();
+        for (const finish of this._pendingSleepResolvers)
+            finish();
         if (this._markAllTimer) {
             GLib.source_remove(this._markAllTimer);
             this._markAllTimer = null;
