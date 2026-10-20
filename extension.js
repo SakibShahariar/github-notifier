@@ -437,6 +437,7 @@ class Indicator extends PanelMenu.Button {
         textBox.add_child(this._heroMeta);
         const gearButton = new St.Button({
             style_class: 'github-notifier-hero-gear',
+            accessible_name: 'Settings',
             can_focus: true,
             child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
         });
@@ -2169,6 +2170,7 @@ class Indicator extends PanelMenu.Button {
         if (githubCliConfig) {
             const cliButton = new St.Button({
                 style_class: 'github-notifier-read-button',
+                accessible_name: 'Open with GitHub CLI',
                 can_focus: true,
                 child: new St.Icon({
                     icon_name: 'utilities-terminal-symbolic',
@@ -2190,13 +2192,15 @@ class Indicator extends PanelMenu.Button {
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
+        const readActionLabel = item.kind === 'notification' ? 'Mark read' : 'Dismiss';
         const btn = new St.Button({
             style_class: 'github-notifier-read-button',
+            accessible_name: readActionLabel,
             can_focus: true,
             child: readIcon,
         });
         btn.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
-        this._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
+        this._setTooltip(btn, readActionLabel);
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
                 this._markThreadRead(item);
@@ -2233,6 +2237,7 @@ class Indicator extends PanelMenu.Button {
         const makeIconBtn = (iconName, cb, tooltip) => {
             const btn = new St.Button({
                 style_class: 'github-notifier-footer-button github-notifier-footer-icon-button',
+                accessible_name: tooltip || iconName.replace(/-symbolic$/, '').replaceAll('-', ' '),
                 can_focus: true,
                 child: new St.Icon({icon_name: iconName, icon_size: 14, style_class: 'popup-menu-icon'}),
             });
