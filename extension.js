@@ -280,9 +280,9 @@ class Indicator extends PanelMenu.Button {
         this._hostChangedId = this._settings.connect('changed::github-host', refreshAccountScope);
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
-        this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
-            if (!available || this._destroyed ||
-                monitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
+        const scheduleNetworkRecoveryPoll = () => {
+            if (this._destroyed ||
+                this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
                 return;
 
             // A real network recovery is a new opportunity; don't carry the
@@ -290,18 +290,25 @@ class Indicator extends PanelMenu.Button {
             this._networkFailureCount = 0;
             this._networkRetryAfterEpoch = 0;
 
-            // Network changes can fire in bursts while Wi-Fi/VPN reconnects.
-            // Debounce the immediate poll rather than starting repeated cycles.
+            // Network and connectivity signals can fire in bursts during a
+            // Wi-Fi/VPN transition. Share one debounce window between both.
             if (this._networkDebounceId)
                 GLib.source_remove(this._networkDebounceId);
             this._networkDebounceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
                 this._networkDebounceId = null;
                 if (!this._destroyed &&
-                    monitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
+                    this._networkMonitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
                     this._poll();
                 return GLib.SOURCE_REMOVE;
             });
+        };
+        this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
+            if (available)
+                scheduleNetworkRecoveryPoll();
         });
+        // Connectivity can become FULL after a captive-portal sign-in without
+        // an availability transition, so listen for the property notification too.
+        this._connectivityChangedId = this._networkMonitor.connect('notify::connectivity', scheduleNetworkRecoveryPoll);
 
         this._setupMatugenMonitor();
 
@@ -2246,6 +2253,10 @@ class Indicator extends PanelMenu.Button {
         if (this._networkChangedId) {
             this._networkMonitor.disconnect(this._networkChangedId);
             this._networkChangedId = null;
+        }
+        if (this._connectivityChangedId) {
+            this._networkMonitor.disconnect(this._connectivityChangedId);
+            this._connectivityChangedId = null;
         }
         if (this._source) {
             this._source.destroy();
