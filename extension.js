@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getNotificationCategory, isValidRepository} from './repo-utils.js';
+import {getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -313,6 +313,15 @@ class Indicator extends PanelMenu.Button {
         };
         this._tokenChangedId = this._settings.connect('changed::github-token', refreshAccountScope);
         this._reposChangedId = this._settings.connect('changed::watched-repos', refreshIfMenuOpen);
+        this._mutedReposChangedId = this._settings.connect('changed::muted-repos', () => {
+            if (this._destroyed)
+                return;
+            this._lastRenderHash = '';
+            this._renderList();
+            this._updatePanel();
+            this._updateHero();
+            this._poll();
+        });
         this._hostChangedId = this._settings.connect('changed::github-host', refreshAccountScope);
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
@@ -527,8 +536,23 @@ class Indicator extends PanelMenu.Button {
         return this._settings.get_boolean(`filter-${this._notificationCategory(item)}`);
     }
 
+    _mutedRepositories() {
+        return new Set(parseRepositoryList(this._settings.get_string('muted-repos')));
+    }
+
+    _isItemMuted(item, mutedRepositories = this._mutedRepositories()) {
+        return isRepositoryMuted(item?.subtitle, mutedRepositories);
+    }
+
     _visibleNotificationItems() {
-        return this._notificationItems.filter(item => this._isNotificationTypeEnabled(item));
+        const mutedRepositories = this._mutedRepositories();
+        return this._notificationItems.filter(item =>
+            this._isNotificationTypeEnabled(item) && !this._isItemMuted(item, mutedRepositories));
+    }
+
+    _visibleActivityItems() {
+        const mutedRepositories = this._mutedRepositories();
+        return this._activityItems.filter(item => !this._isItemMuted(item, mutedRepositories));
     }
 
     _iconForItem(item) {
@@ -569,8 +593,9 @@ class Indicator extends PanelMenu.Button {
         const username = this._settings.get_string('github-username').trim();
         this._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
         const n = this._visibleNotificationItems().length;
-        const issuesPrCount = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
-        const starsCount = this._activityItems.filter(i => i.kind === 'star').length;
+        const visibleActivityItems = this._visibleActivityItems();
+        const issuesPrCount = visibleActivityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
+        const starsCount = visibleActivityItems.filter(i => i.kind === 'star').length;
         const parts = [];
         if (this._polling) parts.push('Refreshing…');
         else if (n > 0) parts.push(`${n} unread`);
@@ -1341,9 +1366,12 @@ class Indicator extends PanelMenu.Button {
                 const reposStr = this._settings.get_string('watched-repos');
                 const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
                 const watched = new Set(Array.from(new Set(rawRepos)));
+                const mutedRepositories = this._mutedRepositories();
                 if (state.repos && typeof state.repos === 'object') {
                     for (const key of Object.keys(state.repos)) {
-                        if (!watched.has(key))
+                        // Reset baselines while muted so unmuting does not replay
+                        // every issue/star event that accumulated during the mute.
+                        if (!watched.has(key) || isRepositoryMuted(key, mutedRepositories))
                             delete state.repos[key];
                     }
                 }
@@ -1353,12 +1381,15 @@ class Indicator extends PanelMenu.Button {
                 const reposStr = this._settings.get_string('watched-repos');
                 const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
                 const repos = Array.from(new Set(rawRepos));
+                const mutedRepositories = this._mutedRepositories();
 
                 for (const repo of repos) {
                     if (!isValidRepository(repo)) {
                         errors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
                         continue;
                     }
+                    if (isRepositoryMuted(repo, mutedRepositories))
+                        continue;
                     if (this._settings.get_boolean('watch-issues-prs')) {
                         try {
                             activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
@@ -1873,7 +1904,7 @@ class Indicator extends PanelMenu.Button {
         this._updateHero();
         this._updateRateFooter();
 
-        const toNotify = toToast.concat(newActivityItems);
+        const toNotify = toToast.concat(newActivityItems.filter(item => !this._isItemMuted(item)));
         if (toNotify.length > 0)
             this._notify(toNotify);
     }
@@ -1956,7 +1987,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updatePanel() {
-        const unread = this._visibleNotificationItems().length + this._activityItems.length;
+        const unread = this._visibleNotificationItems().length + this._visibleActivityItems().length;
         const prev = this._lastUnreadCount ?? 0;
         const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
         if (unread > 0) {
@@ -2230,7 +2261,8 @@ class Indicator extends PanelMenu.Button {
         this._starsSection._rowAnimIdx = 0;
 
         const visibleNotificationItems = this._visibleNotificationItems();
-        const hasAny = visibleNotificationItems.length > 0 || this._activityItems.length > 0;
+        const visibleActivityItems = this._visibleActivityItems();
+        const hasAny = visibleNotificationItems.length > 0 || visibleActivityItems.length > 0;
 
         // status banner visibility already handled in _poll; keep hidden when no error unless empty?
         if (!hasAny && !this._statusIsError) {
@@ -2267,7 +2299,7 @@ class Indicator extends PanelMenu.Button {
         }
 
         // ---- ISSUES / PRS ---- (hidden when empty to reduce whitespace)
-        const issuePrItems = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr')
+        const issuePrItems = visibleActivityItems.filter(i => i.kind === 'issue' || i.kind === 'pr')
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
         if (issuePrItems.length > 0) {
             this._addSeparator(this._issuesSection);
@@ -2287,7 +2319,7 @@ class Indicator extends PanelMenu.Button {
         }
 
         // ---- STARS ---- (hidden when empty)
-        const starItems = this._activityItems.filter(i => i.kind === 'star')
+        const starItems = visibleActivityItems.filter(i => i.kind === 'star')
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
         if (starItems.length > 0) {
             this._addSeparator(this._starsSection);
@@ -2445,6 +2477,10 @@ class Indicator extends PanelMenu.Button {
         if (this._hostChangedId) {
             this._settings.disconnect(this._hostChangedId);
             this._hostChangedId = null;
+        }
+        if (this._mutedReposChangedId) {
+            this._settings.disconnect(this._mutedReposChangedId);
+            this._mutedReposChangedId = null;
         }
         if (this._networkChangedId) {
             this._networkMonitor.disconnect(this._networkChangedId);
