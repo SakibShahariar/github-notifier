@@ -254,15 +254,25 @@ class Indicator extends PanelMenu.Button {
             this._lastRenderHash = '';
             this._renderList();
         };
-        this._tokenChangedId = this._settings.connect('changed::github-token', () => {
-            if (this.menu?.isOpen)
-                this._poll();
-        });
+        const refreshAccountScope = () => {
+            if (this._destroyed)
+                return;
+            const state = this._loadState();
+            this._notificationItems = Array.isArray(state.notificationItems)
+                ? state.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
+                : [];
+            this._activityItems = Array.isArray(state.activityItems)
+                ? state.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
+                : [];
+            this._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
+            this._lastRenderHash = '';
+            this._updateHero();
+            this._updatePanel();
+            this._poll();
+        };
+        this._tokenChangedId = this._settings.connect('changed::github-token', refreshAccountScope);
         this._reposChangedId = this._settings.connect('changed::watched-repos', refreshIfMenuOpen);
-        this._hostChangedId = this._settings.connect('changed::github-host', () => {
-            if (this.menu?.isOpen)
-                this._poll();
-        });
+        this._hostChangedId = this._settings.connect('changed::github-host', refreshAccountScope);
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
