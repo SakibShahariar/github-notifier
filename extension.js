@@ -499,14 +499,19 @@ class Indicator extends PanelMenu.Button {
     _setTooltip(actor, text) {
         if (!actor || text == null)
             return;
+
+        // A plain JS property assignment is not a reliable St tooltip API.
+        // Always expose an accessible name; use the tooltip setter when the
+        // running Shell/St version provides it.
         try {
-            actor.tooltip_text = text;
+            actor.accessible_name = text;
         } catch (_e) {
-            try {
-                actor.accessible_name = text;
-            } catch (_e2) {
-                /* ignore */
-            }
+            /* Some actors may not expose an accessible name. */
+        }
+        try {
+            actor.set_tooltip_text?.(text);
+        } catch (_e) {
+            /* Keep accessibility support even if native tooltips are unavailable. */
         }
     }
 
