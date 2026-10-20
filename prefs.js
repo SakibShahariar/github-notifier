@@ -171,6 +171,26 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('watch-stars', starsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(starsRow);
 
+        const filterGroup = new Adw.PreferencesGroup({
+            title: 'Notification filters',
+            description: 'Choose which inbox categories appear in the list, badge, and desktop notifications.',
+        });
+        watchPage.add(filterGroup);
+
+        const filterRows = [
+            ['filter-mentions', 'Mentions', 'Direct and team mentions', 'user-available-symbolic'],
+            ['filter-reviews', 'Reviews', 'Review requests and reviewer changes', 'document-edit-symbolic'],
+            ['filter-assignments', 'Assignments', 'Issues and pull requests assigned to you', 'checkbox-checked-symbolic'],
+            ['filter-conversation', 'Conversation', 'Comments and subscribed-thread activity', 'chat-message-new-symbolic'],
+            ['filter-checks', 'CI and checks', 'Workflow runs and check activity', 'emblem-ok-symbolic'],
+            ['filter-other', 'Other notifications', 'Security alerts, invitations, and unmapped reasons', 'view-more-symbolic'],
+        ];
+        for (const [key, title, subtitle, iconName] of filterRows) {
+            const row = new Adw.SwitchRow({title, subtitle});
+            row.add_prefix(new Gtk.Image({icon_name: iconName, pixel_size: 16}));
+            settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
+            filterGroup.add(row);
+        }
 
         const reposGroup = new Adw.PreferencesGroup({
             title: 'Watched repositories',
