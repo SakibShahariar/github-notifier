@@ -196,6 +196,7 @@ class Indicator extends PanelMenu.Button {
         this._networkRetryAfterEpoch = 0;
         this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
         this._polling = false; // prevents overlapping poll cycles
+        this._accountRefreshPending = false; // rerun after an in-flight poll when host/token changes
         this._statusIsError = false; // keeps the indicator visible while a problem is showing
         this._notificationsPage = 0;
         this._issuesExpanded = false;
@@ -257,6 +258,10 @@ class Indicator extends PanelMenu.Button {
         const refreshAccountScope = () => {
             if (this._destroyed)
                 return;
+            // A poll already in flight may still hold the previous account's data.
+            // Queue a fresh poll; the old result is discarded before it can be saved.
+            if (this._polling)
+                this._accountRefreshPending = true;
             const state = this._loadState();
             this._notificationItems = Array.isArray(state.notificationItems)
                 ? state.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
@@ -1222,6 +1227,7 @@ class Indicator extends PanelMenu.Button {
         }
 
         this._polling = true;
+        const pollScope = this._stateScope();
         this._updateHero();
         this._startRefreshSpin();
         const state = this._loadState();
@@ -1300,6 +1306,13 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 return;
 
+            // Host/token may have changed while awaiting network requests. Never
+            // commit results fetched under a different account scope.
+            if (this._stateScope() !== pollScope) {
+                this._accountRefreshPending = true;
+                return;
+            }
+
             if (errors.length === 0 && !notificationPollFailed) {
                 this._networkFailureCount = 0;
                 this._networkRetryAfterEpoch = 0;
@@ -1344,6 +1357,10 @@ class Indicator extends PanelMenu.Button {
         } catch (e) {
             if (this._destroyed)
                 return;
+            if (this._stateScope() !== pollScope) {
+                this._accountRefreshPending = true;
+                return;
+            }
             logError(e, 'github-notifier poll failed');
             if (e instanceof ApiError && e.status === 401) {
                 this._setStatusBanner('Invalid token — check Settings', 'error');
@@ -1380,6 +1397,14 @@ class Indicator extends PanelMenu.Button {
                 this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
+            if (this._accountRefreshPending && !this._destroyed) {
+                this._accountRefreshPending = false;
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    if (!this._destroyed)
+                        this._poll();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
         }
     }
 
