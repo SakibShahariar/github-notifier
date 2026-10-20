@@ -64,7 +64,10 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             }
             testing = true;
             testBtn.set_sensitive(false);
-            testRow.subtitle = 'Checking…';
+            const configuredHost = settings.get_string('github-host').trim() || 'api.github.com';
+            testRow.subtitle = configuredHost === 'api.github.com'
+                ? 'Checking…'
+                : `Checking… your token will be sent to ${configuredHost}`;
 
             let host = settings.get_string('github-host').trim() || 'api.github.com';
             let apiBase;
@@ -108,13 +111,24 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                     } catch (_e) {
                         /* ignore parse errors; status already OK */
                     }
+                    const scopes = msg.response_headers.get_one('X-OAuth-Scopes');
+                    const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
+                    const details = [];
+                    if (scopes)
+                        details.push(`scopes: ${scopes}`);
+                    if (remaining !== null && remaining !== undefined)
+                        details.push(`${remaining} API requests remaining`);
+                    const summary = details.length ? ` · ${details.join(' · ')}` : '';
+                    const hostWarning = configuredHost === 'api.github.com'
+                        ? ''
+                        : ` · token sent to ${configuredHost}`;
                     if (login) {
-                        testRow.subtitle = `Connected as ${login}`;
+                        testRow.subtitle = `Connected as ${login}${summary}${hostWarning}`;
                         const curUser = settings.get_string('github-username').trim();
                         if (!curUser)
                             settings.set_string('github-username', login);
                     } else {
-                        testRow.subtitle = 'Connected';
+                        testRow.subtitle = `Connected${summary}${hostWarning}`;
                     }
                 } catch (e) {
                     testRow.subtitle = `Network error: ${e.message}`;
