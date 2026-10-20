@@ -1163,6 +1163,9 @@ class Indicator extends PanelMenu.Button {
     _refreshNow() {
         if (this._destroyed || this._paused)
             return;
+        // An explicit user request may bypass the automatic offline backoff.
+        this._networkFailureCount = 0;
+        this._networkRetryAfterEpoch = 0;
         if (this._polling) {
             // A manual refresh should not be ignored behind a stalled request.
             // Cancel the active cycle and queue exactly one fresh cycle in finally.
@@ -1203,6 +1206,16 @@ class Indicator extends PanelMenu.Button {
         }
 
         const nowEpoch = Math.floor(Date.now() / 1000);
+        const networkRetrySeconds = this._networkRetryAfterEpoch - nowEpoch;
+        if (networkRetrySeconds > 0) {
+            const retryIn = networkRetrySeconds < 120
+                ? `${networkRetrySeconds} seconds`
+                : `${Math.ceil(networkRetrySeconds / 60)} minutes`;
+            this._setStatusBanner(`GitHub is unreachable — retrying in ${retryIn}`, 'error');
+            this._updateHero();
+            this._updatePanel();
+            return;
+        }
         const retryEpoch = Math.max(this._rateLimitResetEpoch, this._retryAfterEpoch);
         if (retryEpoch > nowEpoch) {
             const waitMin = Math.ceil((retryEpoch - nowEpoch) / 60);
