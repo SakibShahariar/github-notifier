@@ -165,6 +165,11 @@ class Indicator extends PanelMenu.Button {
         this._activityItems = Array.isArray(persistedState.activityItems)
             ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
             : []; // accumulated issue/PR/star events, restored across shell restarts
+        this._pendingReadItems = Array.isArray(persistedState.pendingReadItems)
+            ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
+                .slice(0, MAX_NOTIFICATION_PAGES * 50)
+            : [];
+        this._retryingPendingReadItems = false;
         this._timeoutId = null;
         this._networkDebounceId = null;
         this._transientTimeouts = new Set();
@@ -260,6 +265,10 @@ class Indicator extends PanelMenu.Button {
                 : [];
             this._activityItems = Array.isArray(state.activityItems)
                 ? state.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
+                : [];
+            this._pendingReadItems = Array.isArray(state.pendingReadItems)
+                ? state.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
+                    .slice(0, MAX_NOTIFICATION_PAGES * 50)
                 : [];
             this._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
             this._lastRenderHash = '';
@@ -981,6 +990,7 @@ class Indicator extends PanelMenu.Button {
         const currentState = state || this._loadState();
         currentState.activityItems = this._activityItems.slice(0, MAX_RECENT);
         currentState.notificationItems = this._notificationItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
+        currentState.pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
         currentState.lastFetchedAt = this._lastFetchedAt;
         this._saveState(currentState);
     }
@@ -1244,6 +1254,7 @@ class Indicator extends PanelMenu.Button {
         let activityItems = [];
         const errors = [];
         const baselineNotes = [];
+        let pollSucceeded = false;
 
         try {
             if (this._settings.get_boolean('watch-mentions')) {
@@ -1327,6 +1338,7 @@ class Indicator extends PanelMenu.Button {
             }
             this._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
             this._persistCurrentItems(state);
+            pollSucceeded = errors.length === 0 && !notificationPollFailed;
 
             if (baselineNotes.length > 0)
                 this._notifyBaseline(baselineNotes);
@@ -1422,6 +1434,12 @@ class Indicator extends PanelMenu.Button {
                 this._restartTimer();
             this._updateHero();
             this._stopRefreshSpin();
+            if (pollSucceeded && this._pendingReadItems.length > 0) {
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    this._retryPendingReadItems();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
             const restartAfterRefresh = this._restartPollRequested && !this._destroyed && !this._paused;
             this._restartPollRequested = false;
             if ((this._accountRefreshPending || restartAfterRefresh) && !this._destroyed) {
@@ -1683,8 +1701,9 @@ class Indicator extends PanelMenu.Button {
         if (!item.rawId)
             return;
         if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._setActionStatus('Offline — cannot mark read right now');
-            this._addTransientTimeout(3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            this._queuePendingReadItem(item);
+            this._setActionStatus('Offline — queued to mark read when reconnected');
+            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             return;
         }
         this._setActionStatus('Marking notification read…');
@@ -1692,16 +1711,62 @@ class Indicator extends PanelMenu.Button {
             await this._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
-            this._setActionStatus('Could not mark read');
+            this._queuePendingReadItem(item);
+            this._setActionStatus('Could not mark read — queued for retry');
             this._addTransientTimeout(3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             return;
         }
+        this._pendingReadItems = this._pendingReadItems.filter(pending => pending.rawId !== String(item.rawId));
         this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
         this._persistCurrentItems();
         this._setActionStatus('');
         this._renderList();
         this._updatePanel();
         this._updateHero();
+    }
+
+    _queuePendingReadItem(item) {
+        const rawId = String(item.rawId || '');
+        if (!rawId)
+            return;
+        if (!this._pendingReadItems.some(pending => pending.rawId === rawId))
+            this._pendingReadItems.push({id: String(item.id), rawId});
+        this._pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
+        this._persistCurrentItems();
+    }
+
+    async _retryPendingReadItems() {
+        if (this._destroyed || this._polling || this._retryingPendingReadItems ||
+            this._pendingReadItems.length === 0 ||
+            this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL ||
+            !this._settings.get_string('github-token'))
+            return;
+
+        this._retryingPendingReadItems = true;
+        let changed = false;
+        try {
+            for (const pending of this._pendingReadItems.slice()) {
+                if (this._destroyed || this._polling)
+                    break;
+                try {
+                    await this._apiRequest('PATCH', `/notifications/threads/${pending.rawId}`);
+                    this._pendingReadItems = this._pendingReadItems.filter(item => item.rawId !== pending.rawId);
+                    this._notificationItems = this._notificationItems.filter(item => item.id !== pending.id);
+                    changed = true;
+                } catch (e) {
+                    logError(e, 'github-notifier: queued mark-read retry failed');
+                    break;
+                }
+            }
+        } finally {
+            this._retryingPendingReadItems = false;
+            if (changed) {
+                this._persistCurrentItems();
+                this._renderList();
+                this._updatePanel();
+                this._updateHero();
+            }
+        }
     }
 
     _dismissActivityItem(item) {
