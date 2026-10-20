@@ -5,6 +5,7 @@ import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {isValidRepository} from './repo-utils.js';
 
 export default class GithubNotifierPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -170,7 +171,6 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('watch-stars', starsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(starsRow);
 
-        const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 
         const reposGroup = new Adw.PreferencesGroup({
             title: 'Watched repositories',
@@ -201,7 +201,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             let hasInvalid = false;
             for (const row of repoRows) {
                 const txt = row.get_text().trim();
-                const isInvalid = txt.length > 0 && !REPO_RE.test(txt);
+                const isInvalid = txt.length > 0 && !isValidRepository(txt);
                 if (isInvalid) hasInvalid = true;
                 if (isInvalid) row.add_css_class('error');
                 else row.remove_css_class('error');
