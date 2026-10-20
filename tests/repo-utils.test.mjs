@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
+const {getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -81,4 +81,35 @@ test('matches muted repositories case-insensitively', () => {
     assert.equal(isRepositoryMuted('OWNER/REPO', muted), true);
     assert.equal(isRepositoryMuted('gnome/mutter', muted), false);
     assert.equal(isRepositoryMuted(undefined, muted), false);
+});
+
+test('builds GitHub CLI arguments for issue and pull-request links', () => {
+    assert.deepEqual(
+        getGitHubCliArguments({
+            kind: 'issue',
+            subtitle: 'owner/repo',
+            url: 'https://github.com/owner/repo/issues/123',
+        }),
+        ['issue', 'view', '123', '--repo', 'owner/repo']
+    );
+    assert.deepEqual(
+        getGitHubCliArguments({
+            kind: 'notification',
+            subtitle: 'gnome/gnome-shell',
+            url: 'https://github.com/gnome/gnome-shell/pull/456',
+        }),
+        ['pr', 'view', '456', '--repo', 'gnome/gnome-shell']
+    );
+});
+
+test('does not create GitHub CLI commands for non-issue links or invalid data', () => {
+    for (const item of [
+        {kind: 'star', subtitle: 'owner/repo', url: 'https://github.com/owner/repo/stargazers'},
+        {kind: 'issue', subtitle: 'owner/repo', url: 'https://github.com/owner/repo/issues'},
+        {kind: 'issue', subtitle: 'owner/repo', url: 'not a URL'},
+        {kind: 'issue', subtitle: 'invalid', url: 'https://github.com/owner/repo/issues/1'},
+        null,
+    ]) {
+        assert.equal(getGitHubCliArguments(item), null);
+    }
 });
