@@ -220,6 +220,7 @@ class Indicator extends PanelMenu.Button {
         this._heroItem = null;
         this._heroIcon = null;
         this._heroGear = null;
+        this._refreshIcon = null;
         this._menuBuilt = false;
         this._lastRenderHash = '';
         this._matugenMonitor = null;
@@ -714,7 +715,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _startRefreshSpin() {
-        const icon = this._heroGear?.child ?? this._heroGear;
+        const icon = this._refreshIcon;
         if (!icon || !this.hasMotion()) return;
         if (icon.get_transition?.('rotation-angle-z')) return;
         try {
@@ -728,7 +729,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _stopRefreshSpin() {
-        const icon = this._heroGear?.child ?? this._heroGear;
+        const icon = this._refreshIcon;
         if (!icon) return;
         try { icon.remove_all_transitions(); icon.ease({ rotation_angle_z: 0, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch (e) { try { icon.rotation_angle_z = 0; } catch (ee) {} }
     }
@@ -1956,7 +1957,24 @@ class Indicator extends PanelMenu.Button {
         // refresh / pause controls only when handlers provided (global footer)
         if (opts.onPauseToggle && opts.onRefresh) {
             makeBtn(opts.isPaused ? 'Resume' : 'Pause', opts.onPauseToggle);
-            makeBtn('Refresh', opts.onRefresh);
+            const refreshBox = new St.BoxLayout({spacing: 6, y_align: Clutter.ActorAlign.CENTER});
+            this._refreshIcon = new St.Icon({
+                icon_name: 'view-refresh-symbolic',
+                icon_size: 14,
+                style_class: 'popup-menu-icon',
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            refreshBox.add_child(this._refreshIcon);
+            refreshBox.add_child(new St.Label({text: 'Refresh', y_align: Clutter.ActorAlign.CENTER}));
+            const refreshBtn = new St.Button({
+                style_class: 'github-notifier-footer-button',
+                can_focus: true,
+                child: refreshBox,
+            });
+            refreshBtn.connect('clicked', opts.onRefresh);
+            box.add_child(refreshBtn);
+            if (this.hasMotion())
+                this._addButtonHoverScale(refreshBtn);
         }
 
         footerItem.add_child(box);
@@ -2087,6 +2105,8 @@ class Indicator extends PanelMenu.Button {
         }
         // update rate footer after sections
         this._updateRateFooter();
+        if (this._polling)
+            this._startRefreshSpin();
     }
 
     _ensureSource() {
