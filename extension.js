@@ -1815,10 +1815,27 @@ class Indicator extends PanelMenu.Button {
         section.addMenuItem(item);
     }
 
+    _openUri(uri) {
+        try {
+            if (Gio.AppInfo.launch_default_for_uri(uri, null))
+                return true;
+        } catch (e) {
+            logError(e, 'github-notifier: failed to open link');
+        }
+
+        this._setActionStatus('Could not open link — check your default browser');
+        this._addTransientTimeout(4, () => {
+            this._setActionStatus('');
+            return GLib.SOURCE_REMOVE;
+        });
+        return false;
+    }
+
     _addRow(section, item) {
         const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
         menuItem.connect('activate', () => {
-            Gio.AppInfo.launch_default_for_uri(item.url, null);
+            if (!this._openUri(item.url))
+                return;
             if (item.kind === 'notification' && item.rawId)
                 this._markThreadRead(item);
             else
@@ -1932,7 +1949,7 @@ class Indicator extends PanelMenu.Button {
             openBox.add_child(new St.Label({text: openLabel}));
             openBox.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
             const openBtn = new St.Button({style_class: 'github-notifier-footer-button', can_focus: true, child: openBox});
-            openBtn.connect('clicked', () => Gio.AppInfo.launch_default_for_uri(opts.openUrl, null));
+            openBtn.connect('clicked', () => this._openUri(opts.openUrl));
             box.add_child(openBtn);
             if (this.hasMotion()) this._addButtonHoverScale(openBtn);
         }
@@ -2093,8 +2110,8 @@ class Indicator extends PanelMenu.Button {
                 title: 'GitHub Notifier',
                 body: `${newItems.length} new updates`,
             });
-            notification.addAction('Open Inbox', () => Gio.AppInfo.launch_default_for_uri(inboxUrl, null));
-            notification.connect('activated', () => Gio.AppInfo.launch_default_for_uri(inboxUrl, null));
+            notification.addAction('Open Inbox', () => this._openUri(inboxUrl));
+            notification.connect('activated', () => this._openUri(inboxUrl));
             source.addNotification(notification);
             return;
         }
@@ -2105,14 +2122,16 @@ class Indicator extends PanelMenu.Button {
                 body: item.subtitle,
             });
             notification.connect('activated', () => {
-                Gio.AppInfo.launch_default_for_uri(item.url, null);
+                if (!this._openUri(item.url))
+                    return;
                 if (item.kind === 'notification' && item.rawId)
                     this._markThreadRead(item);
                 else
                     this._dismissActivityItem(item);
             });
             notification.addAction('Open', () => {
-                Gio.AppInfo.launch_default_for_uri(item.url, null);
+                if (!this._openUri(item.url))
+                    return;
                 if (item.kind === 'notification' && item.rawId)
                     this._markThreadRead(item);
                 else
