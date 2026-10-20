@@ -113,8 +113,8 @@ The token is currently stored in GNOME's GSettings/dconf configuration and is no
 
 GitHub Actions runs source-level checks on pushes to `main`:
 
-- JavaScript syntax checks for the extension, preferences, and shared repository validator.
-- Unit tests for repository-name validation.
+- JavaScript syntax checks for the extension, preferences, and shared helpers.
+- Unit tests for repository validation, notification category mapping, muted-repository parsing/matching, and GitHub CLI argument generation.
 - JSON parsing for `metadata.json`.
 - Strict validation of the GSettings schema.
 
