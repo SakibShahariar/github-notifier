@@ -1509,6 +1509,11 @@ class Indicator extends PanelMenu.Button {
     async _markThreadRead(item) {
         if (!item.rawId)
             return;
+        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
+            this._setActionStatus('Offline — cannot mark read right now');
+            this._addTransientTimeout(3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            return;
+        }
         this._setActionStatus('Marking notification read…');
         try {
             await this._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
