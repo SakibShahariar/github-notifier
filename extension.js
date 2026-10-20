@@ -454,8 +454,10 @@ class Indicator extends PanelMenu.Button {
             this._timeoutId = null;
         }
         const configuredInterval = Math.max(60, this._settings.get_int('poll-interval'));
-        const backoffSeconds = Math.max(0, this._networkRetryAfterEpoch - Math.floor(Date.now() / 1000));
-        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds, backoffSeconds);
+        const nowEpoch = Math.floor(Date.now() / 1000);
+        const backoffSeconds = Math.max(0, this._networkRetryAfterEpoch - nowEpoch);
+        const retryAfterSeconds = Math.max(0, this._retryAfterEpoch - nowEpoch);
+        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
         this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             this._poll();
             return GLib.SOURCE_CONTINUE;
@@ -1326,9 +1328,13 @@ class Indicator extends PanelMenu.Button {
             if (errors.length > 0) {
                 const errorText = errors.join(' ').toLowerCase();
                 const intervalSeconds = Math.max(60, this._settings.get_int('poll-interval'));
-                const retryIn = intervalSeconds < 120
-                    ? `about ${intervalSeconds} seconds`
-                    : `about ${Math.ceil(intervalSeconds / 60)} minutes`;
+                const retrySeconds = Math.max(
+                    intervalSeconds,
+                    this._retryAfterEpoch - Math.floor(Date.now() / 1000),
+                    this._networkRetryAfterEpoch - Math.floor(Date.now() / 1000));
+                const retryIn = retrySeconds < 120
+                    ? `about ${retrySeconds} seconds`
+                    : `about ${Math.ceil(retrySeconds / 60)} minutes`;
                 let message = `Some GitHub data could not be refreshed — retrying in ${retryIn}; details in logs`;
                 if (/rate limit|rate limited|secondary rate/.test(errorText))
                     message = `GitHub rate limit reached — retrying in ${retryIn}; details in logs`;
@@ -1385,7 +1391,14 @@ class Indicator extends PanelMenu.Button {
                     : `${Math.ceil(backoffSeconds / 60)} minute${backoffSeconds >= 120 ? 's' : ''}`;
                 this._setStatusBanner(`GitHub is unreachable — retrying in ${retryLabel}`, 'error');
             } else if (e instanceof ApiError && e.status >= 500) {
-                this._setStatusBanner('GitHub is temporarily unavailable — will retry later', 'error');
+                const retryEpoch = Math.max(this._retryAfterEpoch, this._networkRetryAfterEpoch);
+                const retrySeconds = Math.max(
+                    Math.max(60, this._settings.get_int('poll-interval')),
+                    retryEpoch - Math.floor(Date.now() / 1000));
+                const retryIn = retrySeconds < 120
+                    ? `about ${retrySeconds} seconds`
+                    : `about ${Math.ceil(retrySeconds / 60)} minutes`;
+                this._setStatusBanner(`GitHub is temporarily unavailable — retrying in ${retryIn}`, 'error');
             } else {
                 this._setStatusBanner('Could not refresh GitHub data — see logs for details', 'error');
             }
