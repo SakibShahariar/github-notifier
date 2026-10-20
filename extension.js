@@ -188,6 +188,7 @@ class Indicator extends PanelMenu.Button {
         this._pollCancellable = null;
         this._pollDeadlineId = null;
         this._restartPollRequested = false;
+        this._manualRefreshPending = false;
         this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
         this._polling = false; // prevents overlapping poll cycles
         this._accountRefreshPending = false; // rerun after an in-flight poll when host/token changes
@@ -1186,7 +1187,8 @@ class Indicator extends PanelMenu.Button {
     _refreshNow() {
         if (this._destroyed || this._paused)
             return;
-        // An explicit user request may bypass the automatic offline backoff.
+        // An explicit user request may bypass automatic backoff and metered-network pausing.
+        this._manualRefreshPending = true;
         this._networkFailureCount = 0;
         this._networkRetryAfterEpoch = 0;
         if (this._polling) {
@@ -1202,6 +1204,15 @@ class Indicator extends PanelMenu.Button {
     async _poll() {
         if (this._paused || this._destroyed || this._polling || this._markingAllRead)
             return;
+
+        const manualRefresh = this._manualRefreshPending;
+        this._manualRefreshPending = false;
+        if (this._networkMonitor.network_metered && !manualRefresh) {
+            this._setStatusBanner('Metered connection — automatic polling paused', 'info');
+            this._updateHero();
+            this._updatePanel();
+            return;
+        }
 
         const token = this._settings.get_string('github-token');
         if (!token) {
