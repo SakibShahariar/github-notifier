@@ -1177,8 +1177,12 @@ class Indicator extends PanelMenu.Button {
             logError(e, 'github-notifier poll failed');
             if (e instanceof ApiError && e.status === 401)
                 this._setStatusBanner('Invalid token — check Settings', 'error');
-            else if (e instanceof ApiError && e.status === 403)
-                this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
+            else if (e instanceof ApiError && e.status === 403) {
+                if (e.message.toLowerCase().includes('rate limited'))
+                    this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
+                else
+                    this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
+            }
             else
                 this._setStatusBanner(`Error: ${e.message}`, 'error');
             this._updateHero();
