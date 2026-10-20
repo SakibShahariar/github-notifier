@@ -1366,7 +1366,7 @@ class Indicator extends PanelMenu.Button {
                         maxId = issue.number;
                 }
                 const hasMoreNew = data2.some(issue => issue.number > repoState.lastIssueNumber);
-                if (hasMoreNew || data2.length === 20) {
+                if (hasMoreNew) {
                     items.push({
                         id: `${repo}-more-${maxId}`,
                         title: 'More new issues/PRs than shown — check the repo directly',
