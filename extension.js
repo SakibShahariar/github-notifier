@@ -37,6 +37,7 @@ const MAX_NOTIFICATION_PAGES = 3;
 const ACTIVITY_PREVIEW = 5;
 const ACTIVITY_EXPANDED = MAX_RECENT;
 const NOTIF_PAGE_SIZE = 5;
+const NOTIFICATION_FILTER_CATEGORIES = ['mentions', 'reviews', 'assignments', 'conversation', 'checks', 'other'];
 
 // --- Matugen helpers (same idea as update-checker@local) ---
 function hexToRgba(hex, alpha) {
@@ -263,6 +264,15 @@ class Indicator extends PanelMenu.Button {
         this._unlitChangedId = this._settings.connect('changed::icon-always-unlit', () => this._updatePanel());
         // live hero update when username changes
         this._usernameChangedId = this._settings.connect('changed::github-username', () => this._updateHero());
+        this._filterChangedIds = NOTIFICATION_FILTER_CATEGORIES.map(category =>
+            this._settings.connect(`changed::filter-${category}`, () => {
+                if (this._destroyed)
+                    return;
+                this._lastRenderHash = '';
+                this._renderList();
+                this._updatePanel();
+                this._updateHero();
+            }));
         const refreshIfMenuOpen = () => {
             if (this._destroyed || !this.menu?.isOpen)
                 return;
@@ -509,6 +519,31 @@ class Indicator extends PanelMenu.Button {
         return `${Math.floor(seconds / 2592000)}mo ago`;
     }
 
+    _notificationCategory(item) {
+        const reason = String(item.notificationReason || item.reasonLabel || '')
+            .trim().toLowerCase().replaceAll(' ', '_');
+        if (reason === 'mention' || reason === 'team_mention')
+            return 'mentions';
+        if (['review_requested', 'requested_reviewer', 'approval_requested', 'review_request_removed'].includes(reason))
+            return 'reviews';
+        if (reason === 'assign' || reason === 'assigned')
+            return 'assignments';
+        if (reason === 'ci_activity' || ['CheckSuite', 'WorkflowRun'].includes(item.subjectType))
+            return 'checks';
+        if (['author', 'comment', 'manual', 'state_change', 'subscribed', 'new_comment',
+            'update_on_your_thread', 'state_changed', 'activity'].includes(reason))
+            return 'conversation';
+        return 'other';
+    }
+
+    _isNotificationTypeEnabled(item) {
+        return this._settings.get_boolean(`filter-${this._notificationCategory(item)}`);
+    }
+
+    _visibleNotificationItems() {
+        return this._notificationItems.filter(item => this._isNotificationTypeEnabled(item));
+    }
+
     _iconForItem(item) {
         // Adwaita-only mapping: branch/bug/git are Breeze-only and missing on vanilla GNOME
         if (item.kind === 'notification') {
@@ -546,7 +581,7 @@ class Indicator extends PanelMenu.Button {
         if (!this._heroTitle || !this._heroMeta) return;
         const username = this._settings.get_string('github-username').trim();
         this._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
-        const n = this._notificationItems.length;
+        const n = this._visibleNotificationItems().length;
         const issuesPrCount = this._activityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
         const starsCount = this._activityItems.filter(i => i.kind === 'star').length;
         const parts = [];
@@ -1546,6 +1581,7 @@ class Indicator extends PanelMenu.Button {
                     // notifications should not all generate desktop toasts.
                     isNewToast: !isInitialBaseline && !toasted.has(n.id),
                     reasonLabel: kind,
+                    notificationReason: n.reason,
                     subjectType: n.subject.type,
                 });
                 toasted.add(n.id);
@@ -1838,7 +1874,7 @@ class Indicator extends PanelMenu.Button {
     // ---------- UI update ----------
     _afterPoll(notificationItems, newActivityItems, {updateFetchedAt = true} = {}) {
         this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
-        const toToast = notificationItems.filter(n => n.isNewToast);
+        const toToast = notificationItems.filter(n => n.isNewToast && this._isNotificationTypeEnabled(n));
 
         if (newActivityItems.length > 0)
             this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
@@ -1933,7 +1969,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updatePanel() {
-        const unread = this._notificationItems.length + this._activityItems.length;
+        const unread = this._visibleNotificationItems().length + this._activityItems.length;
         const prev = this._lastUnreadCount ?? 0;
         const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
         if (unread > 0) {
@@ -2206,7 +2242,8 @@ class Indicator extends PanelMenu.Button {
         this._issuesSection._rowAnimIdx = 0;
         this._starsSection._rowAnimIdx = 0;
 
-        const hasAny = this._notificationItems.length > 0 || this._activityItems.length > 0;
+        const visibleNotificationItems = this._visibleNotificationItems();
+        const hasAny = visibleNotificationItems.length > 0 || this._activityItems.length > 0;
 
         // status banner visibility already handled in _poll; keep hidden when no error unless empty?
         if (!hasAny && !this._statusIsError) {
@@ -2215,7 +2252,7 @@ class Indicator extends PanelMenu.Button {
 
         // ---- Unread Notifications (GNOME HIG: Title Case) ----
         // No leading separator: hero (and optional banner) already separate the section.
-        const notifCount = this._notificationItems.length;
+        const notifCount = visibleNotificationItems.length;
         this._addSectionHeader(this._notifSection, 'Unread Notifications', notifCount);
         if (notifCount === 0) {
             this._addEmpty(this._notifSection, this._statusIsError ? 'No notifications loaded.' : "You're all caught up.");
@@ -2224,7 +2261,7 @@ class Indicator extends PanelMenu.Button {
             if (this._notificationsPage >= pageCount) this._notificationsPage = pageCount - 1;
             if (this._notificationsPage < 0) this._notificationsPage = 0;
             const start = this._notificationsPage * NOTIF_PAGE_SIZE;
-            const slice = this._notificationItems.slice(start, start + NOTIF_PAGE_SIZE);
+            const slice = visibleNotificationItems.slice(start, start + NOTIF_PAGE_SIZE);
             for (const item of slice) this._addRow(this._notifSection, item);
             const paginated = pageCount > 1;
             const showMarkAll = notifCount > 0;
@@ -2404,6 +2441,9 @@ class Indicator extends PanelMenu.Button {
             this._settings.disconnect(this._usernameChangedId);
             this._usernameChangedId = null;
         }
+        for (const id of this._filterChangedIds || [])
+            this._settings.disconnect(id);
+        this._filterChangedIds = [];
         // These handlers are connected to the shared GSettings object, which
         // outlives this indicator. Disconnect them to avoid stale callbacks
         // and retained indicator instances across extension reloads.
