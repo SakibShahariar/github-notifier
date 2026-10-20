@@ -60,5 +60,9 @@ export function getGitHubCliArguments(item) {
     const command = resource.toLowerCase() === 'pull' || item.kind === 'pr'
         ? 'pr'
         : 'issue';
-    return [command, 'view', number, '--repo', repository];
+    // GitHub CLI accepts [HOST/]OWNER/REPO for Enterprise instances.
+    const repoTarget = url.hostname.toLowerCase() === 'github.com'
+        ? repository
+        : `${url.hostname}/${repository}`;
+    return [command, 'view', number, '--repo', repoTarget];
 }
