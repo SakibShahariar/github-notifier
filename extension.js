@@ -1018,13 +1018,15 @@ class Indicator extends PanelMenu.Button {
         return sourceId;
     }
 
-    _buildMessage(method, uri, token, body) {
+    _buildMessage(method, uri, token, body, headers = {}) {
         const msg = new Soup.Message({method, uri});
         msg.request_headers.append('Accept', 'application/vnd.github+json');
         msg.request_headers.append('X-GitHub-Api-Version', '2022-11-28');
         msg.request_headers.append('User-Agent', 'gnome-shell-github-notifier');
         if (token)
             msg.request_headers.append('Authorization', `Bearer ${token}`);
+        for (const [name, value] of Object.entries(headers))
+            msg.request_headers.append(name, value);
         if (body !== null) {
             const bodyBytes = new TextEncoder().encode(JSON.stringify(body));
             msg.set_request_body_from_bytes('application/json', new GLib.Bytes(bodyBytes));
@@ -1032,8 +1034,8 @@ class Indicator extends PanelMenu.Button {
         return msg;
     }
 
-    async _sendOnce(method, uri, token, body) {
-        const msg = this._buildMessage(method, uri, token, body);
+    async _sendOnce(method, uri, token, body, headers = {}) {
+        const msg = this._buildMessage(method, uri, token, body, headers);
         const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
         return {bytes, msg};
     }
@@ -1047,13 +1049,13 @@ class Indicator extends PanelMenu.Button {
         return `https://${host}/api/v3`;
     }
 
-    async _apiRequest(method, path, {body = null} = {}) {
+    async _apiRequest(method, path, {body = null, headers = {}} = {}) {
         const token = this._settings.get_string('github-token');
         const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
 
         let bytes, msg;
         try {
-            ({bytes, msg} = await this._sendOnce(method, uri, token, body));
+            ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers));
         } catch (firstError) {
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
@@ -1061,7 +1063,7 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 throw new ApiError(`Network error: ${firstError.message}`, 0);
             try {
-                ({bytes, msg} = await this._sendOnce(method, uri, token, body));
+                ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers));
             } catch (secondError) {
                 throw new ApiError(`Network error: ${secondError.message}`, 0);
             }
@@ -1094,6 +1096,8 @@ class Indicator extends PanelMenu.Button {
             this._retryAfterEpoch = 0;
         }
 
+        if (status === 304)
+            return {data: null, linkHeader: msg.response_headers.get_one('Link'), lastModified: msg.response_headers.get_one('Last-Modified'), notModified: true};
         if (status === 401)
             throw new ApiError('Invalid or expired token', 401);
         if ((status === 403 && remaining === '0') || status === 429)
@@ -1104,10 +1108,11 @@ class Indicator extends PanelMenu.Button {
             throw new ApiError(`GitHub API ${path} returned ${status}`, status);
 
         const linkHeader = msg.response_headers.get_one('Link');
+        const lastModified = msg.response_headers.get_one('Last-Modified');
         const data = bytes.get_size() > 0
             ? JSON.parse(new TextDecoder('utf-8').decode(bytes.get_data()))
             : null;
-        return {data, linkHeader};
+        return {data, linkHeader, lastModified, notModified: false};
     }
 
     async _apiGet(path) {
@@ -1362,7 +1367,15 @@ class Indicator extends PanelMenu.Button {
         let pagesFetched = 0;
 
         while (path && pagesFetched < MAX_NOTIFICATION_PAGES) {
-            const {data, linkHeader} = await this._apiRequest('GET', path);
+            const headers = pagesFetched === 0 && state.notificationsLastModified
+                ? {'If-Modified-Since': state.notificationsLastModified}
+                : {};
+            const response = await this._apiRequest('GET', path, {headers});
+            if (pagesFetched === 0 && response.notModified)
+                return this._notificationItems.slice();
+            const {data, linkHeader, lastModified} = response;
+            if (pagesFetched === 0 && lastModified)
+                state.notificationsLastModified = lastModified;
             pagesFetched += 1;
 
             for (const n of data) {
