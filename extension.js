@@ -181,6 +181,7 @@ class Indicator extends PanelMenu.Button {
             ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
             : []; // accumulated issue/PR/star events, restored across shell restarts
         this._timeoutId = null;
+        this._networkDebounceId = null;
         this._source = null; // MessageTray.Source, created lazily
         this._destroyed = false;
         this._paused = false;
@@ -254,9 +255,21 @@ class Indicator extends PanelMenu.Button {
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
-            if (available && !this._destroyed &&
-                monitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
-                this._poll();
+            if (!available || this._destroyed ||
+                monitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
+                return;
+
+            // Network changes can fire in bursts while Wi-Fi/VPN reconnects.
+            // Debounce the immediate poll rather than starting repeated cycles.
+            if (this._networkDebounceId)
+                GLib.source_remove(this._networkDebounceId);
+            this._networkDebounceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+                this._networkDebounceId = null;
+                if (!this._destroyed &&
+                    monitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
+                    this._poll();
+                return GLib.SOURCE_REMOVE;
+            });
         });
 
         this._setupMatugenMonitor();
@@ -409,7 +422,7 @@ class Indicator extends PanelMenu.Button {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
         }
-        const interval = Math.max(30, this._settings.get_int('poll-interval'));
+        const interval = Math.max(60, this._settings.get_int('poll-interval'));
         this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             this._poll();
             return GLib.SOURCE_CONTINUE;
@@ -1996,6 +2009,10 @@ class Indicator extends PanelMenu.Button {
         if (this._timeoutId) {
             GLib.source_remove(this._timeoutId);
             this._timeoutId = null;
+        }
+        if (this._networkDebounceId) {
+            GLib.source_remove(this._networkDebounceId);
+            this._networkDebounceId = null;
         }
         if (this._markAllTimer) {
             GLib.source_remove(this._markAllTimer);
