@@ -76,8 +76,13 @@ gnome-extensions prefs github-notifier@local
 | **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. Muting does not mark GitHub notifications as read. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
 | **Mark notifications read when opened** | Turn off to open notification links without automatically marking them read. |
+| **GitHub CLI action** | When `gh` and a supported terminal are installed, issue and pull-request rows include an action to open them with the CLI. Browser opening remains available. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
+
+### GitHub CLI integration
+
+When the `gh` executable and a supported terminal (`kgx`, Ptyxis, GNOME Terminal, or `x-terminal-emulator`) are available, issue and pull-request rows show a terminal action. It runs `gh issue view` or `gh pr view` in a new terminal, using the repository from the item. The normal row activation still opens the browser; the CLI action is additive. The CLI must be authenticated separately with `gh auth login`. The action is omitted when the CLI, terminal, or an issue/PR number is unavailable.
 
 ### Muted repositories
 
