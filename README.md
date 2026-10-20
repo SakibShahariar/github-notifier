@@ -17,13 +17,13 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | 💬 **Inbox** | Mirrors your unread GitHub notifications. |
 | 📝 **Repository watching** | Checks selected repositories for new issues and pull requests. |
 | ⭐ **Star tracking** | Detects changes in repository star counts. |
-| 🔔 **Desktop notifications** | Notifications with Open and Mark read actions, grouped by repository. |
+| 🔔 **Desktop notifications** | Per-item notifications with Open and Mark read actions, plus a summary for notification bursts. |
 | ⏸️ **Pause polling** | Temporarily stop checks from the panel menu. |
 | 👁️ **Hide when empty** | Keep the panel icon hidden when there is nothing to show, unless an error needs attention. |
 
 The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
 
-**Mark all as read** updates the local view and sends a request to GitHub to mark notifications as read.
+**Mark all as read** clears the local view only after GitHub confirms the request succeeded; if it fails, the items remain visible.
 
 ## Requirements
 
