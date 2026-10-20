@@ -1,5 +1,5 @@
 {
-  "uuid": "github-notifier@local",
+  "uuid": "github-notifier@SakibShahariar",
   "name": "GitHub Notifier",
   "description": "Shows GitHub notifications in the top panel: full unread inbox, new issues/PRs and new stars on repos you choose to watch.",
   "shell-version": [
