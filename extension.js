@@ -961,10 +961,22 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- state persistence ----------
+    _stateScope() {
+        const host = this._settings.get_string('github-host').trim() || 'api.github.com';
+        const token = this._settings.get_string('github-token');
+        // Store only a one-way token fingerprint, never the token itself.
+        const tokenFingerprint = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, token, -1);
+        return `${host.toLowerCase()}|${tokenFingerprint}`;
+    }
+
     _loadState() {
         try {
             const parsed = JSON.parse(this._settings.get_string('last-state') || '{}');
-            return typeof parsed === 'object' && parsed !== null ? parsed : {};
+            if (typeof parsed !== 'object' || parsed === null)
+                return {};
+            // Ignore baselines and cached inbox data from a different host or token.
+            // Older unscoped state is intentionally reset once to avoid cross-account events.
+            return parsed.scope === this._stateScope() ? parsed : {};
         } catch (e) {
             logError(e, 'github-notifier: corrupt last-state, resetting');
             return {};
@@ -973,6 +985,7 @@ class Indicator extends PanelMenu.Button {
 
     _saveState(state) {
         try {
+            state.scope = this._stateScope();
             const serialized = JSON.stringify(state);
             if (this._settings.get_string('last-state') !== serialized)
                 this._settings.set_string('last-state', serialized);
