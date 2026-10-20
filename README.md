@@ -41,7 +41,7 @@ Clone the repository, then install the extension files into the directory matchi
 git clone https://github.com/SakibShahariar/github-notifier.git
 cd github-notifier
 
-UUID="github-notifier@local"
+UUID="github-notifier@SakibShahariar"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 
 mkdir -p "$DEST/schemas" "$DEST/icons"
@@ -51,10 +51,12 @@ cp schemas/*.xml "$DEST/schemas/"
 glib-compile-schemas "$DEST/schemas/"
 ```
 
+If you are upgrading an existing installation that used `github-notifier@local`, disable that old extension and install this version under the new UUID. The GSettings schema ID and settings path are unchanged, so your existing preferences are preserved; do not reset dconf during the upgrade.
+
 Then enable the extension:
 
 ```bash
-gnome-extensions enable github-notifier@local
+gnome-extensions enable github-notifier@SakibShahariar
 ```
 
 On X11, you can restart GNOME Shell with **Alt+F2**, then enter `r`. On Wayland, log out and log back in if required.
@@ -62,7 +64,7 @@ On X11, you can restart GNOME Shell with **Alt+F2**, then enter `r`. On Wayland,
 Open the extension preferences from the panel menu or run:
 
 ```bash
-gnome-extensions prefs github-notifier@local
+gnome-extensions prefs github-notifier@SakibShahariar
 ```
 
 ## Configuration
@@ -155,8 +157,8 @@ If your Enterprise instance is hosted under a URL path rather than directly at t
 Disable the extension, remove its directory, and reset its settings:
 
 ```bash
-gnome-extensions disable github-notifier@local
-rm -rf ~/.local/share/gnome-shell/extensions/github-notifier@local
+gnome-extensions disable github-notifier@SakibShahariar
+rm -rf ~/.local/share/gnome-shell/extensions/github-notifier@SakibShahariar
 dconf reset -f /org/gnome/shell/extensions/github-notifier/
 ```
 
