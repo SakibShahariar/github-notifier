@@ -192,6 +192,45 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             filterGroup.add(row);
         }
 
+        const mutedGroup = new Adw.PreferencesGroup({
+            title: 'Muted repositories',
+            description: 'Muted repositories are skipped by issue/star polling and hidden from the inbox list, badge, and desktop banners. GitHub notifications remain unread.',
+        });
+        watchPage.add(mutedGroup);
+
+        const mutedRow = new Adw.EntryRow({
+            title: 'Repositories to mute (comma-separated)',
+            show_apply_button: true,
+        });
+        mutedRow.set_text(settings.get_string('muted-repos'));
+        mutedGroup.add(mutedRow);
+
+        const mutedError = new Adw.Banner({
+            title: 'Invalid repository — use owner/repo, separated by commas',
+            revealed: false,
+        });
+        mutedGroup.add(mutedError);
+
+        mutedRow.connect('apply', () => {
+            const values = Array.from(new Set(
+                mutedRow.get_text().split(',').map(value => value.trim()).filter(Boolean)
+            ));
+            const invalid = values.filter(value => !isValidRepository(value));
+            if (invalid.length > 0) {
+                mutedError.set_title(`Invalid repository: ${invalid[0]}`);
+                mutedError.set_revealed(true);
+                return;
+            }
+            mutedError.set_revealed(false);
+            settings.set_string('muted-repos', values.join(', '));
+            mutedRow.set_text(values.join(', '));
+        });
+
+        settings.connect('changed::muted-repos', () => {
+            if (mutedRow.get_text() !== settings.get_string('muted-repos'))
+                mutedRow.set_text(settings.get_string('muted-repos'));
+        });
+
         const reposGroup = new Adw.PreferencesGroup({
             title: 'Watched repositories',
             description: 'One owner/repo per row — verified as owner/repo',
