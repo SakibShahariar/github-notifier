@@ -1171,7 +1171,7 @@ class Indicator extends PanelMenu.Button {
                 this._notifyBaseline(baselineNotes);
 
             if (errors.length > 0) {
-                this._setStatusBanner(`Updated with ${errors.length} issue(s) — see logs`, 'error');
+                this._setStatusBanner(`Some GitHub data could not be refreshed (${errors.length} problem(s)) — see logs`, 'error');
             } else if (baselineNotes.length > 0) {
                 this._setStatusBanner(`Started tracking ${baselineNotes.length} new watch(es)`, 'info');
                 // auto-hide after 4s like omarchy banner
@@ -1193,16 +1193,20 @@ class Indicator extends PanelMenu.Button {
             if (this._destroyed)
                 return;
             logError(e, 'github-notifier poll failed');
-            if (e instanceof ApiError && e.status === 401)
+            if (e instanceof ApiError && e.status === 401) {
                 this._setStatusBanner('Invalid token — check Settings', 'error');
-            else if (e instanceof ApiError && e.status === 403) {
+            } else if (e instanceof ApiError && e.status === 403) {
                 if (e.message.toLowerCase().includes('rate limited'))
                     this._setStatusBanner('Rate limited by GitHub — will retry later', 'error');
                 else
                     this._setStatusBanner('GitHub access denied — check token permissions or organization SSO', 'error');
+            } else if (e instanceof ApiError && e.status === 0) {
+                this._setStatusBanner('GitHub is unreachable — check your connection', 'error');
+            } else if (e instanceof ApiError && e.status >= 500) {
+                this._setStatusBanner('GitHub is temporarily unavailable — will retry later', 'error');
+            } else {
+                this._setStatusBanner('Could not refresh GitHub data — see logs for details', 'error');
             }
-            else
-                this._setStatusBanner(`Error: ${e.message}`, 'error');
             this._updateHero();
             this._updatePanel();
         } finally {
