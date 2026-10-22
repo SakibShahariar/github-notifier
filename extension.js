@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {_createMessageTrayNotification, _createMessageTraySource} from './notifications.js';
+import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -2498,54 +2498,11 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notify(newItems) {
-        // Keep inbox and badge updates while quiet hours or GNOME Do Not Disturb is active.
-        if (this._shouldSuppressDesktopNotifications())
-            return;
-        const source = this._ensureSource();
-        if (newItems.length > 3) {
-            const inboxUrl = `${this._webBase()}/notifications`;
-            const notification = _createMessageTrayNotification(
-                source, 'GitHub Notifier', `${newItems.length} new updates`,
-            );
-            notification.addAction('Open Inbox', () => this._openUri(inboxUrl));
-            notification.connect('activated', () => this._openUri(inboxUrl));
-            source.addNotification(notification);
-            return;
-        }
-        for (const item of newItems) {
-            const notification = _createMessageTrayNotification(source, item.title, item.subtitle);
-            notification.connect('activated', () => {
-                if (!this._openUri(item.url))
-                    return;
-                this._handleOpenedItem(item);
-            });
-            notification.addAction('Open', () => {
-                if (!this._openUri(item.url))
-                    return;
-                this._handleOpenedItem(item);
-            });
-            const dismissLabel = item.kind === 'notification' ? 'Mark read' : 'Dismiss';
-            notification.addAction(dismissLabel, () => {
-                if (item.kind === 'notification' && item.rawId)
-                    this._markThreadRead(item);
-                else
-                    this._dismissActivityItem(item);
-            });
-            if (this._rateLimitResetEpoch > Math.floor(Date.now() / 1000)) {
-                notification.addAction('Retry now', () => this._refreshNow());
-            }
-            source.addNotification(notification);
-        }
+        return notify(this, newItems);
     }
-
     _notifyBaseline(notes) {
-        if (this._shouldSuppressDesktopNotifications())
-            return;
-        const source = this._ensureSource();
-        const notification = _createMessageTrayNotification(source, 'GitHub Notifier', notes.join('\n'));
-        source.addNotification(notification);
+        return notifyBaseline(this, notes);
     }
-
     destroy() {
         this._tooltipController?.destroy();
         this._tooltipController = null;
