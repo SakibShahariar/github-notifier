@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -285,4 +285,19 @@ test('composes compact secondary detail text for each item kind', () => {
     assert.equal(getItemDetail({kind: 'star', subtitle: 'owner/repo'}, '3d ago'), 'owner/repo · star · 3d ago');
     assert.equal(getItemDetail({kind: 'other', subtitle: 'owner/repo'}, ''), 'owner/repo · ');
     assert.equal(getItemDetail(null, ''), ' · ');
+});
+
+
+test('labels GitHub notification reasons and subject types consistently', () => {
+    for (const [reason, expected] of [
+        ['mention', 'Mention'], ['review_requested', 'Review requested'],
+        ['assign', 'Assigned'], ['author', 'Update on your thread'],
+        ['comment', 'New comment'], ['state_change', 'State changed'],
+        ['subscribed', 'Activity'], ['team_mention', 'Team mention'],
+        ['unknown', 'Notification'], ['', 'Notification'],
+    ]) assert.equal(getNotificationReasonLabel(reason, ''), expected, reason);
+    for (const [type, expected] of [
+        ['Release', 'New release'], ['Commit', 'New commit'],
+        ['CheckSuite', 'CI run'], ['WorkflowRun', 'CI run'],
+    ]) assert.equal(getNotificationReasonLabel('mention', type), expected, type);
 });
