@@ -128,8 +128,8 @@ New tokens are stored in the user's Secret Service (typically GNOME Keyring) usi
 
 GitHub Actions runs source-level checks on pushes to `main`:
 
-- JavaScript syntax checks for the extension, preferences, and shared helpers.
-- Unit tests for repository validation, notification category mapping, muted-repository parsing/matching, and GitHub CLI argument generation.
+- JavaScript syntax checks for the extension, preferences, and focused helper modules.
+- Unit tests for repository validation and polling, notification categories and icons, row-detail and relative-time formatting, muted/watched repository handling, GitHub CLI arguments, quiet-hours logic, daily summaries, and Secret Service migration/error paths.
 - JSON parsing for `metadata.json`.
 - Strict validation of the GSettings schema.
 
@@ -138,10 +138,18 @@ These checks do not replace testing inside GNOME Shell; runtime behavior and com
 ## How it works
 
 - Polls GitHub's notifications API for unread notifications.
-- Checks selected repositories for issues and pull requests.
-- Checks repository star counts for changes.
+- Checks selected repositories for issues and pull requests, and checks star counts for changes.
+- Uses one non-overlapping poll cycle with bounded concurrency (up to three watched repositories at a time).
 - Uses a configurable polling interval and limits the number of notifications displayed.
 - Reports connection and polling status in the panel when attention is needed.
+
+### Source layout
+
+- `extension.js` coordinates the GNOME Shell indicator, settings, lifecycle, and poll-cycle state.
+- `api.js`, `repository-polling.js`, and `state.js` handle API requests, watched-repository polling, and persisted state.
+- `secret-store.js` manages host-scoped credentials through Secret Service, with safe migration from the legacy setting.
+- `repo-utils.js` contains pure validation, categorization, formatting, and summary helpers that can be tested without GNOME Shell.
+- `ui-indicator.js`, `ui-animations.js`, `ui-utils.js`, `ui-theme.js`, and `notifications.js` separate menu rendering, motion, tooltips, theme loading, and desktop notifications from the main indicator class.
 
 The panel may display an error indicator when GitHub requests fail. Rate limits and permission errors are different conditions and should be diagnosed accordingly.
 
