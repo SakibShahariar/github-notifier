@@ -16,9 +16,22 @@ export function getApiBase(host) {
     if (!value || value.includes('://') ||
         [' ', '\t', '\n', '\r', '?', '#', '\\'].some(character => value.includes(character)) ||
         value.split('/').some(part => {
+            // Reject encoded separators and repeatedly decoded dot segments.
+            // Some proxies and Enterprise installations decode paths more than once.
+            if (/%(?:2f|5c)/i.test(part))
+                return true;
             try {
-                const decoded = decodeURIComponent(part);
-                return decoded === '.' || decoded === '..';
+                let decoded = part;
+                for (let i = 0; i < 4; i++) {
+                    const next = decodeURIComponent(decoded);
+                    if (next === '.' || next === '..')
+                        return true;
+                    if (next === decoded)
+                        return false;
+                    decoded = next;
+                }
+                // Avoid ambiguous over-encoded path segments.
+                return /%[0-9a-f]{2}/i.test(decoded);
             } catch (_error) {
                 return true;
             }
