@@ -9,6 +9,7 @@ import Pango from 'gi://Pango';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
+import {ApiError, apiRequest} from './api.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {_createMessageTrayNotification, _createMessageTraySource} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
@@ -23,13 +24,6 @@ const ACTIVITY_PREVIEW = 5;
 const ACTIVITY_EXPANDED = MAX_RECENT;
 const NOTIF_PAGE_SIZE = 5;
 const NOTIFICATION_FILTER_CATEGORIES = ['mentions', 'reviews', 'assignments', 'conversation', 'checks', 'other'];
-
-class ApiError extends Error {
-    constructor(message, status) {
-        super(message);
-        this.status = status;
-    }
-}
 
 const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
@@ -1153,75 +1147,8 @@ class Indicator extends PanelMenu.Button {
         return getApiBase(host);
     }
 
-    async _apiRequest(method, path, {body = null, headers = {}} = {}) {
-        const requestScope = this._stateScope();
-        const cancellable = this._polling ? this._pollCancellable : null;
-        const token = this._token;
-        const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
-
-        let bytes, msg;
-        try {
-            ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers, cancellable));
-        } catch (firstError) {
-            if (this._destroyed || (cancellable && cancellable.is_cancelled()))
-                throw new ApiError(`Network error: ${firstError.message}`, 0);
-            await this._sleep(1000);
-            if (this._destroyed || (cancellable && cancellable.is_cancelled()))
-                throw new ApiError(`Network error: ${firstError.message}`, 0);
-            try {
-                ({bytes, msg} = await this._sendOnce(method, uri, token, body, headers, cancellable));
-            } catch (secondError) {
-                throw new ApiError(`Network error: ${secondError.message}`, 0);
-            }
-        }
-
-        const status = msg.get_status();
-        // Ignore throttling metadata from a request that completed after the
-        // user switched accounts or API hosts.
-        const requestScopeIsCurrent = requestScope === this._stateScope();
-        const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
-        const reset = msg.response_headers.get_one('X-RateLimit-Reset');
-        const retryAfter = msg.response_headers.get_one('Retry-After');
-        const pollInterval = msg.response_headers.get_one('X-Poll-Interval');
-        if (requestScopeIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
-            const parsedInterval = Number.parseInt(pollInterval, 10);
-            if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
-                this._serverPollIntervalSeconds = parsedInterval;
-        }
-        if (requestScopeIsCurrent && retryAfter) {
-            const seconds = Number.parseInt(retryAfter, 10);
-            const retryDate = Number.isFinite(seconds) && String(seconds) === retryAfter.trim()
-                ? Date.now() / 1000 + Math.max(0, seconds)
-                : Date.parse(retryAfter) / 1000;
-            if (Number.isFinite(retryDate))
-                this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.ceil(retryDate));
-        }
-        if (requestScopeIsCurrent && remaining === '0' && reset)
-            this._rateLimitResetEpoch = parseInt(reset, 10);
-        if (requestScopeIsCurrent && (status === 403 || status === 429) && !retryAfter && !(remaining === '0' && reset))
-            this._retryAfterEpoch = Math.max(this._retryAfterEpoch, Math.floor(Date.now() / 1000) + 60);
-        if (requestScopeIsCurrent && status >= 200 && status < 300) {
-            this._rateLimitResetEpoch = 0;
-            this._retryAfterEpoch = 0;
-        }
-
-        if (status === 304)
-            return {data: null, linkHeader: msg.response_headers.get_one('Link'), lastModified: msg.response_headers.get_one('Last-Modified'), notModified: true};
-        if (status === 401)
-            throw new ApiError('Invalid or expired token', 401);
-        if ((status === 403 && remaining === '0') || status === 429)
-            throw new ApiError('Rate limited by GitHub API', status);
-        if (status === 404)
-            throw new ApiError(`Not found: ${path}`, 404);
-        if (status < 200 || status >= 300)
-            throw new ApiError(`GitHub API ${path} returned ${status}`, status);
-
-        const linkHeader = msg.response_headers.get_one('Link');
-        const lastModified = msg.response_headers.get_one('Last-Modified');
-        const data = bytes.get_size() > 0
-            ? JSON.parse(new TextDecoder('utf-8').decode(bytes.get_data()))
-            : null;
-        return {data, linkHeader, lastModified, notModified: false};
+    async _apiRequest(method, path, options = {}) {
+        return apiRequest(this, method, path, options);
     }
 
     async _apiGet(path) {
