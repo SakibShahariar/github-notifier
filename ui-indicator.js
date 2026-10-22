@@ -528,3 +528,34 @@ export function updateRateFooter(indicator) {
             indicator._rateItem.visible = false;
         }
     }
+
+export function updateHero(indicator) {
+        if (!indicator._heroTitle || !indicator._heroMeta) return;
+        indicator._updateDailyStatsItem();
+        const username = indicator._settings.get_string('github-username').trim();
+        indicator._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
+        const n = indicator._visibleNotificationItems().length;
+        const visibleActivityItems = indicator._visibleActivityItems();
+        const issuesPrCount = visibleActivityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
+        const starsCount = visibleActivityItems.filter(i => i.kind === 'star').length;
+        const parts = [];
+        if (indicator._polling) parts.push('Refreshing…');
+        else if (n > 0) parts.push(`${n} unread`);
+        if (issuesPrCount > 0) parts.push(`${issuesPrCount} issues/PRs`);
+        if (starsCount > 0) parts.push(`${starsCount} stars`);
+        if (parts.length === 0) {
+            const statusText = indicator._statusItem?.label?.text || '';
+            if (indicator._statusIsError && /offline|internet|wi-fi|network|unreachable/i.test(statusText)) {
+                parts.push(indicator._lastFetchedAt
+                    ? `Offline · last updated ${indicator._relativeTime(indicator._lastFetchedAt)}`
+                    : 'Offline · no cached data yet');
+            } else if (indicator._statusIsError) {
+                parts.push('Attention needed');
+            } else {
+                parts.push('All caught up');
+            }
+        }
+        // also show paused
+        if (indicator._paused) parts.unshift('Paused');
+        indicator._heroMeta.text = parts.join(' · ');
+    }
