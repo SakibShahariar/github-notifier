@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {createNotificationSummary, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -290,6 +290,7 @@ class Indicator extends PanelMenu.Button {
         this._tokenWarning = '';
         this._summaryPublished = false;
         const persistedState = this._loadState();
+        this._dailyStats = updateDailyStats(persistedState.dailyStats, this._localDateKey());
         this._notificationItems = Array.isArray(persistedState.notificationItems)
             ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
             : []; // cached inbox, restored when GitHub is temporarily unavailable
@@ -374,6 +375,7 @@ class Indicator extends PanelMenu.Button {
         this._settingsChangedId = this._settings.connect('changed::poll-interval', () => this._restartTimer());
         this._hideEmptyChangedId = this._settings.connect('changed::hide-when-empty', () => this._updatePanel());
         this._unlitChangedId = this._settings.connect('changed::icon-always-unlit', () => this._updatePanel());
+        this._statsChangedId = this._settings.connect('changed::show-daily-stats', () => this._updateDailyStatsItem());
         // live hero update when username changes
         this._usernameChangedId = this._settings.connect('changed::github-username', () => this._updateHero());
         this._filterChangedIds = NOTIFICATION_FILTER_CATEGORIES.map(category =>
@@ -418,6 +420,7 @@ class Indicator extends PanelMenu.Button {
                 ? state.pendingMarkAllRead
                 : null;
             this._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
+            this._dailyStats = updateDailyStats(state.dailyStats, this._localDateKey());
             this._lastRenderHash = '';
             this._updateHero();
             this._updatePanel();
@@ -600,6 +603,11 @@ class Indicator extends PanelMenu.Button {
         this._statusItem.visible = false;
 
         // action status (marking …) centered dim text
+        this._statsItem = new PopupMenu.PopupMenuItem('', {reactive: false});
+        this._statsItem.style_class = 'github-notifier-rate';
+        this.menu.addMenuItem(this._statsItem);
+        this._statsItem.visible = false;
+
         this._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
         this._actionStatusItem.style_class = 'github-notifier-action-status';
         this._actionStatusItem.visible = false;
@@ -625,6 +633,7 @@ class Indicator extends PanelMenu.Button {
         this._rateItem.visible = false;
 
         this._updateHero();
+        this._updateDailyStatsItem();
     }
 
     _buildMenuContent() {
@@ -727,8 +736,26 @@ class Indicator extends PanelMenu.Button {
         return `${repo} · ${time}`;
     }
 
+    _localDateKey(date = new Date()) {
+        return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    }
+
+    _updateDailyStatsItem() {
+        if (!this._statsItem)
+            return;
+        if (!this._settings.get_boolean('show-daily-stats')) {
+            this._statsItem.visible = false;
+            return;
+        }
+        this._dailyStats = updateDailyStats(this._dailyStats, this._localDateKey());
+        const totals = getDailyStatsTotals(this._dailyStats, this._localDateKey());
+        this._statsItem.label.text = `Today: ${totals.todayNotifications} notifications · ${totals.todayActivity} activity | 7 days: ${totals.weekNotifications} notifications · ${totals.weekActivity} activity`;
+        this._statsItem.visible = true;
+    }
+
     _updateHero() {
         if (!this._heroTitle || !this._heroMeta) return;
+        this._updateDailyStatsItem();
         const username = this._settings.get_string('github-username').trim();
         this._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
         const n = this._visibleNotificationItems().length;
@@ -1191,6 +1218,7 @@ class Indicator extends PanelMenu.Button {
         currentState.pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
         currentState.pendingMarkAllRead = this._pendingMarkAllRead;
         currentState.lastFetchedAt = this._lastFetchedAt;
+        currentState.dailyStats = this._dailyStats;
         this._saveState(currentState);
     }
 
@@ -2029,7 +2057,10 @@ class Indicator extends PanelMenu.Button {
     // ---------- UI update ----------
     _afterPoll(notificationItems, newActivityItems, {updateFetchedAt = true} = {}) {
         this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
+        const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
         const toToast = notificationItems.filter(n => n.isNewToast && this._isNotificationTypeEnabled(n));
+        if (this._settings.get_boolean('show-daily-stats'))
+            this._dailyStats = updateDailyStats(this._dailyStats, this._localDateKey(), newNotificationCount, newActivityItems.length);
 
         if (newActivityItems.length > 0)
             this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
@@ -2698,6 +2729,10 @@ class Indicator extends PanelMenu.Button {
         if (this._unlitChangedId) {
             this._settings.disconnect(this._unlitChangedId);
             this._unlitChangedId = null;
+        }
+        if (this._statsChangedId) {
+            this._settings.disconnect(this._statsChangedId);
+            this._statsChangedId = null;
         }
         if (this._usernameChangedId) {
             this._settings.disconnect(this._usernameChangedId);

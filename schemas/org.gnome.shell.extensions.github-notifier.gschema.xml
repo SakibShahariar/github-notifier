@@ -117,6 +117,12 @@
       <summary>Show other notification reasons</summary>
     </key>
 
+    <key name="show-daily-stats" type="b">
+      <default>false</default>
+      <summary>Show daily notification statistics</summary>
+      <description>Store local daily counts for newly observed notifications and repository activity; disabled by default.</description>
+    </key>
+
     <key name="mark-read-on-open" type="b">
       <default>true</default>
       <summary>Mark notifications as read when opened</summary>

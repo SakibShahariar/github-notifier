@@ -23,6 +23,7 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | **Mark read on open** | Choose whether opening a notification also marks it as read on GitHub. |
 | **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available. |
 | **Quiet hours** | Suppress desktop alerts during a configurable local-time window; optionally pause polling instead of silently updating inbox and badge. |
+| **Daily statistics** | Optional local-only counts for newly observed notifications and repository activity today and over the last seven days; off by default. |
 | **Companion integration** | Exposes a versioned, non-secret count summary for integrations such as material-panel without sharing tokens or adding another poller. |
 
 The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
@@ -81,6 +82,7 @@ gnome-extensions prefs github-notifier@SakibShahariar
 | **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. Muting does not mark GitHub notifications as read. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
 | **Mark notifications read when opened** | Turn off to open notification links without automatically marking them read. |
+| **Daily notification stats** | Enable in Settings to show local counts for new notifications and repository activity today and over the last seven days. Disabled by default; counts are stored locally and never sent to GitHub or companion integrations. |
 | **GitHub CLI action** | When `gh` and a supported terminal are installed, issue and pull-request rows include an action to open them with the CLI. Browser opening remains available. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.

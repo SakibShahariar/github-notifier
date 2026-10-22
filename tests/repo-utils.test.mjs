@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} = await import(helperUrl);
+const {createNotificationSummary, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -190,4 +190,30 @@ test('suppresses desktop alerts for quiet hours or GNOME Do Not Disturb without 
     assert.equal(shouldSuppressDesktopNotifications(false, false), true);
     assert.equal(shouldSuppressDesktopNotifications(false, true), false);
     assert.equal(shouldSuppressDesktopNotifications(false, undefined), false);
+});
+
+
+test('daily statistics accumulate local counts and report today and seven-day totals', () => {
+    const stats = updateDailyStats({}, '2026-10-22', 3, 2);
+    const next = updateDailyStats(stats, '2026-10-22', 1, 4);
+    const later = updateDailyStats(next, '2026-10-21', 9, 1);
+    assert.deepEqual(getDailyStatsTotals(later, '2026-10-22'), {
+        todayNotifications: 4, todayActivity: 6, weekNotifications: 13, weekActivity: 7,
+    });
+});
+
+test('daily statistics discard invalid, future, and older-than-seven-day entries', () => {
+    const stats = updateDailyStats({
+        '2026-10-01': {notifications: 99, activity: 99},
+        '2026-10-16': {notifications: 2, activity: 3},
+        '2026-10-23': {notifications: 80, activity: 80},
+        'bad-date': {notifications: 100, activity: 100},
+        '2026-10-20': {notifications: -2, activity: Number.NaN},
+    }, '2026-10-22', 1, 2);
+    assert.deepEqual(stats, {
+        '2026-10-16': {notifications: 2, activity: 3},
+        '2026-10-20': {notifications: 0, activity: 0},
+        '2026-10-22': {notifications: 1, activity: 2},
+    });
+    assert.throws(() => updateDailyStats({}, '2026-02-30', 1, 1), /valid YYYY-MM-DD/);
 });

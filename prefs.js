@@ -444,6 +444,14 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('icon-always-unlit', unlitRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(unlitRow);
 
+        const dailyStatsRow = new Adw.SwitchRow({
+            title: 'Show daily notification stats',
+            subtitle: 'Keep local counts for today and the last seven days; disabled by default',
+        });
+        dailyStatsRow.add_prefix(new Gtk.Image({icon_name: 'view-statistics-symbolic', pixel_size: 16}));
+        settings.bind('show-daily-stats', dailyStatsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        displayGroup.add(dailyStatsRow);
+
         const markReadRow = new Adw.SwitchRow({
             title: 'Mark notifications read when opened',
             subtitle: 'Keep notifications unread when you open their links if disabled',

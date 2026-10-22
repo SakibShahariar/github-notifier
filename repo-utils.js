@@ -75,6 +75,56 @@ function clockTimeToMinutes(value) {
     return parts[0] * 60 + parts[1];
 }
 
+
+function isValidDateKey(value) {
+    if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value))
+        return false;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/** Track only local, daily event counts; retain the current day and previous six days. */
+export function updateDailyStats(stats, dateKey, notifications = 0, activity = 0) {
+    if (!isValidDateKey(dateKey))
+        throw new TypeError('dateKey must be a valid YYYY-MM-DD date');
+    const validCount = value => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+    const cutoffDate = new Date(`${dateKey}T00:00:00Z`);
+    cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 6);
+    const cutoff = cutoffDate.toISOString().slice(0, 10);
+    const result = {};
+    if (stats && typeof stats === 'object' && !Array.isArray(stats)) {
+        for (const [key, value] of Object.entries(stats)) {
+            if (!isValidDateKey(key) || key < cutoff || key > dateKey ||
+                !value || typeof value !== 'object' || Array.isArray(value))
+                continue;
+            result[key] = {
+                notifications: validCount(value.notifications),
+                activity: validCount(value.activity),
+            };
+        }
+    }
+    const today = result[dateKey] || {notifications: 0, activity: 0};
+    today.notifications += validCount(notifications);
+    today.activity += validCount(activity);
+    result[dateKey] = today;
+    return result;
+}
+
+export function getDailyStatsTotals(stats, dateKey) {
+    if (!isValidDateKey(dateKey))
+        return {todayNotifications: 0, todayActivity: 0, weekNotifications: 0, weekActivity: 0};
+    const normalized = updateDailyStats(stats, dateKey);
+    let weekNotifications = 0;
+    let weekActivity = 0;
+    for (const value of Object.values(normalized)) {
+        weekNotifications += value.notifications;
+        weekActivity += value.activity;
+    }
+    const today = normalized[dateKey] || {notifications: 0, activity: 0};
+    return {todayNotifications: today.notifications, todayActivity: today.activity,
+        weekNotifications, weekActivity};
+}
+
 export function createNotificationSummary(unreadNotifications, activityItems, enabled = true, updatedAt = new Date().toISOString()) {
     const unread = Number.isSafeInteger(unreadNotifications) && unreadNotifications >= 0 ? unreadNotifications : 0;
     const activity = Number.isSafeInteger(activityItems) && activityItems >= 0 ? activityItems : 0;
