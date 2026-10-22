@@ -325,3 +325,9 @@ export function getNotificationReasonLabel(reason, subjectType) {
     };
     return labels[reason] || 'Notification';
 }
+
+
+/** Format a Date as a local-calendar YYYY-MM-DD key (not a UTC date). */
+export function formatLocalDateKey(date = new Date()) {
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
