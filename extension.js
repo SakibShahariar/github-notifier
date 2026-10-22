@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
@@ -389,19 +389,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _setRepositoryMembership(settingKey, repository, shouldContain) {
-        if (!isValidRepository(repository))
-            return false;
-
-        const normalized = repository.trim().toLowerCase();
-        const repositories = parseRepositoryList(this._settings.get_string(settingKey));
-        const next = shouldContain
-            ? Array.from(new Set([...repositories, normalized]))
-            : repositories.filter(value => value !== normalized);
-        const serialized = next.join(', ');
-        if (this._settings.get_string(settingKey) !== serialized &&
-            !this._settings.set_string(settingKey, serialized))
-            return false;
-        return true;
+        return setRepositoryMembership(this._settings, settingKey, repository, shouldContain);
     }
 
     _showRepositoryActionStatus(message, undoMuteRepository = null) {
