@@ -626,8 +626,14 @@ class Indicator extends PanelMenu.Button {
 
         // Give token and credential errors a direct, keyboard-accessible route
         // to Preferences instead of leaving users to hunt for the settings gear.
+        this._statusAction = null;
         this._statusActionItem = new PopupMenu.PopupMenuItem('Open Settings');
-        this._statusActionItem.connect('activate', () => this._ext.openPreferences());
+        this._statusActionItem.connect('activate', () => {
+            if (this._statusAction === 'refresh')
+                this._refreshNow();
+            else if (this._statusAction === 'settings')
+                this._ext.openPreferences();
+        });
         this._statusActionItem.visible = false;
         this.menu.addMenuItem(this._statusActionItem);
 
@@ -1086,9 +1092,17 @@ class Indicator extends PanelMenu.Button {
     _setStatusBanner(text, kind = 'info') {
         if (!this._statusItem) return;
         if (this._statusActionItem) {
-            const actionable = typeof text === 'string' &&
-                /add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(text);
-            this._statusActionItem.visible = actionable;
+            const message = typeof text === 'string' ? text : '';
+            if (/add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(message)) {
+                this._statusAction = 'settings';
+                this._statusActionItem.label.text = 'Open Settings';
+            } else if (/quiet hours|metered connection/i.test(message)) {
+                this._statusAction = 'refresh';
+                this._statusActionItem.label.text = 'Refresh once';
+            } else {
+                this._statusAction = null;
+            }
+            this._statusActionItem.visible = this._statusAction !== null;
         }
         this._statusItem.remove_style_class_name('github-notifier-banner-error');
         this._statusItem.remove_style_class_name('github-notifier-banner-info');
