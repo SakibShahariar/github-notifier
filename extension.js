@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
@@ -442,18 +442,7 @@ class Indicator extends PanelMenu.Button {
         return getNotificationIconName(item);
     }
     _detailForItem(item) {
-        const repo = item.subtitle || '';
-        const time = this._relativeTime(item.ts);
-        if (item.kind === 'notification') {
-            // item.title is "Kind: subject" – extract kind part already?
-            // Use stored reasonLabel if available
-            const reason = item.reasonLabel || item.kind;
-            return `${repo} · ${reason} · ${time}`.trim();
-        }
-        if (item.kind === 'pr') return `${repo} · PR · ${time}`;
-        if (item.kind === 'issue') return `${repo} · issue · ${time}`;
-        if (item.kind === 'star') return `${repo} · star · ${time}`;
-        return `${repo} · ${time}`;
+        return getItemDetail(item, this._relativeTime(item.ts));
     }
 
     _localDateKey(date = new Date()) {
