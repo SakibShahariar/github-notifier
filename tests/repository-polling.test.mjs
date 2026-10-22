@@ -89,3 +89,36 @@ test('pollRepoStars reports gains and establishes a silent first baseline', asyn
     assert.equal(baselineState.repos[repo].stars, 8);
     assert.deepEqual(notes, ['owner/repo: now tracking stars (currently 8)']);
 });
+
+
+test('pollRepoIssues classifies newly opened pull requests distinctly', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': [
+            {number: 18, title: 'New pull request', pull_request: {}, html_url: 'https://github.com/owner/repo/pull/18', created_at: '2026-10-23T00:00:00Z'},
+        ],
+    });
+    const state = {repos: {[repo]: {lastIssueNumber: 17}}};
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].kind, 'pr');
+    assert.equal(items[0].title, 'New PR: New pull request');
+    assert.equal(items[0].url, 'https://github.com/owner/repo/pull/18');
+});
+
+test('pollRepoIssues preserves an overflow notice when the follow-up page fails', async () => {
+    const repo = 'owner/repo';
+    const firstPage = Array.from({length: 20}, (_, i) => ({
+        number: 220 - i,
+        title: `Issue ${220 - i}`,
+        html_url: `https://github.com/owner/repo/issues/${220 - i}`,
+        created_at: '2026-10-23T00:00:00Z',
+    }));
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': firstPage,
+    });
+    const items = await pollRepoIssues(indicator, repo, {repos: {[repo]: {lastIssueNumber: 199}}}, []);
+    assert.equal(items.length, 21);
+    assert.equal(items.at(-1).title, 'More new issues/PRs than shown — check the repo directly');
+    assert.equal(items.at(-1).url, 'https://github.com/owner/repo/issues');
+});
