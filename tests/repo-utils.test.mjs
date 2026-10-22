@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
+const {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -120,4 +120,17 @@ test('does not create GitHub CLI commands for non-issue links or invalid data', 
     ]) {
         assert.equal(getGitHubCliArguments(item), null);
     }
+});
+
+test('converts absolute pagination links to paths relative to the API base', () => {
+    assert.equal(getApiPathFromAbsoluteUrl('https://api.github.com', 'https://api.github.com/notifications?page=2'), '/notifications?page=2');
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'https://git.example.com/api/v3/notifications?page=2'), '/notifications?page=2');
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/github/api/v3', 'https://git.example.com/github/api/v3/notifications?page=2'), '/notifications?page=2');
+});
+
+test('rejects pagination links outside the configured API origin or base path', () => {
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'https://evil.example/api/v3/notifications?page=2'), null);
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'https://git.example.com/notifications?page=2'), null);
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'http://git.example.com/api/v3/notifications?page=2'), null);
+    assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'not a url'), null);
 });

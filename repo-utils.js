@@ -66,3 +66,39 @@ export function getGitHubCliArguments(item) {
         : `${url.hostname}/${repository}`;
     return [command, 'view', number, '--repo', repoTarget];
 }
+
+/**
+ * Convert an absolute pagination URL into a path relative to the configured
+ * API base. Enterprise Link headers include the deployment prefix (for
+ * example /api/v3), which must not be appended twice by _apiRequest().
+ * Reject links outside the configured HTTPS origin/base path.
+ */
+export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
+    if (typeof apiBase !== 'string' || typeof absoluteUrl !== 'string')
+        return null;
+
+    try {
+        const base = new URL(apiBase);
+        const link = new URL(absoluteUrl);
+        if (base.protocol !== 'https:' || link.protocol !== base.protocol ||
+            link.origin !== base.origin)
+            return null;
+
+        const basePath = base.pathname.replace(/\/+$/, '');
+        const linkPath = link.pathname;
+        let path;
+        if (!basePath || basePath === '/') {
+            path = linkPath;
+        } else if (linkPath === basePath) {
+            path = '/';
+        } else if (linkPath.startsWith(basePath + '/')) {
+            path = linkPath.slice(basePath.length);
+        } else {
+            return null;
+        }
+
+        return (path || '/') + link.search;
+    } catch (_error) {
+        return null;
+    }
+}

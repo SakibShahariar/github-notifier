@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
+import {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -1229,23 +1229,11 @@ class Indicator extends PanelMenu.Button {
         return null;
     }
 
-    /** Turn an absolute GitHub Link URL into a path for _apiRequest (leading / + query). */
-    _pathFromAbsoluteUrl(absoluteUrl) {
-        if (!absoluteUrl)
-            return null;
-        try {
-            const uri = GLib.Uri.parse(absoluteUrl, GLib.UriFlags.NONE);
-            const path = uri.get_path() || '/';
-            const query = uri.get_query();
-            return query ? `${path}?${query}` : path;
-        } catch (e) {
-            // Fallback: strip known api base prefix if parse fails
-            const base = this._apiBase();
-            if (absoluteUrl.startsWith(base))
-                return absoluteUrl.slice(base.length) || '/';
-            logError(e, 'github-notifier: failed to parse next-page URL');
-            return null;
-        }
+    /** Turn an absolute GitHub Link URL into a path for _apiReque    _pathFromAbsoluteUrl(absoluteUrl) {
+        const path = getApiPathFromAbsoluteUrl(this._apiBase(), absoluteUrl);
+        if (path === null)
+            log('github-notifier: ignored invalid or out-of-base pagination URL');
+        return path;
     }
 
     // ---------- polling ----------
