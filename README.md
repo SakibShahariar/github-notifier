@@ -79,7 +79,7 @@ gnome-extensions prefs github-notifier@SakibShahariar
 | **Username** | Your GitHub username. |
 | **API host** | Enter a hostname only, such as `api.github.com` or `github.example.com`; Enterprise deployments may include a path such as `github.example.com/enterprise/api/v3`. Use HTTPS (added automatically). Do not include `https://`, credentials, query strings, or fragments. |
 | **Repositories** | Comma-separated repository names in `owner/repo` format. |
-| **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. You can also mute a repository from its inbox/activity row. Muting does not mark GitHub notifications as read. |
+| **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. You can also mute a repository from its inbox/activity row, with a short-lived Undo action in the panel menu. Muting does not mark GitHub notifications as read. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
 | **Mark notifications read when opened** | Turn off to open notification links without automatically marking them read. |
 | **Daily notification stats** | Enable in Settings to show local counts for new notifications and repository activity today and over the last seven days. Disabled by default; counts are stored locally and never sent to GitHub or companion integrations. |
