@@ -31,6 +31,7 @@ The inbox uses GitHub's notifications API with `participating=false`, so it incl
 
 - GNOME Shell 45–51. The notification source and notification constructors include a compatibility path for GNOME 45's positional API and GNOME 46+'s object-parameter API.
 - A GitHub personal access token with the permissions required for the API features you use.
+- For new token storage, a Secret Service provider such as GNOME Keyring and the libsecret GObject introspection namespace (`Secret-1.0`). Package names vary by distribution; Debian/Ubuntu commonly provide the typelib in `gir1.2-secret-1`.
 - An internet connection. The extension pauses polling when the connection is detected as limited or local-only.
 
 ## Installation
@@ -109,7 +110,7 @@ Filtering affects the local display and alerting only; it does not unsubscribe f
 
 **The inbox requires a classic personal access token**: GitHub's notifications endpoints do not currently support fine-grained personal access tokens. Grant the classic token the `notifications` scope for the inbox. Repository watching uses the issues, pull requests, and repository endpoints; use the `repo` scope if you need access to private repositories, and avoid granting it when you only use public repositories and your setup works without it. GitHub's notifications API also accepts `repo` in place of `notifications`, but `notifications` is the narrower choice for inbox access. Marking notifications read requires the token to have the relevant write access; if that action is rejected, the item remains visible.
 
-The token is currently stored in GNOME's GSettings/dconf configuration and is not encrypted by the extension. Avoid using a token on a shared or compromised machine, and revoke it if it may have been exposed. See [the token storage security review](docs/security-model.md) for the Secret Service evaluation and migration requirements.
+New tokens are stored in the user's Secret Service (typically GNOME Keyring) using non-secret lookup attributes scoped to the configured API host. Existing tokens in the legacy GSettings/dconf key are migrated on first access and the plaintext setting is cleared only after Secret Service confirms the write. If Secret Service is unavailable during migration, the existing token is retained and may continue to be used; new tokens are never silently saved back to plaintext settings. Unlock or install a compatible Secret Service provider to save or retrieve a protected token. Changing the API host selects that host's separate credential; changing the username alone does not change the stored credential, so replace the token when switching GitHub accounts. Use **Remove saved token** to delete the credential for the currently configured API host. See [the token storage security review](docs/security-model.md) for implementation details and recovery behavior.
 
 ## Automated checks
 

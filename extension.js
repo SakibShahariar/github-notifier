@@ -8,6 +8,7 @@ import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
+import {loadGithubToken} from './secret-store.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -177,6 +178,11 @@ class Indicator extends PanelMenu.Button {
         // Fail faster when the network is unavailable; one short retry below
         // prevents a single request from stalling the entire poll cycle.
         this._session.timeout = 8;
+        // The legacy setting is read only as a migration source. New credentials
+        // are kept in Secret Service and cached in memory for request use.
+        this._token = this._settings.get_string('github-token');
+        this._tokenLoading = true;
+        this._tokenWarning = '';
         const persistedState = this._loadState();
         this._notificationItems = Array.isArray(persistedState.notificationItems)
             ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
@@ -311,7 +317,32 @@ class Indicator extends PanelMenu.Button {
             this._updatePanel();
             this._poll();
         };
-        this._tokenChangedId = this._settings.connect('changed::github-token', refreshAccountScope);
+        let tokenRefreshGeneration = 0;
+        const refreshToken = async () => {
+            const generation = ++tokenRefreshGeneration;
+            this._tokenLoading = true;
+            try {
+                const credential = await loadGithubToken(this._settings);
+                if (this._destroyed || generation !== tokenRefreshGeneration)
+                    return;
+                this._token = credential.token;
+                this._tokenWarning = credential.warning || '';
+                if (this._tokenWarning)
+                    log('github-notifier: Secret Service credential migration needs attention');
+            } catch (e) {
+                if (this._destroyed || generation !== tokenRefreshGeneration)
+                    return;
+                this._token = '';
+                this._tokenWarning = e.message;
+                logError(e, 'github-notifier: unable to retrieve GitHub token from Secret Service');
+            } finally {
+                if (!this._destroyed && generation === tokenRefreshGeneration) {
+                    this._tokenLoading = false;
+                    refreshAccountScope();
+                }
+            }
+        };
+        this._tokenChangedId = this._settings.connect('changed::token-generation', refreshToken);
         this._reposChangedId = this._settings.connect('changed::watched-repos', refreshIfMenuOpen);
         this._mutedReposChangedId = this._settings.connect('changed::muted-repos', () => {
             if (this._destroyed)
@@ -322,7 +353,9 @@ class Indicator extends PanelMenu.Button {
             this._updateHero();
             this._poll();
         });
-        this._hostChangedId = this._settings.connect('changed::github-host', refreshAccountScope);
+        this._hostChangedId = this._settings.connect('changed::github-host', refreshToken);
+        // Secret Service access is asynchronous so it cannot block GNOME Shell.
+        refreshToken();
 
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         const scheduleNetworkRecoveryPoll = () => {
@@ -1027,7 +1060,7 @@ class Indicator extends PanelMenu.Button {
     // ---------- state persistence ----------
     _stateScope() {
         const host = this._settings.get_string('github-host').trim() || 'api.github.com';
-        const token = this._settings.get_string('github-token');
+        const token = this._token || this._settings.get_string('github-token');
         // Store only a one-way token fingerprint, never the token itself.
         const tokenFingerprint = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, token, -1);
         return `${host.toLowerCase()}|${tokenFingerprint}`;
@@ -1145,7 +1178,7 @@ class Indicator extends PanelMenu.Button {
     async _apiRequest(method, path, {body = null, headers = {}} = {}) {
         const requestScope = this._stateScope();
         const cancellable = this._polling ? this._pollCancellable : null;
-        const token = this._settings.get_string('github-token');
+        const token = this._token;
         const uri = GLib.Uri.parse(`${this._apiBase()}${path}`, GLib.UriFlags.NONE);
 
         let bytes, msg;
@@ -1268,9 +1301,13 @@ class Indicator extends PanelMenu.Button {
             return;
         }
 
-        const token = this._settings.get_string('github-token');
+        if (this._tokenLoading)
+            return;
+        const token = this._token;
         if (!token) {
-            this._setStatusBanner('Add a GitHub token in Settings', 'error');
+            this._setStatusBanner(this._tokenWarning
+                ? 'GitHub token unavailable — check Secret Service and Settings'
+                : 'Add a GitHub token in Settings', 'error');
             this._updateHero();
             this._updatePanel();
             return;
@@ -1823,8 +1860,9 @@ class Indicator extends PanelMenu.Button {
     async _retryPendingReadItems() {
         if (this._destroyed || this._polling || this._retryingPendingReadItems ||
             (this._pendingReadItems.length === 0 && !this._pendingMarkAllRead) ||
+            this._tokenLoading ||
             this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL ||
-            !this._settings.get_string('github-token'))
+            !this._token)
             return;
 
         this._retryingPendingReadItems = true;
@@ -1918,8 +1956,8 @@ class Indicator extends PanelMenu.Button {
         // operation; otherwise a network failure would permanently discard
         // local-only activity and temporarily hide still-unread notifications.
         this._disarmMarkAll();
-        if (!this._settings.get_string('github-token')) {
-            this._setActionStatus('Add a GitHub token in Settings');
+        if (this._tokenLoading || !this._token) {
+            this._setActionStatus('Add or unlock a GitHub token in Settings');
             return;
         }
         if (this._pendingMarkAllRead) {

@@ -4,12 +4,17 @@
 
     <key name="github-token" type="s">
       <default>''</default>
-      <summary>GitHub Personal Access Token</summary>
+      <summary>Legacy GitHub token (migration only)</summary>
       <description>
-        Use a classic personal access token: GitHub's notifications API does
-        not support fine-grained PATs. The notifications scope enables inbox
-        access. The repo scope is needed to watch private repositories.
+        Legacy plaintext token retained only for migration to Secret Service.
+        New credentials must never be written to this key.
       </description>
+    </key>
+
+    <key name="token-generation" type="i">
+      <default>0</default>
+      <summary>Credential revision counter</summary>
+      <description>Internal non-secret counter used to refresh credentials after a token change.</description>
     </key>
 
     <key name="github-username" type="s">

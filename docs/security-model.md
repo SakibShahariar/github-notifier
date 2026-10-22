@@ -1,34 +1,36 @@
 # Token storage security review
 
+## Previous behavior
+
+Before Secret Service integration, the extension stored the GitHub personal access token in the GSettings key `github-token`, persisted through the user's dconf configuration. The extension did not encrypt that token itself.
+
 ## Current behavior
 
-The extension stores the GitHub personal access token in the GSettings key `github-token`. On GNOME this setting is persisted through the user's dconf configuration. The extension does not encrypt the token itself.
+New tokens are stored through libsecret in the user's freedesktop.org Secret Service, commonly provided by GNOME Keyring. Lookup attributes are limited to the application identifier and normalized API host; the token is never included in the label or attributes.
 
-This is not, by itself, evidence of a remotely exploitable vulnerability. Normal Unix user permissions still apply to configuration files. However, a plain-text setting is not a dedicated secret vault: other software running as the same user, configuration exports/backups, or a compromised user session may expose it. The token's effective permissions also determine the impact of exposure, so use the narrowest token permissions that support the features you enable.
+The legacy `github-token` key remains in the schema solely to support migration from existing installations. On lookup, the extension first checks Secret Service. If a legacy token exists and no matching secret is found, it writes the token to Secret Service and clears the legacy setting only after the store operation succeeds. If Secret Service is missing, locked, or unavailable, the legacy setting is preserved and its existing token may continue to be used, with a warning. New tokens are never written to the legacy setting as a fallback.
 
-## Secret Service evaluation
+The token is scoped to the configured API host. Changing the API host selects a separate credential, and the previous host's credential is retained until explicitly removed. The GitHub username is a display hint and is not a lookup attribute: changing the username does not silently switch credentials. When changing GitHub accounts, replace the token and use **Test connection** to confirm the authenticated identity.
 
-The freedesktop.org Secret Service API is a better fit for credential storage. GNOME Keyring and compatible services can store a secret in the user's login session, typically encrypted at rest and optionally locked until the collection is unlocked. The extension can identify the item using non-secret attributes such as the API host and account label.
+The Account preferences provide a **Remove saved token** action for the currently configured API host. It clears the Secret Service item and any legacy plaintext value only after the Secret Service operation completes. If the service is unavailable, the operation reports an error and does not silently erase the legacy credential.
 
-References:
+## Failure and recovery behavior
 
-- [Secret Service API](https://specifications.freedesktop.org/secret-service/latest/)
+- **No token stored:** the extension asks the user to add a token in Settings.
+- **Secret Service missing or unavailable with a legacy token:** preserve and continue using the legacy token where possible; report that migration needs attention.
+- **Secret Service unavailable with no legacy token:** do not issue authenticated requests; show an actionable token/keyring status.
+- **Store failure while saving a new token:** retain the value in the preferences entry for retry, report the error, and do not write it to GSettings.
+- **Legacy migration failure:** keep the old setting and do not claim migration succeeded.
+- **Host change:** look up a separate credential for the new API host. Existing host-specific items remain available.
+- **Username change:** the credential remains unchanged. The user should save the token belonging to the intended account and verify it with **Test connection**.
+- **Removal/reset:** remove the current host's secret and then clear the legacy setting. If Secret Service cannot confirm the operation, preserve the legacy setting.
+
+## Remaining verification
+
+The implementation uses libsecret's asynchronous GObject API so Secret Service operations do not synchronously block GNOME Shell or the preferences UI. CI can validate syntax, schema, and source-level migration/error-path tests, but it cannot prove that a real GNOME Keyring session is unlocked or that a prompt behaves correctly. Live testing in a GNOME session remains required before claiming complete runtime verification.
+
+## References
+
+- [freedesktop.org Secret Service API](https://specifications.freedesktop.org/secret-service/latest/)
 - [GNOME libsecret documentation](https://gnome.pages.gitlab.gnome.org/libsecret/)
-- [libsecret password-storage examples](https://github.com/GNOME/libsecret/blob/main/docs/reference/libsecret/libsecret-c-examples.md)
-
-Secret Service is a meaningful improvement for stored credentials, but it is not protection against every same-user threat. A process that can access an unlocked secret service may still request secrets, and lookup attributes must not contain the token itself.
-
-## Recommended migration design
-
-A future implementation should:
-
-1. Store the token in Secret Service using a stable schema and non-secret lookup attributes (for example, extension identifier and API host).
-2. Read the existing GSettings token only as a migration source. Clear it only after Secret Service confirms that the new value was stored successfully.
-3. Preserve the existing token if the secret store is unavailable or locked; never silently discard credentials.
-4. Provide a clear settings error when credentials cannot be retrieved. Do not fall back to writing a new token in plain-text GSettings without an explicit, documented user choice.
-5. Keep non-secret settings such as username, API host, polling interval, and watched repositories in GSettings.
-6. Test first-run setup, existing-token migration, changed tokens/hosts, locked or missing secret service, failed writes, and removal/reset behavior.
-
-## Current status
-
-**Secret Service integration is not implemented yet.** Until it is, the token remains in GSettings/dconf and should be treated as unencrypted by the extension. The extension must not describe the current storage as secure or encrypted.
+- [libsecret JavaScript examples](https://gnome.pages.gitlab.gnome.org/libsecret/libsecret-js-examples.html)

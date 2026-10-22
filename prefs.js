@@ -6,6 +6,12 @@ import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import {isValidRepository} from './repo-utils.js';
+import {clearGithubToken, loadGithubToken, storeGithubToken} from './secret-store.js';
+
+function signalTokenChanged(settings) {
+    const current = settings.get_int('token-generation');
+    settings.set_int('token-generation', current >= 2147483647 ? 0 : current + 1);
+}
 
 export default class GithubNotifierPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -26,8 +32,29 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
 
         const tokenRow = new Adw.PasswordEntryRow({title: 'Personal access token', show_apply_button: true});
         tokenRow.add_prefix(new Gtk.Image({icon_name: 'dialog-password-symbolic', pixel_size: 16}));
-        tokenRow.set_text(settings.get_string('github-token'));
-        tokenRow.connect('apply', () => settings.set_string('github-token', tokenRow.get_text().trim()));
+        tokenRow.set_text('');
+        tokenRow.connect('apply', async () => {
+            const token = tokenRow.get_text().trim();
+            if (!token) {
+                testRow.subtitle = 'Enter a token to save or use Remove saved token to delete the stored credential';
+                return;
+            }
+            tokenRow.set_sensitive(false);
+            try {
+                const host = settings.get_string('github-host').trim() || 'api.github.com';
+                await storeGithubToken(host, token);
+                // Clear legacy plaintext only after Secret Service confirms storage.
+                if (settings.get_string('github-token'))
+                    settings.set_string('github-token', '');
+                signalTokenChanged(settings);
+                tokenRow.set_text('');
+                testRow.subtitle = 'Token saved in Secret Service';
+            } catch (error) {
+                testRow.subtitle = 'Could not save token: ' + error.message;
+            } finally {
+                tokenRow.set_sensitive(true);
+            }
+        });
         accountGroup.add(tokenRow);
 
         const userRow = new Adw.EntryRow({title: 'GitHub username', show_apply_button: true});
@@ -54,11 +81,46 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         testRow.set_activatable_widget(testBtn);
         accountGroup.add(testRow);
 
+        const removeTokenRow = new Adw.ActionRow({
+            title: 'Remove saved token',
+            subtitle: 'Delete this API host’s token from Secret Service and clear any legacy setting.',
+        });
+        removeTokenRow.add_prefix(new Gtk.Image({icon_name: 'user-trash-symbolic', pixel_size: 16}));
+        const removeTokenBtn = new Gtk.Button({label: 'Remove', valign: Gtk.Align.CENTER});
+        removeTokenBtn.add_css_class('pill');
+        removeTokenRow.add_suffix(removeTokenBtn);
+        removeTokenRow.set_activatable_widget(removeTokenBtn);
+        accountGroup.add(removeTokenRow);
+        removeTokenBtn.connect('clicked', async () => {
+            removeTokenBtn.set_sensitive(false);
+            try {
+                const host = settings.get_string('github-host').trim() || 'api.github.com';
+                await clearGithubToken(host);
+                if (settings.get_string('github-token'))
+                    settings.set_string('github-token', '');
+                signalTokenChanged(settings);
+                tokenRow.set_text('');
+                testRow.subtitle = 'Saved token removed for this API host';
+            } catch (error) {
+                testRow.subtitle = 'Could not remove token: ' + error.message;
+            } finally {
+                removeTokenBtn.set_sensitive(true);
+            }
+        });
+
         let testing = false;
-        testBtn.connect('clicked', () => {
+        testBtn.connect('clicked', async () => {
             if (testing)
                 return;
-            const token = settings.get_string('github-token').trim();
+            let token = tokenRow.get_text().trim();
+            if (!token) {
+                try {
+                    token = (await loadGithubToken(settings)).token;
+                } catch (_error) {
+                    testRow.subtitle = 'Secret Service is unavailable. Unlock or install a compatible keyring, then try again.';
+                    return;
+                }
+            }
             if (!token) {
                 testRow.subtitle = 'Add a token first';
                 return;
