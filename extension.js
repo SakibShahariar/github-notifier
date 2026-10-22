@@ -32,6 +32,107 @@ function _createMessageTrayNotification(source, title, body) {
         : new MessageTray.Notification(source, title, body);
 }
 
+class HoverTooltipController {
+    constructor() {
+        this._bindings = new WeakMap();
+        this._activeActor = null;
+        this._pendingActor = null;
+        this._timeoutId = 0;
+        this._label = new St.Label({style_class: 'tooltip', visible: false, reactive: false});
+        Main.layoutManager.addTopChrome(this._label);
+    }
+
+    setTooltip(actor, text) {
+        if (!actor || text == null)
+            return;
+
+        try {
+            actor.accessible_name = text;
+        } catch (_error) {
+            // Not every Clutter actor implements an accessible name.
+        }
+
+        const existing = this._bindings.get(actor);
+        if (existing) {
+            existing.text = text;
+            return;
+        }
+
+        this._bindings.set(actor, {text});
+        actor.connect('enter-event', () => {
+            this._schedule(actor);
+            return Clutter.EVENT_PROPAGATE;
+        });
+        actor.connect('leave-event', () => {
+            if (this._activeActor === actor || this._pendingActor === actor)
+                this._hide();
+            return Clutter.EVENT_PROPAGATE;
+        });
+        actor.connect('destroy', () => {
+            if (this._activeActor === actor || this._pendingActor === actor)
+                this._hide();
+            this._bindings.delete(actor);
+        });
+    }
+
+    _schedule(actor) {
+        this._hide();
+        this._pendingActor = actor;
+        this._timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 450, () => {
+            this._timeoutId = 0;
+            if (this._pendingActor === actor) {
+                this._pendingActor = null;
+                this._show(actor);
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _show(actor) {
+        const binding = this._bindings.get(actor);
+        if (!binding || !binding.text || !actor.visible || !actor.get_stage())
+            return;
+
+        this._label.text = binding.text;
+        this._label.show();
+
+        const [actorX, actorY] = actor.get_transformed_position();
+        const [, tooltipWidth] = this._label.get_preferred_width(-1);
+        const [, tooltipHeight] = this._label.get_preferred_height(tooltipWidth);
+        const stageWidth = global.stage.width;
+        const stageHeight = global.stage.height;
+        const actorWidth = actor.width;
+        const actorHeight = actor.height;
+
+        let x = actorX + (actorWidth - tooltipWidth) / 2;
+        x = Math.max(4, Math.min(x, stageWidth - tooltipWidth - 4));
+        let y = actorY + actorHeight + 8;
+        if (y + tooltipHeight > stageHeight - 4)
+            y = actorY - tooltipHeight - 8;
+        y = Math.max(4, Math.min(y, stageHeight - tooltipHeight - 4));
+
+        this._label.set_position(Math.round(x), Math.round(y));
+        this._activeActor = actor;
+    }
+
+    _hide() {
+        if (this._timeoutId) {
+            GLib.source_remove(this._timeoutId);
+            this._timeoutId = 0;
+        }
+        this._pendingActor = null;
+        this._activeActor = null;
+        this._label.hide();
+    }
+
+    destroy() {
+        this._hide();
+        Main.layoutManager.removeChrome(this._label);
+        this._label.destroy();
+        this._bindings = new WeakMap();
+    }
+}
+
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
 const MAX_NOTIFICATION_PAGES = 3;
@@ -174,6 +275,7 @@ class Indicator extends PanelMenu.Button {
 
         this._ext = extensionObject;
         this._settings = extensionObject.getSettings();
+        this._tooltipController = new HoverTooltipController();
         // GNOME's Quick Settings Do Not Disturb toggle is backed by show-banners.
         // Read it when notifications are emitted so changes apply immediately.
         this._desktopNotificationSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
@@ -665,28 +767,9 @@ class Indicator extends PanelMenu.Button {
         }
     }
 
-    /**
-     * Set tooltip in a Shell-version-safe way.
-     * PanelMenu.Button has no set_tooltip_text(); St widgets use the
-     * tooltip_text property. Fall back to accessible_name.
-     */
+    /** Add a Shell tooltip and an accessible name to an interactive actor. */
     _setTooltip(actor, text) {
-        if (!actor || text == null)
-            return;
-
-        // A plain JS property assignment is not a reliable St tooltip API.
-        // Always expose an accessible name; use the tooltip setter when the
-        // running Shell/St version provides it.
-        try {
-            actor.accessible_name = text;
-        } catch (_e) {
-            /* Some actors may not expose an accessible name. */
-        }
-        try {
-            actor.set_tooltip_text?.(text);
-        } catch (_e) {
-            /* Keep accessibility support even if native tooltips are unavailable. */
-        }
+        this._tooltipController.setTooltip(actor, text);
     }
 
     /** GNOME 51+ reduced-motion; older shells always allow motion. */
@@ -2568,6 +2651,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     destroy() {
+        this._tooltipController?.destroy();
+        this._tooltipController = null;
         try {
             this._publishNotificationSummary(
                 this._visibleNotificationItems().length,
