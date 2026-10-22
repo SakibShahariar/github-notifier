@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} = await import(helperUrl);
+const {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -158,4 +158,29 @@ test('handles overnight quiet-hours intervals and equal endpoints', () => {
     assert.equal(isWithinQuietHours(date(12, 0), '22:00', '07:00'), false);
     assert.equal(isWithinQuietHours(date(12, 0), '12:00', '12:00'), false);
     assert.equal(isWithinQuietHours(date(12, 0), 'invalid', '12:00'), false);
+});
+
+test('publishes a versioned non-secret notification summary with consistent totals', () => {
+    const summary = createNotificationSummary(4, 3, true, '2026-10-22T10:00:00.000Z');
+    assert.deepEqual(summary, {
+        version: 1,
+        enabled: true,
+        unreadNotifications: 4,
+        activityItems: 3,
+        totalCount: 7,
+        updatedAt: '2026-10-22T10:00:00.000Z',
+    });
+    assert.equal(Object.hasOwn(summary, 'token'), false);
+    assert.equal(Object.hasOwn(summary, 'username'), false);
+});
+
+test('normalizes invalid public summary counts to zero and reports disabled state', () => {
+    assert.deepEqual(createNotificationSummary(-1, Number.NaN, false, 'timestamp'), {
+        version: 1,
+        enabled: false,
+        unreadNotifications: 0,
+        activityItems: 0,
+        totalCount: 0,
+        updatedAt: 'timestamp',
+    });
 });

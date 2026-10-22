@@ -128,6 +128,12 @@
       <summary>Hide the panel icon when there is nothing unread</summary>
     </key>
 
+    <key name="notification-summary" type="s">
+      <default>'{}'</default>
+      <summary>Public non-secret notification summary</summary>
+      <description>Versioned JSON snapshot of visible notification/activity counts for companion integrations. Never contains credentials or item details.</description>
+    </key>
+
     <key name="last-state" type="s">
       <default>'{}'</default>
       <summary>Internal JSON blob tracking last-seen ids/counts</summary>

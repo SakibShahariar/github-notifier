@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} from './repo-utils.js';
+import {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -183,6 +183,7 @@ class Indicator extends PanelMenu.Button {
         this._token = this._settings.get_string('github-token');
         this._tokenLoading = true;
         this._tokenWarning = '';
+        this._summaryPublished = false;
         const persistedState = this._loadState();
         this._notificationItems = Array.isArray(persistedState.notificationItems)
             ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
@@ -2034,8 +2035,28 @@ class Indicator extends PanelMenu.Button {
         });
     }
 
+    _publishNotificationSummary(unreadNotifications, activityItems, enabled = true) {
+        const previousText = this._settings.get_string('notification-summary');
+        let previous = null;
+        try { previous = JSON.parse(previousText || '{}'); } catch (_error) {}
+        const sameCounts = previous && previous.version === 1 && previous.enabled === enabled &&
+            previous.unreadNotifications === unreadNotifications && previous.activityItems === activityItems;
+        if (this._summaryPublished && sameCounts)
+            return;
+
+        const serialized = JSON.stringify(createNotificationSummary(
+            unreadNotifications, activityItems, enabled, new Date().toISOString()
+        ));
+        if (previousText !== serialized && !this._settings.set_string('notification-summary', serialized))
+            return;
+        this._summaryPublished = true;
+    }
+
     _updatePanel() {
-        const unread = this._visibleNotificationItems().length + this._visibleActivityItems().length;
+        const unreadNotifications = this._visibleNotificationItems().length;
+        const activityItems = this._visibleActivityItems().length;
+        const unread = unreadNotifications + activityItems;
+        this._publishNotificationSummary(unreadNotifications, activityItems);
         const prev = this._lastUnreadCount ?? 0;
         const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
         if (unread > 0) {
@@ -2537,6 +2558,15 @@ class Indicator extends PanelMenu.Button {
     }
 
     destroy() {
+        try {
+            this._publishNotificationSummary(
+                this._visibleNotificationItems().length,
+                this._visibleActivityItems().length,
+                false
+            );
+        } catch (e) {
+            logError(e, 'github-notifier: failed to publish disabled summary');
+        }
         this._destroyed = true;
         this._pollCancellable?.cancel();
         if (this._pollDeadlineId) {

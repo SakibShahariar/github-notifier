@@ -75,6 +75,19 @@ function clockTimeToMinutes(value) {
     return parts[0] * 60 + parts[1];
 }
 
+export function createNotificationSummary(unreadNotifications, activityItems, enabled = true, updatedAt = new Date().toISOString()) {
+    const unread = Number.isSafeInteger(unreadNotifications) && unreadNotifications >= 0 ? unreadNotifications : 0;
+    const activity = Number.isSafeInteger(activityItems) && activityItems >= 0 ? activityItems : 0;
+    return {
+        version: 1,
+        enabled: enabled === true,
+        unreadNotifications: unread,
+        activityItems: activity,
+        totalCount: unread + activity,
+        updatedAt: typeof updatedAt === 'string' ? updatedAt : new Date().toISOString(),
+    };
+}
+
 export function isValidClockTime(value) {
     return clockTimeToMinutes(value) !== null;
 }

@@ -23,6 +23,7 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | **Mark read on open** | Choose whether opening a notification also marks it as read on GitHub. |
 | **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available. |
 | **Quiet hours** | Suppress desktop alerts during a configurable local-time window; optionally pause polling instead of silently updating inbox and badge. |
+| **Companion integration** | Exposes a versioned, non-secret count summary for integrations such as material-panel without sharing tokens or adding another poller. |
 
 The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
 
@@ -83,6 +84,10 @@ gnome-extensions prefs github-notifier@SakibShahariar
 | **GitHub CLI action** | When `gh` and a supported terminal are installed, issue and pull-request rows include an action to open them with the CLI. Browser opening remains available. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
+
+### Companion integration API
+
+The GSettings key `notification-summary` exposes a versioned JSON snapshot for companion extensions. It contains only `version`, `enabled`, `unreadNotifications`, `activityItems`, `totalCount`, and `updatedAt`; it never includes the token, username, repository names, notification text, or URLs. Counts reflect the extension’s currently visible/filtered lists. `enabled: false` means GitHub Notifier has been disabled; the counts are the last observed values. Consumers should handle missing or invalid JSON and ignore unknown fields. The key lives in the `org.gnome.shell.extensions.github-notifier` schema at `/org/gnome/shell/extensions/github-notifier/` and changes when the summary changes. A companion extension can locate GitHub Notifier through GNOME Shell’s extension manager, load the schema from that extension’s `schemas` directory with `Gio.SettingsSchemaSource.new_from_directory()`, and monitor `changed::notification-summary`. This avoids duplicated token storage and API polling.
 
 ### Quiet hours and Do Not Disturb
 
