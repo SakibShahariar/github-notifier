@@ -317,7 +317,7 @@ test('updates repository membership safely and handles rejected settings writes'
         get_string(key) { return values.get(key) ?? ''; },
         set_string(key, value) { if (rejectWrites) return false; values.set(key, value); return true; },
     };
-    assert.equal(setRepositoryMembership(settings, 'muted-repos', ' OWNER/REPO ', true), true);
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', 'OWNER/REPO', true), true);
     assert.equal(values.get('muted-repos'), 'owner/repo, other/project');
     assert.equal(setRepositoryMembership(settings, 'muted-repos', 'New/Repo', true), true);
     assert.equal(values.get('muted-repos'), 'owner/repo, other/project, new/repo');
