@@ -332,3 +332,37 @@ export async function pollIndicator(indicator) {
             }
         }
 }
+
+
+export function restartPollTimer(indicator) {
+        if (indicator._timeoutId) {
+            GLib.source_remove(indicator._timeoutId);
+            indicator._timeoutId = null;
+        }
+        const configuredInterval = Math.max(60, indicator._settings.get_int('poll-interval'));
+        const nowEpoch = Math.floor(Date.now() / 1000);
+        const backoffSeconds = Math.max(0, indicator._networkRetryAfterEpoch - nowEpoch);
+        const retryAfterSeconds = Math.max(0, indicator._retryAfterEpoch - nowEpoch);
+        const interval = Math.max(configuredInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
+        indicator._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
+            indicator._poll();
+            return GLib.SOURCE_CONTINUE;
+        });
+}
+
+export function refreshPollNow(indicator) {
+        if (indicator._destroyed || indicator._paused)
+            return;
+        // An explicit user request may bypass automatic backoff and metered-network pausing.
+        indicator._manualRefreshPending = true;
+        indicator._networkFailureCount = 0;
+        indicator._networkRetryAfterEpoch = 0;
+        if (indicator._polling) {
+            // A manual refresh should not be ignored behind a stalled request.
+            // Cancel the active cycle and queue exactly one fresh cycle in finally.
+            indicator._restartPollRequested = true;
+            indicator._pollCancellable?.cancel();
+            return;
+        }
+        indicator._poll();
+}
