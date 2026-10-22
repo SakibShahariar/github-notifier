@@ -1291,11 +1291,7 @@ class Indicator extends PanelMenu.Button {
 
     _apiBase() {
         const host = this._settings.get_string('github-host').trim() || 'api.github.com';
-        if (host === 'api.github.com')
-            return `https://${host}`;
-        if (host.includes('/'))
-            return `https://${host.replace(/\/+$/, '')}`;
-        return `https://${host}/api/v3`;
+        return getApiBase(host);
     }
 
     async _apiRequest(method, path, {body = null, headers = {}} = {}) {

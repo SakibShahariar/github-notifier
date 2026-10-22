@@ -150,15 +150,6 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 ? 'Checking…'
                 : `Checking… your token will be sent to ${configuredHost}`;
 
-            let host = settings.get_string('github-host').trim() || 'api.github.com';
-            let apiBase;
-            if (host === 'api.github.com')
-                apiBase = `https://${host}`;
-            else if (host.includes('/'))
-                apiBase = `https://${host.replace(/\/+$/, '')}`;
-            else
-                apiBase = `https://${host}/api/v3`;
-
             const session = new Soup.Session({timeout: 15});
             const uri = GLib.Uri.parse(`${apiBase}/user`, GLib.UriFlags.NONE);
             const msg = new Soup.Message({method: 'GET', uri});
