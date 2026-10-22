@@ -112,3 +112,47 @@ test('treats an already-empty legacy setting as successfully cleared', () => {
     settings.set_string = () => assert.fail('must not write when no legacy token exists');
     assert.equal(clearLegacyTokenSetting(settings), true);
 });
+
+
+test('uses the stored token and reports failed cleanup after an interrupted migration', async () => {
+    const settings = makeSettings({token: 'legacy-token'});
+    settings.set_string = (key, value) => {
+        if (key === 'github-token' && value === '')
+            return false;
+        settings.strings[key] = value;
+        return true;
+    };
+    const api = {
+        async lookup() { return 'secret-token'; },
+        async store() { assert.fail('must not rewrite an existing secret'); },
+    };
+
+    const result = await loadGithubToken(settings, api);
+    assert.equal(result.token, 'secret-token');
+    assert.equal(result.source, 'secret-service');
+    assert.match(result.warning, /legacy setting could not be cleared/);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
+
+test('reports successful storage but preserves the legacy token when migration cleanup fails', async () => {
+    const settings = makeSettings({token: 'legacy-token'});
+    settings.set_string = (key, value) => {
+        if (key === 'github-token' && value === '')
+            return false;
+        settings.strings[key] = value;
+        return true;
+    };
+    const api = {
+        async lookup() { return ''; },
+        async store(host, token) {
+            assert.equal(host, 'api.github.com');
+            assert.equal(token, 'legacy-token');
+        },
+    };
+
+    const result = await loadGithubToken(settings, api);
+    assert.equal(result.token, 'legacy-token');
+    assert.equal(result.source, 'legacy');
+    assert.match(result.warning, /stored, but the legacy setting could not be cleared/);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
