@@ -1302,15 +1302,15 @@ class Indicator extends PanelMenu.Button {
         if (this._paused || this._destroyed || this._polling || this._markingAllRead)
             return;
 
-        if (this._shouldPauseForQuietHours()) {
+        const manualRefresh = this._manualRefreshPending;
+        this._manualRefreshPending = false;
+
+        if (this._shouldPauseForQuietHours() && !manualRefresh) {
             this._setStatusBanner('Quiet hours — automatic polling paused', 'info');
             this._updateHero();
             this._updatePanel();
             return;
         }
-
-        const manualRefresh = this._manualRefreshPending;
-        this._manualRefreshPending = false;
         if (this._networkMonitor.network_metered && !manualRefresh) {
             this._setStatusBanner('Metered connection — automatic polling paused', 'info');
             this._updateHero();
