@@ -181,3 +181,12 @@ export function markAllRead(indicator) {
         });
     }
 
+
+export function disarmMarkAll(indicator) {
+    indicator._markAllArmed = false;
+    if (indicator._markAllTimer) {
+        GLib.source_remove(indicator._markAllTimer);
+        indicator._markAllTimer = null;
+    }
+    indicator._renderList();
+}
