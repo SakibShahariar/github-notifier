@@ -145,8 +145,8 @@ These checks do not replace testing inside GNOME Shell; runtime behavior and com
 
 ### Source layout
 
-- `extension.js` coordinates the GNOME Shell indicator, settings, lifecycle, and poll-cycle state.
-- `api.js`, `repository-polling.js`, `notification-actions.js`, and `state.js` handle API requests, watched-repository polling, read/dismiss actions, and persisted state.
+- `extension.js` coordinates the GNOME Shell indicator, settings, lifecycle, and delegates each poll cycle to `poll-controller.js`.
+- `api.js`, `poll-controller.js`, `repository-polling.js`, `notification-actions.js`, and `state.js` handle API requests, poll orchestration, watched-repository polling, read/dismiss actions, and persisted state.
 - `secret-store.js` manages host-scoped credentials through Secret Service, with safe migration from the legacy setting.
 - `repo-utils.js` contains pure validation, categorization, formatting, and summary helpers that can be tested without GNOME Shell.
 - `ui-indicator.js`, `ui-animations.js`, `ui-utils.js`, `ui-theme.js`, and `notifications.js` separate menu rendering, motion, tooltips, theme loading, and desktop notifications from the main indicator class.
@@ -157,7 +157,7 @@ The panel may display an error indicator when GitHub requests fail. Rate limits 
 
 Configure the API host for your Enterprise instance. GitHub.com and Enterprise installations may use different API and web URL formats.
 
-If your Enterprise instance is hosted under a URL path rather than directly at the domain root, verify that generated browser links preserve that path. Support for a particular Enterprise deployment layout depends on the current implementation.
+Browser links preserve an Enterprise deployment's configured path prefix and remove the API `/api/v3` suffix. The URL conversion helpers have automated coverage for issues, discussions, pull requests, commits, releases, and workflow links; confirm links against your own Enterprise proxy layout if it differs.
 
 ## Troubleshooting
 
