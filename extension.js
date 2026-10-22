@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
@@ -1133,26 +1133,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _reasonToKind(reason, subjectType) {
-        const typeLabels = {
-            Release: 'New release',
-            Commit: 'New commit',
-            CheckSuite: 'CI run',
-            WorkflowRun: 'CI run',
-        };
-        if (typeLabels[subjectType])
-            return typeLabels[subjectType];
-
-        const map = {
-            mention: 'Mention',
-            review_requested: 'Review requested',
-            assign: 'Assigned',
-            author: 'Update on your thread',
-            comment: 'New comment',
-            state_change: 'State changed',
-            subscribed: 'Activity',
-            team_mention: 'Team mention',
-        };
-        return map[reason] || 'Notification';
+        return getNotificationReasonLabel(reason, subjectType);
     }
 
     _webBase() {
