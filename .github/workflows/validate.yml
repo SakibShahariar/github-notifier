@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in extension.js prefs.js repo-utils.js secret-store.js ui-utils.js; do
+          for file in extension.js prefs.js repo-utils.js secret-store.js ui-utils.js ui-theme.js notifications.js; do
             echo "Checking $file"
             node --check --input-type=module < "$file"
           done
