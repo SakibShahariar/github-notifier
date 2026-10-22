@@ -657,11 +657,11 @@ export function updatePanel(indicator, maxBadge) {
         indicator._lastUnreadCount = unread;
 
         if (indicator._statusIsError)
-            indicator._setTooltip(this, 'GitHub Notifier — attention needed');
+            indicator._setTooltip(indicator, 'GitHub Notifier — attention needed');
         else if (unread > 0)
-            indicator._setTooltip(this, `GitHub Notifier — ${unread} unread`);
+            indicator._setTooltip(indicator, `GitHub Notifier — ${unread} unread`);
         else
-            indicator._setTooltip(this, 'GitHub Notifier');
+            indicator._setTooltip(indicator, 'GitHub Notifier');
 
         const hideWhenEmpty = indicator._settings.get_boolean('hide-when-empty');
         indicator.visible = !(hideWhenEmpty && unread === 0 && !indicator._statusIsError);
