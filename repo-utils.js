@@ -14,7 +14,8 @@ export function getApiBase(host) {
     while (value.endsWith('/'))
         value = value.slice(0, -1);
     if (!value || value.includes('://') ||
-        [' ', '\t', '\n', '\r', '?', '#', '\\'].some(character => value.includes(character)))
+        [' ', '\t', '\n', '\r', '?', '#', '\\'].some(character => value.includes(character)) ||
+        value.split('/').some(part => part === '.' || part === '..'))
         throw new TypeError('Enter a hostname such as api.github.com or git.example.com/enterprise/api/v3');
 
     let parsed;
