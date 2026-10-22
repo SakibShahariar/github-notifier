@@ -68,6 +68,14 @@ class HoverTooltipController {
                 this._hide();
             return Clutter.EVENT_PROPAGATE;
         });
+        // Mirror hover tooltips for keyboard users navigating focusable controls.
+        actor.connect('key-focus-in', () => {
+            this._schedule(actor);
+        });
+        actor.connect('key-focus-out', () => {
+            if (this._activeActor === actor || this._pendingActor === actor)
+                this._hide();
+        });
         actor.connect('destroy', () => {
             if (this._activeActor === actor || this._pendingActor === actor)
                 this._hide();
