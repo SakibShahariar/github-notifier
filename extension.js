@@ -10,6 +10,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
+import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {_createMessageTrayNotification, _createMessageTraySource} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
@@ -1034,56 +1035,20 @@ class Indicator extends PanelMenu.Button {
 
     // ---------- state persistence ----------
     _stateScope() {
-        const host = this._settings.get_string('github-host').trim() || 'api.github.com';
-        const token = this._token || this._settings.get_string('github-token');
-        // Store only a one-way token fingerprint, never the token itself.
-        const tokenFingerprint = GLib.compute_checksum_for_string(GLib.ChecksumType.SHA256, token, -1);
-        return `${host.toLowerCase()}|${tokenFingerprint}`;
+        return stateScope(this);
     }
-
     _loadState() {
-        try {
-            const parsed = JSON.parse(this._settings.get_string('last-state') || '{}');
-            if (typeof parsed !== 'object' || parsed === null)
-                return {};
-            // Ignore baselines and cached inbox data from a different host or token.
-            // Older unscoped state is intentionally reset once to avoid cross-account events.
-            return parsed.scope === this._stateScope() ? parsed : {};
-        } catch (e) {
-            logError(e, 'github-notifier: corrupt last-state, resetting');
-            return {};
-        }
+        return loadState(this);
     }
-
     _saveState(state) {
-        try {
-            state.scope = this._stateScope();
-            const serialized = JSON.stringify(state);
-            if (this._settings.get_string('last-state') !== serialized)
-                this._settings.set_string('last-state', serialized);
-        } catch (e) {
-            logError(e, 'github-notifier: failed to save state');
-        }
+        return saveState(this, state);
     }
-
     _isValidPendingMarkAll(value) {
-        return !!value && typeof value.lastReadAt === 'string' &&
-            Array.isArray(value.notificationIds) && value.notificationIds.every(id => typeof id === 'string') &&
-            Array.isArray(value.activityIds) && value.activityIds.every(id => typeof id === 'string');
+        return isValidPendingMarkAll(this, value);
     }
-
     _persistCurrentItems(state = null) {
-        const currentState = state || this._loadState();
-        currentState.activityItems = this._activityItems.slice(0, MAX_RECENT);
-        currentState.notificationItems = this._notificationItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
-        currentState.pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
-        currentState.pendingMarkAllRead = this._pendingMarkAllRead;
-        currentState.lastFetchedAt = this._lastFetchedAt;
-        currentState.dailyStats = this._dailyStats;
-        this._saveState(currentState);
+        return persistCurrentItems(this, state);
     }
-
-    // ---------- HTTP helper ----------
     _sleep(ms) {
         return new Promise(resolve => {
             let sourceId = 0;
