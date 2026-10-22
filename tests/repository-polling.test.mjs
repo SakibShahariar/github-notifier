@@ -70,13 +70,22 @@ test('pollRepoIssues emits a direct-link summary when a second page has more new
     assert.equal(indicator.calls.length, 2);
 });
 
-test('pollRepoStars reports gains but establishes a silent first baseline', async () => {
+test('pollRepoStars reports gains and establishes a silent first baseline', async () => {
     const repo = 'owner/repo';
-    const response = {'/repos/owner/repo': {stargazers_count: 8}};
-    const indicator = indicatorWithResponses(response);
+    const indicator = indicatorWithResponses({'/repos/owner/repo': {stargazers_count: 8}});
     const state = {repos: {[repo]: {stars: 5}}};
-    assert.deepEqual(await pollRepoStars(indicator, repo, state, []), [{
-        id: 'owner/repo-stars-8', title: '+3 new stars (8 total)', subtitle: repo,
-        url: 'https://github.com/owner/repo/stargazers', kind: 'star', ts: assert.any,
-    }].map(({ts, ...item}) => item).concat([]).map(item => item));
+    const items = await pollRepoStars(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, 'owner/repo-stars-8');
+    assert.equal(items[0].title, '+3 new stars (8 total)');
+    assert.equal(items[0].url, 'https://github.com/owner/repo/stargazers');
+    assert.equal(items[0].kind, 'star');
+    assert.equal(typeof items[0].ts, 'string');
+    assert.equal(state.repos[repo].stars, 8);
+
+    const baselineState = {repos: {}};
+    const notes = [];
+    assert.deepEqual(await pollRepoStars(indicator, repo, baselineState, notes), []);
+    assert.equal(baselineState.repos[repo].stars, 8);
+    assert.deepEqual(notes, ['owner/repo: now tracking stars (currently 8)']);
 });
