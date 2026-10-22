@@ -460,7 +460,14 @@ class Indicator extends PanelMenu.Button {
             }
         };
         this._tokenChangedId = this._settings.connect('changed::token-generation', refreshToken);
-        this._reposChangedId = this._settings.connect('changed::watched-repos', refreshIfMenuOpen);
+        this._reposChangedId = this._settings.connect('changed::watched-repos', () => {
+            if (this._destroyed)
+                return;
+            refreshIfMenuOpen();
+            // Establish the new repository's baseline immediately rather than
+            // waiting for the next scheduled poll interval.
+            this._poll();
+        });
         this._mutedReposChangedId = this._settings.connect('changed::muted-repos', () => {
             if (this._destroyed)
                 return;
@@ -623,6 +630,7 @@ class Indicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._statsItem);
         this._statsItem.visible = false;
 
+        this._repositoryActionStatusGeneration = 0;
         this._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
         this._actionStatusItem.style_class = 'github-notifier-action-status';
         this._actionStatusItem.visible = false;
@@ -746,6 +754,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _showRepositoryActionStatus(message, undoMuteRepository = null) {
+        const generation = ++this._repositoryActionStatusGeneration;
         this._setActionStatus(message);
         this._pendingMuteUndoRepository = undoMuteRepository;
         if (this._repositoryUndoItem) {
@@ -755,6 +764,8 @@ class Indicator extends PanelMenu.Button {
             this._repositoryUndoItem.visible = Boolean(undoMuteRepository);
         }
         this._addTransientTimeout(3, () => {
+            if (generation !== this._repositoryActionStatusGeneration)
+                return GLib.SOURCE_REMOVE;
             this._setActionStatus('');
             this._pendingMuteUndoRepository = null;
             if (this._repositoryUndoItem)
