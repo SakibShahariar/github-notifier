@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -326,4 +326,26 @@ test('updates repository membership safely and handles rejected settings writes'
     assert.equal(setRepositoryMembership(settings, 'muted-repos', 'invalid', true), false);
     rejectWrites = true;
     assert.equal(setRepositoryMembership(settings, 'muted-repos', 'new/another', true), false);
+});
+
+
+test('resolves browser base URLs for GitHub.com and GitHub Enterprise hosts', () => {
+    assert.equal(getWebBase(''), 'https://github.com');
+    assert.equal(getWebBase('api.github.com'), 'https://github.com');
+    assert.equal(getWebBase('git.example.com/api/v3'), 'https://git.example.com');
+    assert.equal(getWebBase('git.example.com/github/api/v3/'), 'https://git.example.com/github');
+});
+
+test('converts GitHub API subject URLs into browser-facing issue, PR, commit and action links', () => {
+    const api = 'https://git.example.com/github/api/v3';
+    const web = 'https://git.example.com/github';
+    const repo = 'owner/project';
+    assert.equal(getSubjectHtmlUrl({type: 'Issue', url: `${api}/repos/${repo}/issues/7`}, repo, api, web), `${web}/${repo}/issues/7`);
+    assert.equal(getSubjectHtmlUrl({type: 'Discussion', url: `${api}/repos/${repo}/discussions/9`}, repo, api, web), `${web}/${repo}/discussions/9`);
+    assert.equal(getSubjectHtmlUrl({type: 'PullRequest', url: `${api}/repos/${repo}/pulls/8`}, repo, api, web), `${web}/${repo}/pull/8`);
+    assert.equal(getSubjectHtmlUrl({type: 'Commit', url: `${api}/repos/${repo}/commits/abc`}, repo, api, web), `${web}/${repo}/commit/abc`);
+    assert.equal(getSubjectHtmlUrl({type: 'Release', url: `${api}/repos/${repo}/releases/3`}, repo, api, web), `${web}/${repo}/releases`);
+    assert.equal(getSubjectHtmlUrl({type: 'WorkflowRun', url: `${api}/repos/${repo}/actions/runs/2`}, repo, api, web), `${web}/${repo}/actions`);
+    assert.equal(getSubjectHtmlUrl({type: 'Unknown', url: `${api}/repos/${repo}/x`}, repo, api, web), `${web}/${repo}`);
+    assert.equal(getSubjectHtmlUrl({}, repo, api, web), `${web}/${repo}`);
 });
