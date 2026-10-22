@@ -369,7 +369,7 @@ export function refreshPollNow(indicator) {
 }
 
 
-export function afterPoll(indicator, notificationItems, newActivityItems, {updateFetchedAt = true} = {}, maxRecent) {updateFetchedAt = true} = {}) {
+export function afterPoll(indicator, notificationItems, newActivityItems, {updateFetchedAt = true} = {}, maxRecent) {
         indicator._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
         const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
         const toToast = notificationItems.filter(n => n.isNewToast &&
