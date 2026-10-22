@@ -2740,7 +2740,17 @@ class Indicator extends PanelMenu.Button {
         const notifCount = visibleNotificationItems.length;
         this._addSectionHeader(this._notifSection, 'Unread Notifications', notifCount);
         if (notifCount === 0) {
-            this._addEmpty(this._notifSection, this._statusIsError ? 'No notifications loaded.' : "You're all caught up.");
+            let emptyMessage;
+            if (this._statusIsError) {
+                emptyMessage = 'No notifications loaded.';
+            } else if (!this._settings.get_boolean('watch-mentions')) {
+                emptyMessage = 'Inbox monitoring is disabled.';
+            } else if (this._notificationItems.length > 0) {
+                emptyMessage = 'No notifications match your filters or muted repositories.';
+            } else {
+                emptyMessage = "You're all caught up.";
+            }
+            this._addEmpty(this._notifSection, emptyMessage);
         } else {
             const pageCount = Math.max(1, Math.ceil(notifCount / NOTIF_PAGE_SIZE));
             if (this._notificationsPage >= pageCount) this._notificationsPage = pageCount - 1;
