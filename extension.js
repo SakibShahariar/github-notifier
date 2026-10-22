@@ -13,6 +13,7 @@ import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
+import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -515,28 +516,11 @@ class Indicator extends PanelMenu.Button {
 
     /** GNOME 51+ reduced-motion; older shells always allow motion. */
     _prefersReducedMotion() {
-        try {
-            if (St.Settings && St.ReducedMotion) {
-                const {reducedMotion} = St.Settings.get();
-                return reducedMotion === St.ReducedMotion.REDUCE;
-            }
-        } catch (_e) {
-            /* St.ReducedMotion is GNOME 51+ */
-        }
-        return false;
+        return prefersReducedMotion(this);
     }
 
     hasMotion() {
-        try {
-            const s = St.Settings.get();
-            if (s && 'enable_animations' in s && s.enable_animations === false) return false;
-            if (St.ReducedMotion && s.reducedMotion === St.ReducedMotion.REDUCE) return false;
-        } catch (_e) {}
-        try {
-            const cs = Clutter.Settings.get_default?.();
-            if (cs && 'enable_animations' in cs && cs.enable_animations === false) return false;
-        } catch (_e) {}
-        return !this._prefersReducedMotion();
+        return hasMotion(this);
     }
 
     /**
@@ -544,6 +528,8 @@ class Indicator extends PanelMenu.Button {
      * props: {opacity, scale_x, scale_y, time, mode, onComplete}
      */
     _ease(actor, props = {}) {
+        return ease(this, actor, props);
+    }) {
         if (!actor || this._destroyed || !this.hasMotion()) {
             if (actor && props.opacity !== undefined)
                 actor.opacity = props.opacity;
@@ -595,112 +581,28 @@ class Indicator extends PanelMenu.Button {
 
     /** Energetic badge bounce when unread count rises. */
     _animateBadgePop() {
-        if (!this._label || !this.hasMotion())
-            return;
-        this._label.set_pivot_point(0.5, 0.5);
-        this._label.scale_x = 0.55;
-        this._label.scale_y = 0.55;
-        this._label.opacity = 180;
-        this._ease(this._label, {
-            scale_x: 1.45,
-            scale_y: 1.45,
-            opacity: 255,
-            time: 140,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            onComplete: () => {
-                this._ease(this._label, {
-                    scale_x: 0.92,
-                    scale_y: 0.92,
-                    time: 90,
-                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                    onComplete: () => {
-                        this._ease(this._label, {
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            time: 110,
-                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                        });
-                    },
-                });
-            },
-        });
+        animateBadgePop(this);
     }
 
     /** Strong Octocat pulse + slight hop when new activity arrives. */
     _animateIconPulse() {
-        if (!this._icon || !this.hasMotion())
-            return;
-        this._icon.set_pivot_point(0.5, 0.5);
-        this._icon.translation_y = 0;
-        this._ease(this._icon, {
-            scale_x: 1.35,
-            scale_y: 1.35,
-            translation_y: -3,
-            time: 120,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            onComplete: () => {
-                this._ease(this._icon, {
-                    scale_x: 0.88,
-                    scale_y: 0.88,
-                    translation_y: 1,
-                    time: 100,
-                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                    onComplete: () => {
-                        this._ease(this._icon, {
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            translation_y: 0,
-                            time: 130,
-                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                        });
-                    },
-                });
-            },
-        });
+        animateIconPulse(this);
     }
 
     _startRefreshSpin() {
-        const icon = this._refreshIcon;
-        if (!icon || !this.hasMotion()) return;
-        if (icon.get_transition?.('rotation-angle-z')) return;
-        try {
-            icon.set_pivot_point(0.5, 0.5);
-            const loop = () => {
-                if (!this._polling || this._destroyed || !icon.get_stage?.()) return;
-                icon.ease({ rotation_angle_z: (icon.rotation_angle_z || 0) + 360, duration: 900, mode: Clutter.AnimationMode.LINEAR, onComplete: () => { if (this._polling && !this._destroyed) loop(); } });
-            };
-            loop();
-        } catch (e) {}
+        startRefreshSpin(this);
     }
 
     _stopRefreshSpin() {
-        const icon = this._refreshIcon;
-        if (!icon) return;
-        try { icon.remove_all_transitions(); icon.ease({ rotation_angle_z: 0, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch (e) { try { icon.rotation_angle_z = 0; } catch (ee) {} }
+        stopRefreshSpin(this);
     }
 
     _animateHeaderEntrance() {
-        if (!this.hasMotion() || !this._heroBox) return;
-        try {
-            this._heroBox.set_pivot_point(0.5, 0.5);
-            this._heroBox.opacity = 0;
-            this._heroBox.set_scale(0.96, 0.96);
-            this._ease(this._heroBox, { opacity: 255, scale_x: 1, scale_y: 1, time: 280, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-            if (this._heroIcon) {
-                this._heroIcon.set_pivot_point(0.5, 0.5);
-                this._heroIcon.set_scale(0.5, 0.5);
-                this._ease(this._heroIcon, { scale_x: 1, scale_y: 1, time: 420, mode: Clutter.AnimationMode.EASE_OUT_BACK });
-            }
-        } catch (e) {}
+        animateHeaderEntrance(this);
     }
 
     _addButtonHoverScale(button) {
-        if (!button || !this.hasMotion()) return;
-        try {
-            button.set_pivot_point(0.5, 0.5);
-            button.connect('enter-event', () => { if (!this.hasMotion() || this._destroyed) return; this._ease(button, { scale_x: 1.06, scale_y: 1.06, time: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); });
-            button.connect('leave-event', () => { if (this._destroyed) return; this._ease(button, { scale_x: 1, scale_y: 1, time: 140, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); });
-        } catch (e) {}
+        addButtonHoverScale(this, button);
     }
 
     /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
