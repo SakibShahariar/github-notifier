@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -1701,48 +1701,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updatePanel() {
-        const unreadNotifications = this._visibleNotificationItems().length;
-        const activityItems = this._visibleActivityItems().length;
-        const unread = unreadNotifications + activityItems;
-        this._publishNotificationSummary(unreadNotifications, activityItems);
-        const prev = this._lastUnreadCount ?? 0;
-        const alwaysUnlit = this._settings.get_boolean('icon-always-unlit');
-        if (unread > 0) {
-            this._label.text = unread > MAX_BADGE ? `${MAX_BADGE}+` : String(unread);
-            this._label.show();
-            if (alwaysUnlit) this._label.remove_style_class_name('urgent');
-            else this._label.add_style_class_name('urgent');
-        } else {
-            this._label.hide();
-            this._label.remove_style_class_name('urgent');
-            this._label.scale_x = 1.0;
-            this._label.scale_y = 1.0;
-        }
-
-        // Dim the Octocat itself when "keep icon unlit" is on (even with unread)
-        if (this._icon) {
-            if (alwaysUnlit)
-                this._icon.add_style_class_name('github-notifier-icon-unlit');
-            else
-                this._icon.remove_style_class_name('github-notifier-icon-unlit');
-        }
-
-        // Subtle motion when new items arrive (not on every poll drop)
-        if (unread > prev) {
-            this._animateBadgePop();
-            this._animateIconPulse();
-        }
-        this._lastUnreadCount = unread;
-
-        if (this._statusIsError)
-            this._setTooltip(this, 'GitHub Notifier — attention needed');
-        else if (unread > 0)
-            this._setTooltip(this, `GitHub Notifier — ${unread} unread`);
-        else
-            this._setTooltip(this, 'GitHub Notifier');
-
-        const hideWhenEmpty = this._settings.get_boolean('hide-when-empty');
-        this.visible = !(hideWhenEmpty && unread === 0 && !this._statusIsError);
+        updatePanel(this, MAX_BADGE);
     }
 
     _truncate(text, maxLen) {
