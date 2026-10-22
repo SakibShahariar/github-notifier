@@ -272,3 +272,16 @@ export function getNotificationIconName(item) {
     if (item?.kind === 'star') return 'starred-symbolic';
     return 'mail-unread-symbolic';
 }
+
+
+/** Format a timestamp as a compact relative age, using an injectable clock for tests. */
+export function formatRelativeTime(value, now = Date.now()) {
+    const then = new Date(String(value || '')).getTime();
+    if (!Number.isFinite(then)) return '';
+    const seconds = Math.max(0, Math.floor((now - then) / 1000));
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 2592000) return `${Math.floor(seconds / 86400)}d ago`;
+    return `${Math.floor(seconds / 2592000)}mo ago`;
+}
