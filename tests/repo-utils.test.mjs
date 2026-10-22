@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -216,4 +216,23 @@ test('daily statistics discard invalid, future, and older-than-seven-day entries
         '2026-10-22': {notifications: 1, activity: 2},
     });
     assert.throws(() => updateDailyStats({}, '2026-02-30', 1, 1), /valid YYYY-MM-DD/);
+});
+
+
+test('builds HTTPS API bases for GitHub.com and Enterprise deployments', () => {
+    assert.equal(getApiBase('api.github.com'), 'https://api.github.com');
+    assert.equal(getApiBase('git.example.com'), 'https://git.example.com/api/v3');
+    assert.equal(getApiBase('git.example.com/enterprise/api/v3/'), 'https://git.example.com/enterprise/api/v3');
+    assert.equal(getApiBase('git.example.com:8443/enterprise/api/v3'), 'https://git.example.com:8443/enterprise/api/v3');
+});
+
+test('rejects API host values that could redirect credentials or form malformed URLs', () => {
+    for (const value of [
+        '', 'https://evil.example', 'http://git.example.com', 'user@evil.example',
+        'git.example.com?next=evil.example', 'git.example.com#fragment',
+        'git.example.com\\\\evil.example', 'git.example.com/../other',
+        'git example.com', null, 42,
+    ]) {
+        assert.throws(() => getApiBase(value), TypeError, String(value));
+    }
 });

@@ -5,7 +5,7 @@ import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-import {isValidClockTime, isValidRepository} from './repo-utils.js';
+import {getApiBase, isValidClockTime, isValidRepository} from './repo-utils.js';
 import {clearGithubToken, clearLegacyTokenSetting, loadGithubToken, storeGithubToken} from './secret-store.js';
 
 function signalTokenChanged(settings) {
@@ -67,7 +67,16 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         const hostRow = new Adw.EntryRow({title: 'API host', show_apply_button: true});
         hostRow.add_prefix(new Gtk.Image({icon_name: 'network-server-symbolic', pixel_size: 16}));
         hostRow.set_text(settings.get_string('github-host'));
-        hostRow.connect('apply', () => settings.set_string('github-host', hostRow.get_text().trim()));
+        hostRow.connect('apply', () => {
+            const host = hostRow.get_text().trim();
+            try {
+                getApiBase(host || 'api.github.com');
+                settings.set_string('github-host', host || 'api.github.com');
+                testRow.subtitle = 'API host saved';
+            } catch (error) {
+                testRow.subtitle = error.message;
+            }
+        });
         accountGroup.add(hostRow);
 
         // Test connection against /user (or /rate_limit as fallback messaging)
@@ -127,9 +136,16 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 testRow.subtitle = 'Add a token first';
                 return;
             }
+            const configuredHost = settings.get_string('github-host').trim() || 'api.github.com';
+            let apiBase;
+            try {
+                apiBase = getApiBase(configuredHost);
+            } catch (error) {
+                testRow.subtitle = error.message;
+                return;
+            }
             testing = true;
             testBtn.set_sensitive(false);
-            const configuredHost = settings.get_string('github-host').trim() || 'api.github.com';
             testRow.subtitle = configuredHost === 'api.github.com'
                 ? 'Checking…'
                 : `Checking… your token will be sent to ${configuredHost}`;
