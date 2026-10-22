@@ -628,6 +628,28 @@ class Indicator extends PanelMenu.Button {
         this._actionStatusItem.visible = false;
         this.menu.addMenuItem(this._actionStatusItem);
 
+        // Muting hides every row for that repository, so provide a short-lived
+        // undo action here rather than leaving the row's future Unmute control
+        // unreachable after the first click.
+        this._pendingMuteUndoRepository = null;
+        this._repositoryUndoItem = new PopupMenu.PopupMenuItem('Undo mute');
+        this._repositoryUndoItem.connect('activate', () => {
+            const repository = this._pendingMuteUndoRepository;
+            this._pendingMuteUndoRepository = null;
+            this._repositoryUndoItem.visible = false;
+            if (!repository)
+                return;
+            if (this._setRepositoryMembership('muted-repos', repository, false)) {
+                this._showRepositoryActionStatus(`Unmuted ${repository}`);
+                this._lastRenderHash = '';
+                this._renderList();
+            } else {
+                this._showRepositoryActionStatus('Could not unmute repository');
+            }
+        });
+        this._repositoryUndoItem.visible = false;
+        this.menu.addMenuItem(this._repositoryUndoItem);
+
         // sections
         this._notifSection = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._notifSection);
@@ -723,10 +745,20 @@ class Indicator extends PanelMenu.Button {
         return true;
     }
 
-    _showRepositoryActionStatus(message) {
+    _showRepositoryActionStatus(message, undoMuteRepository = null) {
         this._setActionStatus(message);
+        this._pendingMuteUndoRepository = undoMuteRepository;
+        if (this._repositoryUndoItem) {
+            this._repositoryUndoItem.label.text = undoMuteRepository
+                ? `Undo mute for ${undoMuteRepository}`
+                : 'Undo mute';
+            this._repositoryUndoItem.visible = Boolean(undoMuteRepository);
+        }
         this._addTransientTimeout(3, () => {
             this._setActionStatus('');
+            this._pendingMuteUndoRepository = null;
+            if (this._repositoryUndoItem)
+                this._repositoryUndoItem.visible = false;
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -2490,9 +2522,9 @@ class Indicator extends PanelMenu.Button {
             muteButton.connect('clicked', () => {
                 const nextMuted = !this._mutedRepositories().has(repositoryForMute);
                 if (this._setRepositoryMembership('muted-repos', repositoryForMute, nextMuted))
-                    this._showRepositoryActionStatus(nextMuted
-                        ? `Muted ${repositoryForMute}`
-                        : `Unmuted ${repositoryForMute}`);
+                    this._showRepositoryActionStatus(
+                        nextMuted ? `Muted ${repositoryForMute}` : `Unmuted ${repositoryForMute}`,
+                        nextMuted ? repositoryForMute : null);
                 else
                     this._showRepositoryActionStatus('Could not update muted repositories');
                 this._lastRenderHash = '';
