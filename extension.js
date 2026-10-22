@@ -2422,6 +2422,36 @@ class Indicator extends PanelMenu.Button {
             }
         }
 
+        const repositoryForMute = item.kind !== 'notification' && typeof item.subtitle === 'string' &&
+            isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
+        if (repositoryForMute) {
+            const muted = this._mutedRepositories().has(repositoryForMute);
+            const muteButton = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({
+                    icon_name: muted ? 'edit-undo-symbolic' : 'notifications-disabled-symbolic',
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                }),
+            });
+            muteButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+            this._setTooltip(muteButton, muted ? `Unmute ${repositoryForMute}` : `Mute ${repositoryForMute}`);
+            muteButton.connect('clicked', () => {
+                const nextMuted = !this._mutedRepositories().has(repositoryForMute);
+                if (this._setRepositoryMembership('muted-repos', repositoryForMute, nextMuted))
+                    this._showRepositoryActionStatus(nextMuted
+                        ? `Muted ${repositoryForMute}`
+                        : `Unmuted ${repositoryForMute}`);
+                else
+                    this._showRepositoryActionStatus('Could not update muted repositories');
+                this._lastRenderHash = '';
+                this._renderList();
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(muteButton);
+        }
+
         const githubCliConfig = this._githubCliLaunchConfig(item);
         if (githubCliConfig) {
             const cliButton = new St.Button({
