@@ -2393,7 +2393,7 @@ class Indicator extends PanelMenu.Button {
         // Repository actions are available on activity rows with a validated
         // owner/repo identity. Notification rows usually have a reason label
         // instead of a repository name, so they deliberately omit these actions.
-        const repository = item.kind !== 'notification' && typeof item.subtitle === 'string' &&
+        const repository = typeof item.subtitle === 'string' &&
             isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
         if (repository) {
             const watched = this._watchedRepositories().has(repository);
@@ -2422,7 +2422,7 @@ class Indicator extends PanelMenu.Button {
             }
         }
 
-        const repositoryForMute = item.kind !== 'notification' && typeof item.subtitle === 'string' &&
+        const repositoryForMute = typeof item.subtitle === 'string' &&
             isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
         if (repositoryForMute) {
             const muted = this._mutedRepositories().has(repositoryForMute);
