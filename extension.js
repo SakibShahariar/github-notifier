@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -495,34 +495,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updateHero() {
-        if (!this._heroTitle || !this._heroMeta) return;
-        this._updateDailyStatsItem();
-        const username = this._settings.get_string('github-username').trim();
-        this._heroTitle.text = username ? `GitHub · ${username}` : 'GitHub';
-        const n = this._visibleNotificationItems().length;
-        const visibleActivityItems = this._visibleActivityItems();
-        const issuesPrCount = visibleActivityItems.filter(i => i.kind === 'issue' || i.kind === 'pr').length;
-        const starsCount = visibleActivityItems.filter(i => i.kind === 'star').length;
-        const parts = [];
-        if (this._polling) parts.push('Refreshing…');
-        else if (n > 0) parts.push(`${n} unread`);
-        if (issuesPrCount > 0) parts.push(`${issuesPrCount} issues/PRs`);
-        if (starsCount > 0) parts.push(`${starsCount} stars`);
-        if (parts.length === 0) {
-            const statusText = this._statusItem?.label?.text || '';
-            if (this._statusIsError && /offline|internet|wi-fi|network|unreachable/i.test(statusText)) {
-                parts.push(this._lastFetchedAt
-                    ? `Offline · last updated ${this._relativeTime(this._lastFetchedAt)}`
-                    : 'Offline · no cached data yet');
-            } else if (this._statusIsError) {
-                parts.push('Attention needed');
-            } else {
-                parts.push('All caught up');
-            }
-        }
-        // also show paused
-        if (this._paused) parts.unshift('Paused');
-        this._heroMeta.text = parts.join(' · ');
+        updateHero(this);
     }
 
     _setActionStatus(text) {
