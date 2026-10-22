@@ -12,6 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
+import {addEmpty, addSectionHeader, addSeparator} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -2025,26 +2026,15 @@ class Indicator extends PanelMenu.Button {
 
     // --- section helpers — inline Matugen like update-checker@local (guarantees popup reflects new wallpaper even if theme cached) ---
     _addSectionHeader(section, title, count) {
-        const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
-        const box = new St.BoxLayout({x_expand: true});
-        const label = new St.Label({text: `${title}  ${count}`, style_class: 'github-notifier-section-header', x_expand: true});
-        box.add_child(label);
-        headerItem.add_child(box);
-        section.addMenuItem(headerItem);
+        addSectionHeader(section, title, count);
     }
 
     _addSeparator(section) {
-        const sepItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
-        const sep = new St.Widget({style_class: 'github-notifier-separator', x_expand: true});
-        sepItem.add_child(sep);
-        section.addMenuItem(sepItem);
+        addSeparator(section);
     }
 
     _addEmpty(section, text) {
-        const item = new PopupMenu.PopupMenuItem(text, {reactive: false});
-        item.style_class = 'github-notifier-empty';
-        item.label.style_class = 'github-notifier-empty';
-        section.addMenuItem(item);
+        addEmpty(section, text);
     }
 
     _openUri(uri) {
