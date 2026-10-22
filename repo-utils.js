@@ -348,3 +348,41 @@ export function setRepositoryMembership(settings, settingKey, repository, should
         return false;
     return true;
 }
+
+
+/** Resolve a GitHub Enterprise API host to its browser-facing base URL. */
+export function getWebBase(configuredHost = '') {
+    const host = String(configuredHost || '').trim() || 'api.github.com';
+    if (host === 'api.github.com')
+        return 'https://github.com';
+    let webHost = host.replace(/\/+$/, '');
+    if (webHost.endsWith('/api/v3'))
+        webHost = webHost.slice(0, -'/api/v3'.length);
+    return `https://${webHost}`;
+}
+
+/** Convert API subject URLs into browser URLs for GitHub.com and GHES deployments. */
+export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
+    const repoUrl = `${webBase}/${repoFullName}`;
+    if (!subject?.url)
+        return repoUrl;
+    const apiReposPrefix = `${apiBase}/repos`;
+    const escaped = apiReposPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const url = subject.url.replace(new RegExp(escaped, 'i'), webBase);
+    switch (subject.type) {
+        case 'Issue':
+        case 'Discussion':
+            return url;
+        case 'PullRequest':
+            return url.replace(/\/pulls\//i, '/pull/');
+        case 'Commit':
+            return url.replace(/\/commits\//i, '/commit/');
+        case 'Release':
+            return `${repoUrl}/releases`;
+        case 'CheckSuite':
+        case 'WorkflowRun':
+            return `${repoUrl}/actions`;
+        default:
+            return repoUrl;
+    }
+}
