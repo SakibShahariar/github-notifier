@@ -13,7 +13,6 @@ import {_createMessageTrayNotification, _createMessageTraySource, buildMatugenCs
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
 const MAX_RECENT = 40;
 const MAX_BADGE = 99;
