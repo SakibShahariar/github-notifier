@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
@@ -1125,46 +1125,11 @@ class Indicator extends PanelMenu.Button {
     }
 
     _webBase() {
-        const host = this._settings.get_string('github-host').trim() || 'api.github.com';
-        if (host === 'api.github.com')
-            return 'https://github.com';
-
-        // The configured API host may include a deployment prefix (for
-        // example, git.example.com/github) or the standard /api/v3 suffix.
-        // Browser links need the deployment prefix, but not the API suffix.
-        let webHost = host.replace(/\/+$/, '');
-        if (webHost.endsWith('/api/v3'))
-            webHost = webHost.slice(0, -'/api/v3'.length);
-        return `https://${webHost}`;
+        return getWebBase(this._settings.get_string('github-host'));
     }
 
     _subjectHtmlUrl(subject, repoFullName) {
-        const webBase = this._webBase();
-        const repoUrl = `${webBase}/${repoFullName}`;
-        if (!subject.url)
-            return repoUrl;
-
-        // Case-insensitive replace of API base + /repos → web base (GHES / proxies)
-        const apiReposPrefix = `${this._apiBase()}/repos`;
-        const escaped = apiReposPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const url = subject.url.replace(new RegExp(escaped, 'i'), webBase);
-
-        switch (subject.type) {
-            case 'Issue':
-            case 'Discussion':
-                return url;
-            case 'PullRequest':
-                return url.replace(/\/pulls\//i, '/pull/');
-            case 'Commit':
-                return url.replace(/\/commits\//i, '/commit/');
-            case 'Release':
-                return `${repoUrl}/releases`;
-            case 'CheckSuite':
-            case 'WorkflowRun':
-                return `${repoUrl}/actions`;
-            default:
-                return repoUrl;
-        }
+        return getSubjectHtmlUrl(subject, repoFullName, this._apiBase(), this._webBase());
     }
 
     _encodeRepo(repo) {
