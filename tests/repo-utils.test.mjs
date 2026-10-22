@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -307,4 +307,23 @@ test('formats local calendar dates with stable zero padding', () => {
     assert.equal(formatLocalDateKey(new Date(2026, 0, 2, 23, 59)), '2026-01-02');
     assert.equal(formatLocalDateKey(new Date(2026, 9, 23)), '2026-10-23');
     assert.equal(formatLocalDateKey(new Date(2000, 11, 31)), '2000-12-31');
+});
+
+
+test('updates repository membership safely and handles rejected settings writes', () => {
+    const values = new Map([['muted-repos', 'Owner/Repo, other/project']]);
+    let rejectWrites = false;
+    const settings = {
+        get_string(key) { return values.get(key) ?? ''; },
+        set_string(key, value) { if (rejectWrites) return false; values.set(key, value); return true; },
+    };
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', ' OWNER/REPO ', true), true);
+    assert.equal(values.get('muted-repos'), 'owner/repo, other/project');
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', 'New/Repo', true), true);
+    assert.equal(values.get('muted-repos'), 'owner/repo, other/project, new/repo');
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', 'OTHER/PROJECT', false), true);
+    assert.equal(values.get('muted-repos'), 'owner/repo, new/repo');
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', 'invalid', true), false);
+    rejectWrites = true;
+    assert.equal(setRepositoryMembership(settings, 'muted-repos', 'new/another', true), false);
 });
