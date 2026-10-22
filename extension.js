@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -705,65 +705,7 @@ class Indicator extends PanelMenu.Button {
 
     /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
     _setStatusBanner(text, kind = 'info') {
-        if (!this._statusItem) return;
-        if (this._statusActionItem) {
-            const message = typeof text === 'string' ? text : '';
-            if (/add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(message)) {
-                this._statusAction = 'settings';
-                this._statusActionItem.label.text = 'Open Settings';
-            } else if (/quiet hours|metered connection/i.test(message)) {
-                this._statusAction = 'refresh';
-                this._statusActionItem.label.text = 'Refresh once';
-            } else {
-                this._statusAction = null;
-            }
-            this._statusActionItem.visible = this._statusAction !== null;
-        }
-        this._statusItem.remove_style_class_name('github-notifier-banner-error');
-        this._statusItem.remove_style_class_name('github-notifier-banner-info');
-        if (!text) {
-            if (this._statusItem.visible && this.hasMotion()) {
-                this._ease(this._statusItem, {
-                    opacity: 0,
-                    translation_y: -4,
-                    time: 100,
-                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                    onComplete: () => {
-                        this._statusItem.visible = false;
-                        this._statusItem.opacity = 255;
-                        this._statusItem.translation_y = 0;
-                    },
-                });
-            } else {
-                this._statusItem.visible = false;
-                this._statusItem.opacity = 255;
-                this._statusItem.translation_y = 0;
-            }
-            this._statusIsError = false;
-            return;
-        }
-        this._statusItem.label.text = text;
-        this._statusIsError = kind === 'error';
-        if (kind === 'error')
-            this._statusItem.add_style_class_name('github-notifier-banner-error');
-        else
-            this._statusItem.add_style_class_name('github-notifier-banner-info');
-
-        const wasHidden = !this._statusItem.visible;
-        this._statusItem.visible = true;
-        if (wasHidden && this.hasMotion()) {
-            this._statusItem.opacity = 0;
-            this._statusItem.translation_y = -8;
-            this._ease(this._statusItem, {
-                opacity: 255,
-                translation_y: 0,
-                time: 180,
-                mode: Clutter.AnimationMode.EASE_OUT_BACK,
-            });
-        } else {
-            this._statusItem.opacity = 255;
-            this._statusItem.translation_y = 0;
-        }
+        setStatusBanner(this, text, kind);
     }
 
     _applyMatugenTheme() {
