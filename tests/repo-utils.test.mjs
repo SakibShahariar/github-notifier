@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} = await import(helperUrl);
+const {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -183,4 +183,11 @@ test('normalizes invalid public summary counts to zero and reports disabled stat
         totalCount: 0,
         updatedAt: 'timestamp',
     });
+});
+
+test('suppresses desktop alerts for quiet hours or GNOME Do Not Disturb without conflating polling state', () => {
+    assert.equal(shouldSuppressDesktopNotifications(true, true), true);
+    assert.equal(shouldSuppressDesktopNotifications(false, false), true);
+    assert.equal(shouldSuppressDesktopNotifications(false, true), false);
+    assert.equal(shouldSuppressDesktopNotifications(false, undefined), false);
 });

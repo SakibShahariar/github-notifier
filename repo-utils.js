@@ -93,6 +93,10 @@ export function isValidClockTime(value) {
 }
 
 /** Start is inclusive and end is exclusive. Equal endpoints disable the interval. */
+export function shouldSuppressDesktopNotifications(quietHoursActive, showBanners) {
+    return quietHoursActive === true || showBanners === false;
+}
+
 export function isWithinQuietHours(now, start, end) {
     const startMinutes = clockTimeToMinutes(start);
     const endMinutes = clockTimeToMinutes(end);

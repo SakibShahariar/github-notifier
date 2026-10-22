@@ -91,7 +91,7 @@ The GSettings key `notification-summary` exposes a versioned JSON snapshot for c
 
 ### Quiet hours and Do Not Disturb
 
-Enable **Quiet hours** in Settings and choose local 24-hour start/end times (`HH:MM`). The interval includes the start and excludes the end; overnight windows such as `22:00`–`07:00` are supported. Equal start and end times disable the interval. During quiet hours, the extension suppresses new desktop alerts while continuing to update its inbox and badge. Enable **Pause polling during quiet hours** to avoid API requests during that interval; the badge may then become stale until polling resumes. GNOME's system Do Not Disturb setting is handled by GNOME's notification system and is not modified by this extension.
+Enable **Quiet hours** in Settings and choose local 24-hour start/end times (`HH:MM`). The interval includes the start and excludes the end; overnight windows such as `22:00`–`07:00` are supported. Equal start and end times disable the interval. During quiet hours, the extension suppresses new desktop alerts while continuing to update its inbox and badge. GNOME's system **Do Not Disturb** switch is also respected: when `org.gnome.desktop.notifications show-banners` is `false`, GitHub Notifier does not enqueue new desktop alerts, but inbox and badge updates continue. The setting is read when an alert would be emitted, so toggling DND takes effect without restarting the extension. Enable **Pause polling during quiet hours** to avoid API requests during that interval; the badge may then become stale until polling resumes. This extension never changes your system DND setting.
 
 ### GitHub CLI integration
 

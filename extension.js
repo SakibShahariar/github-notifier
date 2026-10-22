@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList} from './repo-utils.js';
+import {createNotificationSummary, getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -174,6 +174,9 @@ class Indicator extends PanelMenu.Button {
 
         this._ext = extensionObject;
         this._settings = extensionObject.getSettings();
+        // GNOME's Quick Settings Do Not Disturb toggle is backed by show-banners.
+        // Read it when notifications are emitted so changes apply immediately.
+        this._desktopNotificationSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
         this._session = new Soup.Session();
         // Fail faster when the network is unavailable; one short retry below
         // prevents a single request from stalling the entire poll cycle.
@@ -1279,6 +1282,13 @@ class Indicator extends PanelMenu.Button {
 
     _shouldPauseForQuietHours(now = new Date()) {
         return this._isQuietHoursActive(now) && this._settings.get_boolean('pause-polling-during-quiet-hours');
+    }
+
+    _shouldSuppressDesktopNotifications() {
+        return shouldSuppressDesktopNotifications(
+            this._isQuietHoursActive(),
+            this._desktopNotificationSettings.get_boolean('show-banners'),
+        );
     }
 
     _refreshNow() {
@@ -2509,8 +2519,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notify(newItems) {
-        // Keep inbox and badge updates, but suppress new desktop alerts in quiet hours.
-        if (this._isQuietHoursActive())
+        // Keep inbox and badge updates while quiet hours or GNOME Do Not Disturb is active.
+        if (this._shouldSuppressDesktopNotifications())
             return;
         const source = this._ensureSource();
         if (newItems.length > 3) {
@@ -2550,7 +2560,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notifyBaseline(notes) {
-        if (this._isQuietHoursActive())
+        if (this._shouldSuppressDesktopNotifications())
             return;
         const source = this._ensureSource();
         const notification = _createMessageTrayNotification(source, 'GitHub Notifier', notes.join('\n'));
