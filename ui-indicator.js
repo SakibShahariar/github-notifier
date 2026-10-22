@@ -1,6 +1,8 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import {isValidRepository} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
 export function addSectionHeader(section, title, count) {
@@ -243,4 +245,155 @@ export function renderList(indicator, constants) {
         indicator._updateRateFooter();
         if (indicator._polling)
             indicator._startRefreshSpin();
+    }
+
+// Build one activity/inbox row; all state transitions remain methods on the indicator.
+export function addRow(indicator, section, item) {
+        const secondaryColor = indicator._matugenColors?.secondary || '#aaaaaa';
+        const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
+        menuItem.connect('activate', () => {
+            if (!indicator._openUri(item.url))
+                return;
+            indicator._handleOpenedItem(item);
+        });
+
+        const rowBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-row-inner', y_align: Clutter.ActorAlign.CENTER});
+        // GNOME-native symbolic icon (replaces nerd-font glyph)
+        const iconName = indicator._iconForItem(item);
+        const glyph = new St.Icon({
+            icon_name: iconName,
+            style_class: 'popup-menu-icon github-notifier-glyph' + (item.kind === 'star' ? ' urgent' : ' dim'),
+            y_align: Clutter.ActorAlign.CENTER,
+            icon_size: 18,
+        });
+        rowBox.add_child(glyph);
+
+        const textBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        const titleLabel = new St.Label({text: indicator._truncate(item.title, 68), style_class: 'github-notifier-row-title', x_expand: true});
+        titleLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        titleLabel.clutter_text.line_wrap = false;
+        const detailLabel = new St.Label({text: indicator._detailForItem(item), style_class: 'github-notifier-row-detail', x_expand: true});
+        detailLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        textBox.add_child(titleLabel);
+        textBox.add_child(detailLabel);
+        rowBox.add_child(textBox);
+
+        // combine row and read-strip in single container (PopupBaseMenuItem is a Bin)
+        const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        container.add_child(rowBox);
+        const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+        // Inbox and activity rows carry owner/repo in subtitle. Only show
+        // repository actions when that value passes the shared validator; the
+        // synthetic "more notifications" row has a URL here and is excluded.
+        const repository = typeof item.subtitle === 'string' &&
+            isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
+        if (repository) {
+            const watched = indicator._watchedRepositories().has(repository);
+            if (!watched) {
+                const watchButton = new St.Button({
+                    style_class: 'github-notifier-read-button',
+                    can_focus: true,
+                    child: new St.Icon({
+                        icon_name: 'list-add-symbolic',
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    }),
+                });
+                watchButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+                indicator._setTooltip(watchButton, `Watch ${repository}`);
+                watchButton.connect('clicked', () => {
+                    if (indicator._setRepositoryMembership('watched-repos', repository, true))
+                        indicator._showRepositoryActionStatus(`Watching ${repository}`);
+                    else
+                        indicator._showRepositoryActionStatus('Could not update watched repositories');
+                    indicator._lastRenderHash = '';
+                    indicator._renderList();
+                    return Clutter.EVENT_STOP;
+                });
+                strip.add_child(watchButton);
+            }
+        }
+
+        const repositoryForMute = typeof item.subtitle === 'string' &&
+            isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
+        if (repositoryForMute) {
+            const muted = indicator._mutedRepositories().has(repositoryForMute);
+            const muteButton = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({
+                    icon_name: muted ? 'edit-undo-symbolic' : 'notifications-disabled-symbolic',
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                }),
+            });
+            muteButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+            indicator._setTooltip(muteButton, muted ? `Unmute ${repositoryForMute}` : `Mute ${repositoryForMute}`);
+            muteButton.connect('clicked', () => {
+                const nextMuted = !indicator._mutedRepositories().has(repositoryForMute);
+                if (indicator._setRepositoryMembership('muted-repos', repositoryForMute, nextMuted))
+                    indicator._showRepositoryActionStatus(
+                        nextMuted ? `Muted ${repositoryForMute}` : `Unmuted ${repositoryForMute}`,
+                        nextMuted ? repositoryForMute : null);
+                else
+                    indicator._showRepositoryActionStatus('Could not update muted repositories');
+                indicator._lastRenderHash = '';
+                indicator._renderList();
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(muteButton);
+        }
+
+        const githubCliConfig = indicator._githubCliLaunchConfig(item);
+        if (githubCliConfig) {
+            const cliButton = new St.Button({
+                style_class: 'github-notifier-read-button',
+                can_focus: true,
+                child: new St.Icon({
+                    icon_name: 'utilities-terminal-symbolic',
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                }),
+            });
+            cliButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+            indicator._setTooltip(cliButton, 'Open with GitHub CLI');
+            cliButton.connect('clicked', () => {
+                indicator._openWithGitHubCli(item);
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(cliButton);
+        }
+        const readIcon = new St.Icon({
+            icon_name: 'object-select-symbolic',
+            style_class: 'github-notifier-read-icon',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        const btn = new St.Button({
+            style_class: 'github-notifier-read-button',
+            can_focus: true,
+            child: readIcon,
+        });
+        btn.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+        indicator._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
+        btn.connect('clicked', () => {
+            if (item.kind === 'notification' && item.rawId)
+                indicator._markThreadRead(item);
+            else
+                indicator._dismissActivityItem(item);
+            return Clutter.EVENT_STOP;
+        });
+        strip.add_child(btn);
+        container.add_child(strip);
+        menuItem.add_child(container);
+
+        section.addMenuItem(menuItem);
+        if (indicator.hasMotion()) {
+            const idx = section._rowAnimIdx || 0;
+            section._rowAnimIdx = idx + 1;
+            menuItem.opacity = 0;
+            menuItem.translation_y = -4;
+            menuItem.ease({ opacity: 255, translation_y: 0, delay: idx * 35, duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        }
+        if (indicator.hasMotion()) indicator._addButtonHoverScale(btn);
     }
