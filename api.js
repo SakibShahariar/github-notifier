@@ -7,7 +7,7 @@ export class ApiError extends Error {
 }
 
 /** Execute one GitHub API request, including a single transient network retry. */
-export async function apiRequest(indicator, method, path, {body = null, headers = {}} = {}) {body = null, headers = {}} = {}) {
+export async function apiRequest(indicator, method, path, {body = null, headers = {}} = {}) {
         const requestScope = indicator._stateScope();
         const cancellable = indicator._polling ? indicator._pollCancellable : null;
         const token = indicator._token;
