@@ -284,6 +284,13 @@ class Indicator extends PanelMenu.Button {
         this._ext = extensionObject;
         this._settings = extensionObject.getSettings();
         this._tooltipController = new HoverTooltipController();
+        // The panel indicator can be icon-only; expose a stable accessible name
+        // independently of the visible notification count or hidden-label mode.
+        try {
+            this.accessible_name = 'GitHub Notifier';
+        } catch (_error) {
+            // Older Shell/Clutter versions may not expose this actor property.
+        }
         // GNOME's Quick Settings Do Not Disturb toggle is backed by show-banners.
         // Read it when notifications are emitted so changes apply immediately.
         this._desktopNotificationSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
