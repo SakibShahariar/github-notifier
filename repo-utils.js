@@ -331,3 +331,20 @@ export function getNotificationReasonLabel(reason, subjectType) {
 export function formatLocalDateKey(date = new Date()) {
     return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
 }
+
+
+/** Update a comma-separated repository setting without duplicates or invalid names. */
+export function setRepositoryMembership(settings, settingKey, repository, shouldContain) {
+    if (!isValidRepository(repository))
+        return false;
+
+    const normalized = repository.trim().toLowerCase();
+    const repositories = parseRepositoryList(settings.get_string(settingKey));
+    const next = shouldContain
+        ? Array.from(new Set([...repositories, normalized]))
+        : repositories.filter(value => value !== normalized);
+    const serialized = next.join(', ');
+    if (settings.get_string(settingKey) !== serialized && !settings.set_string(settingKey, serialized))
+        return false;
+    return true;
+}
