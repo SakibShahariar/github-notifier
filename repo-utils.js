@@ -252,3 +252,23 @@ export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
         return null;
     }
 }
+
+
+/** Return a GNOME/Adwaita symbolic icon for a notification or activity item. */
+export function getNotificationIconName(item) {
+    if (item?.kind === 'notification') {
+        const type = item.subjectType || '';
+        if (type === 'PullRequest') return 'insert-link-symbolic';
+        if (type === 'Issue') return 'chat-message-new-symbolic';
+        if (type === 'Commit') return 'document-edit-symbolic';
+        if (type === 'Release') return 'tag-symbolic';
+        if (type === 'CheckSuite') return 'emblem-ok-symbolic';
+        if (type === 'WorkflowRun') return 'media-playback-start-symbolic';
+        if (type === 'Discussion') return 'chat-bubbles-symbolic';
+        return 'mail-unread-symbolic';
+    }
+    if (item?.kind === 'pr') return 'insert-link-symbolic';
+    if (item?.kind === 'issue') return 'chat-message-new-symbolic';
+    if (item?.kind === 'star') return 'starred-symbolic';
+    return 'mail-unread-symbolic';
+}
