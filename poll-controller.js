@@ -331,4 +331,4 @@ export async function pollIndicator(indicator) {
                 });
             }
         }
-    }
+}
