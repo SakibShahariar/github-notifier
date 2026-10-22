@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -260,4 +260,18 @@ test('maps notification and activity items to installed Adwaita symbolic icons',
     ];
     for (const [item, expected] of cases)
         assert.equal(getNotificationIconName(item), expected, JSON.stringify(item));
+});
+
+
+test('formats relative ages at boundaries and handles invalid or future timestamps', () => {
+    const now = Date.parse('2026-10-23T00:00:00Z');
+    const ago = seconds => new Date(now - seconds * 1000).toISOString();
+    for (const [seconds, expected] of [
+        [0, 'just now'], [59, 'just now'], [60, '1m ago'], [3599, '59m ago'],
+        [3600, '1h ago'], [86399, '23h ago'], [86400, '1d ago'],
+        [2591999, '29d ago'], [2592000, '1mo ago'],
+    ]) assert.equal(formatRelativeTime(ago(seconds), now), expected, String(seconds));
+    assert.equal(formatRelativeTime('not a timestamp', now), '');
+    assert.equal(formatRelativeTime('', now), '');
+    assert.equal(formatRelativeTime(ago(-300), now), 'just now');
 });
