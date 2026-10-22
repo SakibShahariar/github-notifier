@@ -1229,7 +1229,13 @@ class Indicator extends PanelMenu.Button {
         return null;
     }
 
-    /** Turn an absolute GitHub Link URL into a path for _apiReque    _pathFromAbsoluteUrl(absoluteUrl) {
+    /** Turn an absolute GitHub Link URL into a path for _apiRequest(). */
+    _pathFromAbsoluteUrl(absoluteUrl) {
+        const path = getApiPathFromAbsoluteUrl(this._apiBase(), absoluteUrl);
+        if (path === null)
+            log('github-notifier: ignored invalid or out-of-base pagination URL');
+        return path;
+    }
         const path = getApiPathFromAbsoluteUrl(this._apiBase(), absoluteUrl);
         if (path === null)
             log('github-notifier: ignored invalid or out-of-base pagination URL');
