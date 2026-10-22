@@ -231,6 +231,7 @@ test('rejects API host values that could redirect credentials or form malformed 
         '', 'https://evil.example', 'http://git.example.com', 'user@evil.example',
         'git.example.com?next=evil.example', 'git.example.com#fragment',
         'git.example.com\\\\evil.example', 'git.example.com/../other',
+        'git.example.com/%2e%2e/other', 'git.example.com/%2E./other', 'git.example.com/%2e/other',
         'git example.com', null, 42,
     ]) {
         assert.throws(() => getApiBase(value), TypeError, String(value));
