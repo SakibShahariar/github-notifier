@@ -24,7 +24,7 @@ export function getApiBase(host) {
                 let decoded = part;
                 for (let i = 0; i < 4; i++) {
                     const next = decodeURIComponent(decoded);
-                    if (next === '.' || next === '..')
+                    if (next === '.' || next === '..' || next.includes('/') || next.includes('\\'))
                         return true;
                     if (next === decoded)
                         return false;
