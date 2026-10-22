@@ -15,6 +15,7 @@ import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
+import {dismissActivityItem, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -1216,100 +1217,19 @@ class Indicator extends PanelMenu.Button {
     }
 
     async _markThreadRead(item) {
-        if (!item.rawId)
-            return;
-        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._queuePendingReadItem(item);
-            this._setActionStatus('Offline — queued to mark read when reconnected');
-            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            return;
-        }
-        this._setActionStatus('Marking notification read…');
-        try {
-            await this._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
-        } catch (e) {
-            logError(e, 'github-notifier: failed to mark thread read on GitHub');
-            this._queuePendingReadItem(item);
-            this._setActionStatus('Could not mark read — queued for retry');
-            this._addTransientTimeout(3, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            return;
-        }
-        this._pendingReadItems = this._pendingReadItems.filter(pending => pending.rawId !== String(item.rawId));
-        this._notificationItems = this._notificationItems.filter(i => i.id !== item.id);
-        this._persistCurrentItems();
-        this._setActionStatus('');
-        this._renderList();
-        this._updatePanel();
-        this._updateHero();
+        return markThreadRead(this, item);
     }
 
     _queuePendingReadItem(item) {
-        const rawId = String(item.rawId || '');
-        if (!rawId)
-            return;
-        if (!this._pendingReadItems.some(pending => pending.rawId === rawId))
-            this._pendingReadItems.push({id: String(item.id), rawId});
-        this._pendingReadItems = this._pendingReadItems.slice(0, MAX_NOTIFICATION_PAGES * 50);
-        this._persistCurrentItems();
+        return queuePendingReadItem(this, item, MAX_NOTIFICATION_PAGES);
     }
 
     async _retryPendingReadItems() {
-        if (this._destroyed || this._polling || this._retryingPendingReadItems ||
-            (this._pendingReadItems.length === 0 && !this._pendingMarkAllRead) ||
-            this._tokenLoading ||
-            this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL ||
-            !this._token)
-            return;
-
-        this._retryingPendingReadItems = true;
-        let changed = false;
-        try {
-            if (this._pendingMarkAllRead) {
-                const pending = this._pendingMarkAllRead;
-                try {
-                    await this._apiRequest('PUT', '/notifications', {body: {last_read_at: pending.lastReadAt}});
-                    const notificationIds = new Set(pending.notificationIds);
-                    const activityIds = new Set(pending.activityIds);
-                    this._notificationItems = this._notificationItems.filter(item => !notificationIds.has(item.id));
-                    this._activityItems = this._activityItems.filter(item => !activityIds.has(item.id));
-                    this._pendingReadItems = this._pendingReadItems.filter(item => !notificationIds.has(item.id));
-                    this._pendingMarkAllRead = null;
-                    changed = true;
-                } catch (e) {
-                    logError(e, 'github-notifier: queued mark-all-read retry failed');
-                    return;
-                }
-            }
-            for (const pending of this._pendingReadItems.slice()) {
-                if (this._destroyed || this._polling)
-                    break;
-                try {
-                    await this._apiRequest('PATCH', `/notifications/threads/${pending.rawId}`);
-                    this._pendingReadItems = this._pendingReadItems.filter(item => item.rawId !== pending.rawId);
-                    this._notificationItems = this._notificationItems.filter(item => item.id !== pending.id);
-                    changed = true;
-                } catch (e) {
-                    logError(e, 'github-notifier: queued mark-read retry failed');
-                    break;
-                }
-            }
-        } finally {
-            this._retryingPendingReadItems = false;
-            if (changed) {
-                this._persistCurrentItems();
-                this._renderList();
-                this._updatePanel();
-                this._updateHero();
-            }
-        }
+        return retryPendingReadItems(this);
     }
 
     _dismissActivityItem(item) {
-        this._activityItems = this._activityItems.filter(i => i.id !== item.id);
-        this._persistCurrentItems();
-        this._renderList();
-        this._updatePanel();
-        this._updateHero();
+        return dismissActivityItem(this, item);
     }
 
     // ---------- UI update ----------
@@ -1337,85 +1257,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _markAllRead() {
-        // 2-step confirm like omarchy DashboardSection: first click arms, second executes
-        if (!this._markAllArmed) {
-            if (this._notificationItems.length === 0 && this._activityItems.length === 0)
-                return;
-            this._markAllArmed = true;
-            this._setActionStatus('Confirm mark all read? Click again.');
-            this._renderList();
-            if (this._markAllTimer) GLib.source_remove(this._markAllTimer);
-            this._markAllTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
-                this._disarmMarkAll();
-                this._setActionStatus('');
-                return GLib.SOURCE_REMOVE;
-            });
-            return;
-        }
-        // Confirmed. Keep the current lists until GitHub acknowledges the
-        // operation; otherwise a network failure would permanently discard
-        // local-only activity and temporarily hide still-unread notifications.
-        this._disarmMarkAll();
-        if (this._tokenLoading || !this._token) {
-            this._setActionStatus('Add or unlock a GitHub token in Settings');
-            return;
-        }
-        if (this._pendingMarkAllRead) {
-            this._setActionStatus('Mark all read is already queued for retry');
-            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            return;
-        }
-
-        // Snapshot the exact items and timestamp at confirmation time. When
-        // offline, persist the request but keep every item visible until the
-        // server acknowledges it after connectivity returns.
-        const pendingMarkAll = {
-            lastReadAt: new Date().toISOString(),
-            notificationIds: this._notificationItems.map(item => item.id),
-            activityIds: this._activityItems.map(item => item.id),
-        };
-        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._pendingMarkAllRead = pendingMarkAll;
-            this._persistCurrentItems();
-            this._setActionStatus('Offline — mark all read queued until reconnected');
-            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            return;
-        }
-        this._markingAllRead = true;
-        this._setActionStatus('Marking all read…');
-        this._apiRequest('PUT', '/notifications', {body: {last_read_at: pendingMarkAll.lastReadAt}}).then(() => {
-            if (this._destroyed)
-                return;
-            const notificationIds = new Set(pendingMarkAll.notificationIds);
-            const activityIds = new Set(pendingMarkAll.activityIds);
-            this._notificationItems = this._notificationItems.filter(item => !notificationIds.has(item.id));
-            this._activityItems = this._activityItems.filter(item => !activityIds.has(item.id));
-            this._pendingReadItems = this._pendingReadItems.filter(item => !notificationIds.has(item.id));
-            this._pendingMarkAllRead = null;
-            this._persistCurrentItems();
-            this._notificationsPage = 0;
-            this._markingAllRead = false;
-            this._renderList();
-            this._updatePanel();
-            this._updateHero();
-            this._setActionStatus('All marked read');
-            this._addTransientTimeout(2, () => {
-                this._setActionStatus('');
-                return GLib.SOURCE_REMOVE;
-            });
-        }).catch(e => {
-            this._markingAllRead = false;
-            if (this._destroyed)
-                return;
-            logError(e, 'github-notifier: failed to mark all read on GitHub');
-            this._pendingMarkAllRead = pendingMarkAll;
-            this._persistCurrentItems();
-            this._setActionStatus('Could not mark all read — queued for retry; items were kept');
-            this._addTransientTimeout(3, () => {
-                this._setActionStatus('');
-                return GLib.SOURCE_REMOVE;
-            });
-        });
+        return markAllRead(this);
     }
 
     _publishNotificationSummary(unreadNotifications, activityItems, enabled = true) {
