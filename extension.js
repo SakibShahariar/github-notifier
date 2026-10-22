@@ -1922,22 +1922,27 @@ class Indicator extends PanelMenu.Button {
             this._setActionStatus('Add a GitHub token in Settings');
             return;
         }
-        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
-            this._setActionStatus('Offline — cannot mark all read right now');
-            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
-            return;
-        }
-
         if (this._pendingMarkAllRead) {
             this._setActionStatus('Mark all read is already queued for retry');
             this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
             return;
         }
+
+        // Snapshot the exact items and timestamp at confirmation time. When
+        // offline, persist the request but keep every item visible until the
+        // server acknowledges it after connectivity returns.
         const pendingMarkAll = {
             lastReadAt: new Date().toISOString(),
             notificationIds: this._notificationItems.map(item => item.id),
             activityIds: this._activityItems.map(item => item.id),
         };
+        if (this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
+            this._pendingMarkAllRead = pendingMarkAll;
+            this._persistCurrentItems();
+            this._setActionStatus('Offline — mark all read queued until reconnected');
+            this._addTransientTimeout(4, () => { this._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            return;
+        }
         this._markingAllRead = true;
         this._setActionStatus('Marking all read…');
         this._apiRequest('PUT', '/notifications', {body: {last_read_at: pendingMarkAll.lastReadAt}}).then(() => {
