@@ -103,3 +103,144 @@ export function addFooter(indicator, section, opts, activityExpanded) {
         footerItem.add_child(box);
         section.addMenuItem(footerItem);
     }
+
+// Render the indicator's sections while keeping actor/state ownership on the indicator.
+export function renderList(indicator, constants) {
+        // Skip render if data hasn't changed
+        const newHash = JSON.stringify({
+            notifications: indicator._notificationItems.map(i => i.id).join(','),
+            activity: indicator._activityItems.map(i => i.id).join(','),
+            notificationsPage: indicator._notificationsPage,
+            issuesExpanded: indicator._issuesExpanded,
+            starsExpanded: indicator._starsExpanded,
+            markAllArmed: indicator._markAllArmed,
+            paused: indicator._paused,
+            statusIsError: indicator._statusIsError,
+            statusText: indicator._statusItem?.label?.text || '',
+            rateLimitReset: indicator._rateLimitResetEpoch,
+        });
+        if (newHash === indicator._lastRenderHash) {
+            return;
+        }
+        indicator._lastRenderHash = newHash;
+
+        // clear sections
+        indicator._notifSection.removeAll();
+        indicator._issuesSection.removeAll();
+        indicator._starsSection.removeAll();
+        indicator._footerSection.removeAll();
+        indicator._notifSection._rowAnimIdx = 0;
+        indicator._issuesSection._rowAnimIdx = 0;
+        indicator._starsSection._rowAnimIdx = 0;
+
+        const visibleNotificationItems = indicator._visibleNotificationItems();
+        const visibleActivityItems = indicator._visibleActivityItems();
+        const hasAny = visibleNotificationItems.length > 0 || visibleActivityItems.length > 0;
+
+        // status banner visibility already handled in _poll; keep hidden when no error unless empty?
+        if (!hasAny && !indicator._statusIsError) {
+            // show hero already, but ensure empty state still renders sections
+        }
+
+        // ---- Unread Notifications (GNOME HIG: Title Case) ----
+        // No leading separator: hero (and optional banner) already separate the section.
+        const notifCount = visibleNotificationItems.length;
+        indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount);
+        if (notifCount === 0) {
+            let emptyMessage;
+            if (indicator._statusIsError) {
+                emptyMessage = 'No notifications loaded.';
+            } else if (!indicator._settings.get_boolean('watch-mentions')) {
+                emptyMessage = 'Inbox monitoring is disabled.';
+            } else if (indicator._notificationItems.length > 0) {
+                emptyMessage = 'No notifications match your filters or muted repositories.';
+            } else {
+                emptyMessage = "You're all caught up.";
+            }
+            indicator._addEmpty(indicator._notifSection, emptyMessage);
+        } else {
+            const pageCount = Math.max(1, Math.ceil(notifCount / constants.notifPageSize));
+            if (indicator._notificationsPage >= pageCount) indicator._notificationsPage = pageCount - 1;
+            if (indicator._notificationsPage < 0) indicator._notificationsPage = 0;
+            const start = indicator._notificationsPage * constants.notifPageSize;
+            const slice = visibleNotificationItems.slice(start, start + constants.notifPageSize);
+            for (const item of slice) indicator._addRow(indicator._notifSection, item);
+            const paginated = pageCount > 1;
+            const showMarkAll = notifCount > 0;
+            indicator._addFooter(indicator._notifSection, {
+                expandable: false,
+                paginated,
+                page: indicator._notificationsPage,
+                pageCount,
+                onPrev: () => { indicator._notificationsPage = Math.max(0, indicator._notificationsPage - 1); indicator._renderList(); },
+                onNext: () => { indicator._notificationsPage = Math.min(pageCount - 1, indicator._notificationsPage + 1); indicator._renderList(); },
+                showOpen: false,
+                showMarkAll,
+                markAllArmed: indicator._markAllArmed,
+                onMarkAll: () => indicator._markAllRead(),
+            });
+        }
+
+        // ---- ISSUES / PRS ---- (hidden when empty to reduce whitespace)
+        const issuePrItems = visibleActivityItems.filter(i => i.kind === 'issue' || i.kind === 'pr')
+            .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+        if (issuePrItems.length > 0) {
+            indicator._addSeparator(indicator._issuesSection);
+            indicator._addSectionHeader(indicator._issuesSection, 'New Issues & Pull Requests', issuePrItems.length);
+            const expandable = issuePrItems.length > constants.activityPreview;
+            const shown = issuePrItems.slice(0, indicator._issuesExpanded ? constants.activityExpanded : constants.activityPreview);
+            for (const item of shown) indicator._addRow(indicator._issuesSection, item);
+            indicator._addFooter(indicator._issuesSection, {
+                expandable,
+                expanded: indicator._issuesExpanded,
+                count: issuePrItems.length,
+                onToggle: () => { indicator._issuesExpanded = !indicator._issuesExpanded; indicator._renderList(); },
+                showOpen: new Set(issuePrItems.map(item => item.subtitle)).size === 1,
+                openLabel: 'Open repo',
+                openUrl: `${indicator._webBase()}/${issuePrItems[0].subtitle}/issues`,
+            });
+        }
+
+        // ---- STARS ---- (hidden when empty)
+        const starItems = visibleActivityItems.filter(i => i.kind === 'star')
+            .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
+        if (starItems.length > 0) {
+            indicator._addSeparator(indicator._starsSection);
+            indicator._addSectionHeader(indicator._starsSection, 'New Stars', starItems.length);
+            const expandable = starItems.length > constants.activityPreview;
+            const shown = starItems.slice(0, indicator._starsExpanded ? constants.activityExpanded : constants.activityPreview);
+            for (const item of shown) indicator._addRow(indicator._starsSection, item);
+            indicator._addFooter(indicator._starsSection, {
+                expandable,
+                expanded: indicator._starsExpanded,
+                count: starItems.length,
+                onToggle: () => { indicator._starsExpanded = !indicator._starsExpanded; indicator._renderList(); },
+                showOpen: new Set(starItems.map(item => item.subtitle)).size === 1,
+                openLabel: 'Open repo',
+                openUrl: `${indicator._webBase()}/${starItems[0].subtitle}/stargazers`,
+            });
+        }
+
+        // global footer — always for pause/refresh + rate
+        indicator._addFooter(indicator._footerSection, {
+            showOpen: true,
+            openLabel: 'Open in GitHub',
+            openUrl: `${indicator._webBase()}/notifications`,
+            showMarkAll: false,
+            isPaused: indicator._paused,
+            onPauseToggle: () => indicator._togglePause(),
+            onRefresh: () => indicator._refreshNow(),
+        });
+
+        // when truly empty
+        if (!hasAny) {
+            // already showed per-section empties, ensure at least one indicator
+            if (issuePrItems.length === 0 && starItems.length === 0 && notifCount === 0) {
+                // footer already added
+            }
+        }
+        // update rate footer after sections
+        indicator._updateRateFooter();
+        if (indicator._polling)
+            indicator._startRefreshSpin();
+    }
