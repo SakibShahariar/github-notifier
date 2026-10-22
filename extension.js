@@ -1236,11 +1236,6 @@ class Indicator extends PanelMenu.Button {
             log('github-notifier: ignored invalid or out-of-base pagination URL');
         return path;
     }
-        const path = getApiPathFromAbsoluteUrl(this._apiBase(), absoluteUrl);
-        if (path === null)
-            log('github-notifier: ignored invalid or out-of-base pagination URL');
-        return path;
-    }
 
     // ---------- polling ----------
     _refreshNow() {
