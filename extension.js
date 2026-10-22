@@ -610,6 +610,13 @@ class Indicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._statusItem);
         this._statusItem.visible = false;
 
+        // Give token and credential errors a direct, keyboard-accessible route
+        // to Preferences instead of leaving users to hunt for the settings gear.
+        this._statusActionItem = new PopupMenu.PopupMenuItem('Open Settings');
+        this._statusActionItem.connect('activate', () => this._ext.openPreferences());
+        this._statusActionItem.visible = false;
+        this.menu.addMenuItem(this._statusActionItem);
+
         // action status (marking …) centered dim text
         this._statsItem = new PopupMenu.PopupMenuItem('', {reactive: false});
         this._statsItem.style_class = 'github-notifier-rate';
@@ -1028,6 +1035,11 @@ class Indicator extends PanelMenu.Button {
     /** Show or hide the status banner. kind: 'error' | 'info' | 'none' */
     _setStatusBanner(text, kind = 'info') {
         if (!this._statusItem) return;
+        if (this._statusActionItem) {
+            const actionable = typeof text === 'string' &&
+                /add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(text);
+            this._statusActionItem.visible = actionable;
+        }
         this._statusItem.remove_style_class_name('github-notifier-banner-error');
         this._statusItem.remove_style_class_name('github-notifier-banner-info');
         if (!text) {
