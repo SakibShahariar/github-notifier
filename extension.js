@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, isRepositoryMuted, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
@@ -446,22 +446,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _iconForItem(item) {
-        // Adwaita-only mapping: branch/bug/git are Breeze-only and missing on vanilla GNOME
-        if (item.kind === 'notification') {
-            const t = item.subjectType || '';
-            if (t === 'PullRequest') return 'insert-link-symbolic';
-            if (t === 'Issue') return 'chat-message-new-symbolic';
-            if (t === 'Commit') return 'document-edit-symbolic';
-            if (t === 'Release') return 'tag-symbolic';
-            if (t === 'CheckSuite') return 'emblem-ok-symbolic';
-            if (t === 'WorkflowRun') return 'media-playback-start-symbolic';
-            if (t === 'Discussion') return 'chat-bubbles-symbolic';
-            return 'mail-unread-symbolic';
-        }
-        if (item.kind === 'pr') return 'insert-link-symbolic';
-        if (item.kind === 'issue') return 'chat-message-new-symbolic';
-        if (item.kind === 'star') return 'starred-symbolic';
-        return 'mail-unread-symbolic';
+        return getNotificationIconName(item);
     }
     _detailForItem(item) {
         const repo = item.subtitle || '';
