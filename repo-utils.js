@@ -67,14 +67,9 @@ export function getGitHubCliArguments(item) {
     return [command, 'view', number, '--repo', repoTarget];
 }
 
-/**
- * Convert an absolute pagination URL into a path relative to the configured
- * API base. Enterprise Link headers include the deployment prefix (for
- * example /api/v3), which must not be appended twice by _apiRequest().
- * Reject links outside the configured HTTPS origin/base path.
- */
 function clockTimeToMinutes(value) {
-    if (typeof value !== 'string' || !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value))
+    if (typeof value !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))
+
         return null;
     const parts = value.split(':').map(Number);
     return parts[0] * 60 + parts[1];
@@ -97,6 +92,12 @@ export function isWithinQuietHours(now, start, end) {
     return currentMinutes >= startMinutes || currentMinutes < endMinutes;
 }
 
+/**
+ * Convert an absolute pagination URL into a path relative to the configured
+ * API base. Enterprise Link headers include the deployment prefix (for
+ * example /api/v3), which must not be appended twice by _apiRequest().
+ * Reject links outside the configured HTTPS origin/base path.
+ */
 export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
     if (typeof apiBase !== 'string' || typeof absoluteUrl !== 'string')
         return null;
