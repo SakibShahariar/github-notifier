@@ -1,6 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
+import {updateDailyStats} from './repo-utils.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
 export async function pollIndicator(indicator) {
@@ -365,4 +366,28 @@ export function refreshPollNow(indicator) {
             return;
         }
         indicator._poll();
+}
+
+
+export function afterPoll(indicator, notificationItems, newActivityItems, {updateFetchedAt = true} = {}, maxRecent) {updateFetchedAt = true} = {}) {
+        indicator._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
+        const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
+        const toToast = notificationItems.filter(n => n.isNewToast &&
+            indicator._isNotificationTypeEnabled(n) && !indicator._isItemMuted(n));
+        if (indicator._settings.get_boolean('show-daily-stats'))
+            indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, newActivityItems.length);
+
+        if (newActivityItems.length > 0)
+            indicator._activityItems = newActivityItems.concat(indicator._activityItems).slice(0, maxRecent);
+
+        if (updateFetchedAt)
+            indicator._lastFetchedAt = new Date().toISOString();
+        indicator._renderList();
+        indicator._updatePanel();
+        indicator._updateHero();
+        indicator._updateRateFooter();
+
+        const toNotify = toToast.concat(newActivityItems.filter(item => !indicator._isItemMuted(item)));
+        if (toNotify.length > 0)
+            indicator._notify(toNotify);
 }
