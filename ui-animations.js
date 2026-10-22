@@ -2,7 +2,7 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
 // Motion helpers preserve the indicator as the owner of actors and lifecycle state.
-prefersReducedMotion(indicator)) {
+export function prefersReducedMotion(indicator) {
         try {
             if (St.Settings && St.ReducedMotion) {
                 const {reducedMotion} = St.Settings.get();
@@ -14,7 +14,7 @@ prefersReducedMotion(indicator)) {
         return false;
     }
 
-hasMotion(indicator)) {
+export function hasMotion(indicator) {
         try {
             const s = St.Settings.get();
             if (s && 'enable_animations' in s && s.enable_animations === false) return false;
@@ -27,9 +27,57 @@ hasMotion(indicator)) {
         return !indicator._prefersReducedMotion();
     }
 
-ease(indicator, actor, props = {})actor, props = {}
+export function ease(indicator, actor, props = {}) {
+        if (!actor || indicator._destroyed || !indicator.hasMotion()) {
+            if (actor && props.opacity !== undefined)
+                actor.opacity = props.opacity;
+            if (actor && props.scale_x !== undefined)
+                actor.scale_x = props.scale_x;
+            if (actor && props.scale_y !== undefined)
+                actor.scale_y = props.scale_y;
+            if (actor && props.translation_y !== undefined)
+                actor.translation_y = props.translation_y;
+            if (typeof props.onComplete === 'function')
+                props.onComplete();
+            return;
+        }
+        const {
+            opacity,
+            scale_x: scaleX,
+            scale_y: scaleY,
+            translation_y: translationY,
+            time = 150,
+            mode = Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onComplete,
+        } = props;
+        const params = {duration: time, mode};
+        if (opacity !== undefined)
+            params.opacity = opacity;
+        if (scaleX !== undefined)
+            params.scale_x = scaleX;
+        if (scaleY !== undefined)
+            params.scale_y = scaleY;
+        if (translationY !== undefined)
+            params.translation_y = translationY;
+        if (typeof onComplete === 'function')
+            params.onComplete = onComplete;
+        try {
+            actor.ease(params);
+        } catch (_e) {
+            if (opacity !== undefined)
+                actor.opacity = opacity;
+            if (scaleX !== undefined)
+                actor.scale_x = scaleX;
+            if (scaleY !== undefined)
+                actor.scale_y = scaleY;
+            if (translationY !== undefined)
+                actor.translation_y = translationY;
+            if (typeof onComplete === 'function')
+                onComplete();
+        }
+    }
 
-animateBadgePop(indicator)) {
+export function animateBadgePop(indicator) {
         if (!indicator._label || !indicator.hasMotion())
             return;
         indicator._label.set_pivot_point(0.5, 0.5);
@@ -61,7 +109,7 @@ animateBadgePop(indicator)) {
         });
     }
 
-animateIconPulse(indicator)) {
+export function animateIconPulse(indicator) {
         if (!indicator._icon || !indicator.hasMotion())
             return;
         indicator._icon.set_pivot_point(0.5, 0.5);
@@ -93,7 +141,7 @@ animateIconPulse(indicator)) {
         });
     }
 
-startRefreshSpin(indicator)) {
+export function startRefreshSpin(indicator) {
         const icon = indicator._refreshIcon;
         if (!icon || !indicator.hasMotion()) return;
         if (icon.get_transition?.('rotation-angle-z')) return;
@@ -107,13 +155,13 @@ startRefreshSpin(indicator)) {
         } catch (e) {}
     }
 
-stopRefreshSpin(indicator)) {
+export function stopRefreshSpin(indicator) {
         const icon = indicator._refreshIcon;
         if (!icon) return;
         try { icon.remove_all_transitions(); icon.ease({ rotation_angle_z: 0, duration: 250, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); } catch (e) { try { icon.rotation_angle_z = 0; } catch (ee) {} }
     }
 
-animateHeaderEntrance(indicator)) {
+export function animateHeaderEntrance(indicator) {
         if (!indicator.hasMotion() || !indicator._heroBox) return;
         try {
             indicator._heroBox.set_pivot_point(0.5, 0.5);
@@ -128,7 +176,7 @@ animateHeaderEntrance(indicator)) {
         } catch (e) {}
     }
 
-addButtonHoverScale(indicator, button)button) {
+export function addButtonHoverScale(indicator, button) {
         if (!button || !indicator.hasMotion()) return;
         try {
             button.set_pivot_point(0.5, 0.5);
