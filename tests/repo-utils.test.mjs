@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -274,4 +274,15 @@ test('formats relative ages at boundaries and handles invalid or future timestam
     assert.equal(formatRelativeTime('not a timestamp', now), '');
     assert.equal(formatRelativeTime('', now), '');
     assert.equal(formatRelativeTime(ago(-300), now), 'just now');
+});
+
+
+test('composes compact secondary detail text for each item kind', () => {
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', reasonLabel: 'Mention'}, '5m ago'), 'owner/repo · Mention · 5m ago');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo'}, '1h ago'), 'owner/repo · notification · 1h ago');
+    assert.equal(getItemDetail({kind: 'pr', subtitle: 'owner/repo'}, '2d ago'), 'owner/repo · PR · 2d ago');
+    assert.equal(getItemDetail({kind: 'issue', subtitle: 'owner/repo'}, 'just now'), 'owner/repo · issue · just now');
+    assert.equal(getItemDetail({kind: 'star', subtitle: 'owner/repo'}, '3d ago'), 'owner/repo · star · 3d ago');
+    assert.equal(getItemDetail({kind: 'other', subtitle: 'owner/repo'}, ''), 'owner/repo · ');
+    assert.equal(getItemDetail(null, ''), ' · ');
 });
