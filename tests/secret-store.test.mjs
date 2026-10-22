@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
     clearGithubToken,
+    clearLegacyTokenSetting,
     getSecretAttributes,
     loadGithubToken,
     normalizeSecretHost,
@@ -97,4 +98,17 @@ test('removal is scoped to the selected API host', async () => {
     const api = {async clear(host) { calls.push(host); return true; }};
     assert.equal(await clearGithubToken('git.example.com/api/v3', api), true);
     assert.deepEqual(calls, ['git.example.com/api/v3']);
+});
+
+test('reports when legacy plaintext cleanup is not writable', () => {
+    const settings = makeSettings({token: 'legacy-token'});
+    settings.set_string = () => false;
+    assert.equal(clearLegacyTokenSetting(settings), false);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
+
+test('treats an already-empty legacy setting as successfully cleared', () => {
+    const settings = makeSettings();
+    settings.set_string = () => assert.fail('must not write when no legacy token exists');
+    assert.equal(clearLegacyTokenSetting(settings), true);
 });

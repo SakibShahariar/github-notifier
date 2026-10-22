@@ -6,7 +6,7 @@ import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import {isValidClockTime, isValidRepository} from './repo-utils.js';
-import {clearGithubToken, loadGithubToken, storeGithubToken} from './secret-store.js';
+import {clearGithubToken, clearLegacyTokenSetting, loadGithubToken, storeGithubToken} from './secret-store.js';
 
 function signalTokenChanged(settings) {
     const current = settings.get_int('token-generation');
@@ -44,11 +44,12 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
                 await storeGithubToken(host, token);
                 // Clear legacy plaintext only after Secret Service confirms storage.
-                if (settings.get_string('github-token'))
-                    settings.set_string('github-token', '');
+                const legacyCleared = clearLegacyTokenSetting(settings);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
-                testRow.subtitle = 'Token saved in Secret Service';
+                testRow.subtitle = legacyCleared
+                    ? 'Token saved in Secret Service'
+                    : 'Token saved, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not save token: ' + error.message;
             } finally {
@@ -96,11 +97,12 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             try {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
                 await clearGithubToken(host);
-                if (settings.get_string('github-token'))
-                    settings.set_string('github-token', '');
+                const legacyCleared = clearLegacyTokenSetting(settings);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
-                testRow.subtitle = 'Saved token removed for this API host';
+                testRow.subtitle = legacyCleared
+                    ? 'Saved token removed for this API host'
+                    : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not remove token: ' + error.message;
             } finally {

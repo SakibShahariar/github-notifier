@@ -135,6 +135,11 @@ export async function loadGithubToken(settings, apiOverride = null) {
     return {token: legacyToken, source: 'secret-service', migrated: true, warning: ''};
 }
 
+export function clearLegacyTokenSetting(settings) {
+    const legacyToken = settings.get_string('github-token');
+    return !legacyToken || settings.set_string('github-token', '');
+}
+
 export async function storeGithubToken(host, token, apiOverride = null) {
     const normalizedToken = String(token || '').trim();
     if (!normalizedToken)
