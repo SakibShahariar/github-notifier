@@ -2391,9 +2391,9 @@ class Indicator extends PanelMenu.Button {
         const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         container.add_child(rowBox);
         const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
-        // Repository actions are available on activity rows with a validated
-        // owner/repo identity. Notification rows usually have a reason label
-        // instead of a repository name, so they deliberately omit these actions.
+        // Inbox and activity rows carry owner/repo in subtitle. Only show
+        // repository actions when that value passes the shared validator; the
+        // synthetic "more notifications" row has a URL here and is excluded.
         const repository = typeof item.subtitle === 'string' &&
             isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
         if (repository) {
