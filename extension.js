@@ -529,57 +529,8 @@ class Indicator extends PanelMenu.Button {
      */
     _ease(actor, props = {}) {
         return ease(this, actor, props);
-    }) {
-        if (!actor || this._destroyed || !this.hasMotion()) {
-            if (actor && props.opacity !== undefined)
-                actor.opacity = props.opacity;
-            if (actor && props.scale_x !== undefined)
-                actor.scale_x = props.scale_x;
-            if (actor && props.scale_y !== undefined)
-                actor.scale_y = props.scale_y;
-            if (actor && props.translation_y !== undefined)
-                actor.translation_y = props.translation_y;
-            if (typeof props.onComplete === 'function')
-                props.onComplete();
-            return;
-        }
-        const {
-            opacity,
-            scale_x: scaleX,
-            scale_y: scaleY,
-            translation_y: translationY,
-            time = 150,
-            mode = Clutter.AnimationMode.EASE_OUT_CUBIC,
-            onComplete,
-        } = props;
-        const params = {duration: time, mode};
-        if (opacity !== undefined)
-            params.opacity = opacity;
-        if (scaleX !== undefined)
-            params.scale_x = scaleX;
-        if (scaleY !== undefined)
-            params.scale_y = scaleY;
-        if (translationY !== undefined)
-            params.translation_y = translationY;
-        if (typeof onComplete === 'function')
-            params.onComplete = onComplete;
-        try {
-            actor.ease(params);
-        } catch (_e) {
-            if (opacity !== undefined)
-                actor.opacity = opacity;
-            if (scaleX !== undefined)
-                actor.scale_x = scaleX;
-            if (scaleY !== undefined)
-                actor.scale_y = scaleY;
-            if (translationY !== undefined)
-                actor.translation_y = translationY;
-            if (typeof onComplete === 'function')
-                onComplete();
-        }
     }
 
-    /** Energetic badge bounce when unread count rises. */
     _animateBadgePop() {
         animateBadgePop(this);
     }
