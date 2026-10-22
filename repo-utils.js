@@ -10,13 +10,16 @@ const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
 export function getApiBase(host) {
     if (typeof host !== 'string')
         throw new TypeError('API host must be a hostname, optionally followed by an Enterprise API path');
-    const value = host.trim().replace(/\\/+$/, '');
-    if (!value || value.includes('://') || /[\\s?#\\\\]/.test(value))
+    let value = host.trim();
+    while (value.endsWith('/'))
+        value = value.slice(0, -1);
+    if (!value || value.includes('://') ||
+        [' ', '\t', '\n', '\r', '?', '#', '\\'].some(character => value.includes(character)))
         throw new TypeError('Enter a hostname such as api.github.com or git.example.com/enterprise/api/v3');
 
     let parsed;
     try {
-        parsed = new URL(`https://${value}`);
+        parsed = new URL('https://' + value);
     } catch (_error) {
         throw new TypeError('Invalid API host; use a hostname with an optional Enterprise API path');
     }
@@ -28,8 +31,11 @@ export function getApiBase(host) {
     if (parsed.hostname.toLowerCase() === 'api.github.com' && parsed.pathname === '/')
         return 'https://api.github.com';
     if (parsed.pathname === '/')
-        return `https://${parsed.host}/api/v3`;
-    return `https://${parsed.host}${parsed.pathname.replace(/\\/+$/, '')}`;
+        return 'https://' + parsed.host + '/api/v3';
+    let path = parsed.pathname;
+    while (path.endsWith('/'))
+        path = path.slice(0, -1);
+    return 'https://' + parsed.host + path;
 }
 
 export function isValidRepository(value) {
