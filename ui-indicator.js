@@ -559,3 +559,65 @@ export function updateHero(indicator) {
         if (indicator._paused) parts.unshift('Paused');
         indicator._heroMeta.text = parts.join(' · ');
     }
+
+export function setStatusBanner(indicator, text, kind = 'info') {
+        if (!indicator._statusItem) return;
+        if (indicator._statusActionItem) {
+            const message = typeof text === 'string' ? text : '';
+            if (/add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(message)) {
+                indicator._statusAction = 'settings';
+                indicator._statusActionItem.label.text = 'Open Settings';
+            } else if (/quiet hours|metered connection/i.test(message)) {
+                indicator._statusAction = 'refresh';
+                indicator._statusActionItem.label.text = 'Refresh once';
+            } else {
+                indicator._statusAction = null;
+            }
+            indicator._statusActionItem.visible = indicator._statusAction !== null;
+        }
+        indicator._statusItem.remove_style_class_name('github-notifier-banner-error');
+        indicator._statusItem.remove_style_class_name('github-notifier-banner-info');
+        if (!text) {
+            if (indicator._statusItem.visible && indicator.hasMotion()) {
+                indicator._ease(indicator._statusItem, {
+                    opacity: 0,
+                    translation_y: -4,
+                    time: 100,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                    onComplete: () => {
+                        indicator._statusItem.visible = false;
+                        indicator._statusItem.opacity = 255;
+                        indicator._statusItem.translation_y = 0;
+                    },
+                });
+            } else {
+                indicator._statusItem.visible = false;
+                indicator._statusItem.opacity = 255;
+                indicator._statusItem.translation_y = 0;
+            }
+            indicator._statusIsError = false;
+            return;
+        }
+        indicator._statusItem.label.text = text;
+        indicator._statusIsError = kind === 'error';
+        if (kind === 'error')
+            indicator._statusItem.add_style_class_name('github-notifier-banner-error');
+        else
+            indicator._statusItem.add_style_class_name('github-notifier-banner-info');
+
+        const wasHidden = !indicator._statusItem.visible;
+        indicator._statusItem.visible = true;
+        if (wasHidden && indicator.hasMotion()) {
+            indicator._statusItem.opacity = 0;
+            indicator._statusItem.translation_y = -8;
+            indicator._ease(indicator._statusItem, {
+                opacity: 255,
+                translation_y: 0,
+                time: 180,
+                mode: Clutter.AnimationMode.EASE_OUT_BACK,
+            });
+        } else {
+            indicator._statusItem.opacity = 255;
+            indicator._statusItem.translation_y = 0;
+        }
+    }
