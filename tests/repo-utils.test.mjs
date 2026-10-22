@@ -194,9 +194,9 @@ test('suppresses desktop alerts for quiet hours or GNOME Do Not Disturb without 
 
 
 test('daily statistics accumulate local counts and report today and seven-day totals', () => {
-    const stats = updateDailyStats({}, '2026-10-22', 3, 2);
-    const next = updateDailyStats(stats, '2026-10-22', 1, 4);
-    const later = updateDailyStats(next, '2026-10-21', 9, 1);
+    const yesterday = updateDailyStats({}, '2026-10-21', 9, 1);
+    const stats = updateDailyStats(yesterday, '2026-10-22', 3, 2);
+    const later = updateDailyStats(stats, '2026-10-22', 1, 4);
     assert.deepEqual(getDailyStatsTotals(later, '2026-10-22'), {
         todayNotifications: 4, todayActivity: 6, weekNotifications: 13, weekActivity: 7,
     });
