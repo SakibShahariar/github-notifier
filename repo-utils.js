@@ -285,3 +285,18 @@ export function formatRelativeTime(value, now = Date.now()) {
     if (seconds < 2592000) return `${Math.floor(seconds / 86400)}d ago`;
     return `${Math.floor(seconds / 2592000)}mo ago`;
 }
+
+
+/** Compose the secondary text shown under a notification/activity title. */
+export function getItemDetail(item, relativeTime = '') {
+    const repository = item?.subtitle || '';
+    const time = relativeTime || '';
+    if (item?.kind === 'notification') {
+        const reason = item.reasonLabel || item.kind;
+        return `${repository} · ${reason} · ${time}`.trim();
+    }
+    if (item?.kind === 'pr') return `${repository} · PR · ${time}`;
+    if (item?.kind === 'issue') return `${repository} · issue · ${time}`;
+    if (item?.kind === 'star') return `${repository} · star · ${time}`;
+    return `${repository} · ${time}`;
+}
