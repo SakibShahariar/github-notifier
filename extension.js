@@ -1579,37 +1579,74 @@ class Indicator extends PanelMenu.Button {
                 const repos = Array.from(new Set(rawRepos));
                 const mutedRepositories = this._mutedRepositories();
 
-                for (const repo of repos) {
-                    if (!isValidRepository(repo)) {
-                        errors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
-                        continue;
-                    }
-                    if (isRepositoryMuted(repo, mutedRepositories))
-                        continue;
-                    if (this._settings.get_boolean('watch-issues-prs')) {
-                        try {
-                            activityItems = activityItems.concat(await this._pollRepoIssues(repo, state, baselineNotes));
-                        } catch (e) {
-                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403 || e.status === 429))
-                                throw e;
-                            errors.push(`${repo} issues: ${e.message}`);
-                            logError(e, `github-notifier: issues poll failed for ${repo}`);
+                // Keep one poll cycle at a time, but overlap a few independent
+                // repositories so large watch lists do not spend most of the
+                // cycle waiting on serial network round-trips. Requests for a
+                // single repo remain ordered, and result merging stays stable.
+                const results = new Array(repos.length);
+                const concurrency = Math.min(3, repos.length);
+                let nextRepoIndex = 0;
+                let fatalRepoError = null;
+
+                const pollNextRepository = async () => {
+                    while (!this._destroyed && !fatalRepoError) {
+                        const index = nextRepoIndex++;
+                        if (index >= repos.length)
+                            return;
+
+                        const repo = repos[index];
+                        const repoActivity = [];
+                        const repoErrors = [];
+                        results[index] = {activity: repoActivity, errors: repoErrors};
+
+                        if (!isValidRepository(repo)) {
+                            repoErrors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
+                            continue;
+                        }
+                        if (isRepositoryMuted(repo, mutedRepositories))
+                            continue;
+
+                        if (this._settings.get_boolean('watch-issues-prs')) {
+                            try {
+                                repoActivity.push(...await this._pollRepoIssues(repo, state, baselineNotes));
+                            } catch (e) {
+                                if (e instanceof ApiError && [0, 401, 403, 429].includes(e.status)) {
+                                    fatalRepoError ||= e;
+                                    continue;
+                                }
+                                repoErrors.push(`${repo} issues: ${e.message}`);
+                                logError(e, `github-notifier: issues poll failed for ${repo}`);
+                            }
+                        }
+                        if (this._destroyed || fatalRepoError)
+                            continue;
+
+                        if (this._settings.get_boolean('watch-stars')) {
+                            try {
+                                repoActivity.push(...await this._pollRepoStars(repo, state, baselineNotes));
+                            } catch (e) {
+                                if (e instanceof ApiError && [0, 401, 403, 429].includes(e.status)) {
+                                    fatalRepoError ||= e;
+                                    continue;
+                                }
+                                repoErrors.push(`${repo} stars: ${e.message}`);
+                                logError(e, `github-notifier: stars poll failed for ${repo}`);
+                            }
                         }
                     }
-                    if (this._destroyed)
-                        return;
-                    if (this._settings.get_boolean('watch-stars')) {
-                        try {
-                            activityItems = activityItems.concat(await this._pollRepoStars(repo, state, baselineNotes));
-                        } catch (e) {
-                            if (e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403 || e.status === 429))
-                                throw e;
-                            errors.push(`${repo} stars: ${e.message}`);
-                            logError(e, `github-notifier: stars poll failed for ${repo}`);
-                        }
-                    }
-                    if (this._destroyed)
-                        return;
+                };
+
+                await Promise.all(Array.from({length: concurrency}, () => pollNextRepository()));
+                if (this._destroyed)
+                    return;
+                if (fatalRepoError)
+                    throw fatalRepoError;
+
+                for (const result of results) {
+                    if (!result)
+                        continue;
+                    activityItems.push(...result.activity);
+                    errors.push(...result.errors);
                 }
             }
 
