@@ -77,7 +77,7 @@ gnome-extensions prefs github-notifier@SakibShahariar
 |---|---|
 | **Token** | Your GitHub personal access token. Create one from [GitHub Settings](https://github.com/settings/personal-access-tokens). |
 | **Username** | Your GitHub username. |
-| **API host** | GitHub's API host, or the API endpoint for your GitHub Enterprise Server instance. |
+| **API host** | Enter a hostname only, such as `api.github.com` or `github.example.com`; Enterprise deployments may include a path such as `github.example.com/enterprise/api/v3`. Use HTTPS (added automatically). Do not include `https://`, credentials, query strings, or fragments. |
 | **Repositories** | Comma-separated repository names in `owner/repo` format. |
 | **Muted repositories** | Comma-separated `owner/repo` names excluded from issue/star polling, inbox display, badges, and desktop banners. Muting does not mark GitHub notifications as read. |
 | **Poll interval** | How often to check for updates: 60–3600 seconds, with a default of 120 seconds. |
