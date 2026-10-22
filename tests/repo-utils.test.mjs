@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -300,4 +300,11 @@ test('labels GitHub notification reasons and subject types consistently', () => 
         ['Release', 'New release'], ['Commit', 'New commit'],
         ['CheckSuite', 'CI run'], ['WorkflowRun', 'CI run'],
     ]) assert.equal(getNotificationReasonLabel('mention', type), expected, type);
+});
+
+
+test('formats local calendar dates with stable zero padding', () => {
+    assert.equal(formatLocalDateKey(new Date(2026, 0, 2, 23, 59)), '2026-01-02');
+    assert.equal(formatLocalDateKey(new Date(2026, 9, 23)), '2026-10-23');
+    assert.equal(formatLocalDateKey(new Date(2000, 11, 31)), '2000-12-31');
 });
