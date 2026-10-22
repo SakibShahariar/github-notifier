@@ -782,13 +782,13 @@ class Indicator extends PanelMenu.Button {
             // Cancel the active cycle and queue exactly one fresh cycle in finally.
             this._restartPollRequested = true;
             this._pollCancellable?.cancel();
-      
+            return;
+        }
+        this._poll();
+    }
+
     _poll() {
         return pollIndicator(this);
-    }E;
-                });
-            }
-        }
     }
 
     _updateRateFooter() {
