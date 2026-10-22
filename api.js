@@ -1,3 +1,5 @@
+import GLib from 'gi://GLib';
+
 // HTTP request and GitHub rate-limit handling shared by the indicator.
 export class ApiError extends Error {
     constructor(message, status) {
