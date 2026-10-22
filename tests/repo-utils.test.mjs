@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} = await import(helperUrl);
+const {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -133,4 +133,29 @@ test('rejects pagination links outside the configured API origin or base path', 
     assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'https://git.example.com/notifications?page=2'), null);
     assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'http://git.example.com/api/v3/notifications?page=2'), null);
     assert.equal(getApiPathFromAbsoluteUrl('https://git.example.com/api/v3', 'not a url'), null);
+});
+
+test('validates 24-hour clock times strictly', () => {
+    assert.equal(isValidClockTime('00:00'), true);
+    assert.equal(isValidClockTime('23:59'), true);
+    for (const value of ['', '7:00', '24:00', '12:60', '12:3', '12:00 ', null, 1200])
+        assert.equal(isValidClockTime(value), false, String(value));
+});
+
+test('handles daytime quiet-hours intervals with inclusive start and exclusive end', () => {
+    const date = (hour, minute = 0) => new Date(2026, 0, 1, hour, minute);
+    assert.equal(isWithinQuietHours(date(21, 59), '22:00', '23:00'), false);
+    assert.equal(isWithinQuietHours(date(22, 0), '22:00', '23:00'), true);
+    assert.equal(isWithinQuietHours(date(22, 59), '22:00', '23:00'), true);
+    assert.equal(isWithinQuietHours(date(23, 0), '22:00', '23:00'), false);
+});
+
+test('handles overnight quiet-hours intervals and equal endpoints', () => {
+    const date = (hour, minute = 0) => new Date(2026, 0, 1, hour, minute);
+    assert.equal(isWithinQuietHours(date(23, 0), '22:00', '07:00'), true);
+    assert.equal(isWithinQuietHours(date(6, 59), '22:00', '07:00'), true);
+    assert.equal(isWithinQuietHours(date(7, 0), '22:00', '07:00'), false);
+    assert.equal(isWithinQuietHours(date(12, 0), '22:00', '07:00'), false);
+    assert.equal(isWithinQuietHours(date(12, 0), '12:00', '12:00'), false);
+    assert.equal(isWithinQuietHours(date(12, 0), 'invalid', '12:00'), false);
 });

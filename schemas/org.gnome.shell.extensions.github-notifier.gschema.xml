@@ -46,6 +46,30 @@
       </description>
     </key>
 
+    <key name="quiet-hours-enabled" type="b">
+      <default>false</default>
+      <summary>Enable quiet hours</summary>
+      <description>Suppress desktop alerts during the configured local-time window.</description>
+    </key>
+
+    <key name="quiet-hours-start" type="s">
+      <default>'22:00'</default>
+      <summary>Quiet-hours start time</summary>
+      <description>Local 24-hour clock time in HH:MM format.</description>
+    </key>
+
+    <key name="quiet-hours-end" type="s">
+      <default>'07:00'</default>
+      <summary>Quiet-hours end time</summary>
+      <description>Local 24-hour clock time in HH:MM format; the end is exclusive.</description>
+    </key>
+
+    <key name="pause-polling-during-quiet-hours" type="b">
+      <default>false</default>
+      <summary>Pause polling during quiet hours</summary>
+      <description>When false, inbox data and the badge continue updating silently.</description>
+    </key>
+
     <key name="poll-interval" type="i">
       <default>120</default>
       <range min="60" max="3600"/>

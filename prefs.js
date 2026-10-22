@@ -5,7 +5,7 @@ import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-import {isValidRepository} from './repo-utils.js';
+import {isValidClockTime, isValidRepository} from './repo-utils.js';
 import {clearGithubToken, loadGithubToken, storeGithubToken} from './secret-store.js';
 
 function signalTokenChanged(settings) {
@@ -449,6 +449,64 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         markReadRow.add_prefix(new Gtk.Image({icon_name: 'mail-read-symbolic', pixel_size: 16}));
         settings.bind('mark-read-on-open', markReadRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         displayGroup.add(markReadRow);
+
+        const quietGroup = new Adw.PreferencesGroup({
+            title: 'Quiet hours',
+            description: 'Suppress desktop alerts during a local-time window. GNOME Do Not Disturb is handled by GNOME itself.',
+        });
+        settingsPage.add(quietGroup);
+
+        const quietEnabledRow = new Adw.SwitchRow({
+            title: 'Enable quiet hours',
+            subtitle: 'Keep inbox and badge updated without desktop alerts',
+        });
+        quietEnabledRow.add_prefix(new Gtk.Image({icon_name: 'weather-clear-night-symbolic', pixel_size: 16}));
+        settings.bind('quiet-hours-enabled', quietEnabledRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        quietGroup.add(quietEnabledRow);
+
+        const quietStatusRow = new Adw.ActionRow({
+            title: 'Quiet-hours time format',
+            subtitle: 'Use 24-hour local time (HH:MM); start inclusive, end exclusive.',
+        });
+        quietGroup.add(quietStatusRow);
+
+        const quietStartRow = new Adw.EntryRow({title: 'Start time (HH:MM)', show_apply_button: true});
+        quietStartRow.set_text(settings.get_string('quiet-hours-start'));
+        quietStartRow.add_prefix(new Gtk.Image({icon_name: 'go-previous-symbolic', pixel_size: 16}));
+        quietStartRow.connect('apply', () => {
+            const value = quietStartRow.get_text().trim();
+            if (!isValidClockTime(value)) {
+                quietStatusRow.subtitle = 'Invalid start time. Use a valid 24-hour time such as 22:00.';
+                quietStartRow.set_text(settings.get_string('quiet-hours-start'));
+                return;
+            }
+            settings.set_string('quiet-hours-start', value);
+            quietStatusRow.subtitle = 'Quiet-hours start saved.';
+        });
+        quietGroup.add(quietStartRow);
+
+        const quietEndRow = new Adw.EntryRow({title: 'End time (HH:MM)', show_apply_button: true});
+        quietEndRow.set_text(settings.get_string('quiet-hours-end'));
+        quietEndRow.add_prefix(new Gtk.Image({icon_name: 'go-next-symbolic', pixel_size: 16}));
+        quietEndRow.connect('apply', () => {
+            const value = quietEndRow.get_text().trim();
+            if (!isValidClockTime(value)) {
+                quietStatusRow.subtitle = 'Invalid end time. Use a valid 24-hour time such as 07:00.';
+                quietEndRow.set_text(settings.get_string('quiet-hours-end'));
+                return;
+            }
+            settings.set_string('quiet-hours-end', value);
+            quietStatusRow.subtitle = 'Quiet-hours end saved.';
+        });
+        quietGroup.add(quietEndRow);
+
+        const pauseQuietPollingRow = new Adw.SwitchRow({
+            title: 'Pause polling during quiet hours',
+            subtitle: 'When off, inbox and badge continue updating silently',
+        });
+        pauseQuietPollingRow.add_prefix(new Gtk.Image({icon_name: 'media-playback-pause-symbolic', pixel_size: 16}));
+        settings.bind('pause-polling-during-quiet-hours', pauseQuietPollingRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        quietGroup.add(pauseQuietPollingRow);
 
         const pollGroup = new Adw.PreferencesGroup({title: 'Polling'});
         settingsPage.add(pollGroup);

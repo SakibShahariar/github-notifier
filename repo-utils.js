@@ -73,6 +73,30 @@ export function getGitHubCliArguments(item) {
  * example /api/v3), which must not be appended twice by _apiRequest().
  * Reject links outside the configured HTTPS origin/base path.
  */
+function clockTimeToMinutes(value) {
+    if (typeof value !== 'string' || !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(value))
+        return null;
+    const parts = value.split(':').map(Number);
+    return parts[0] * 60 + parts[1];
+}
+
+export function isValidClockTime(value) {
+    return clockTimeToMinutes(value) !== null;
+}
+
+/** Start is inclusive and end is exclusive. Equal endpoints disable the interval. */
+export function isWithinQuietHours(now, start, end) {
+    const startMinutes = clockTimeToMinutes(start);
+    const endMinutes = clockTimeToMinutes(end);
+    if (startMinutes === null || endMinutes === null || startMinutes === endMinutes ||
+        !(now instanceof Date) || Number.isNaN(now.getTime()))
+        return false;
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    if (startMinutes < endMinutes)
+        return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+}
+
 export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
     if (typeof apiBase !== 'string' || typeof absoluteUrl !== 'string')
         return null;

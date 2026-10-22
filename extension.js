@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidRepository, parseRepositoryList} from './repo-utils.js';
+import {getApiPathFromAbsoluteUrl, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -1271,6 +1271,15 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- polling ----------
+    _isQuietHoursActive(now = new Date()) {
+        return this._settings.get_boolean('quiet-hours-enabled') &&
+            isWithinQuietHours(now, this._settings.get_string('quiet-hours-start'), this._settings.get_string('quiet-hours-end'));
+    }
+
+    _shouldPauseForQuietHours(now = new Date()) {
+        return this._isQuietHoursActive(now) && this._settings.get_boolean('pause-polling-during-quiet-hours');
+    }
+
     _refreshNow() {
         if (this._destroyed || this._paused)
             return;
@@ -1291,6 +1300,13 @@ class Indicator extends PanelMenu.Button {
     async _poll() {
         if (this._paused || this._destroyed || this._polling || this._markingAllRead)
             return;
+
+        if (this._shouldPauseForQuietHours()) {
+            this._setStatusBanner('Quiet hours — automatic polling paused', 'info');
+            this._updateHero();
+            this._updatePanel();
+            return;
+        }
 
         const manualRefresh = this._manualRefreshPending;
         this._manualRefreshPending = false;
@@ -2472,6 +2488,9 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notify(newItems) {
+        // Keep inbox and badge updates, but suppress new desktop alerts in quiet hours.
+        if (this._isQuietHoursActive())
+            return;
         const source = this._ensureSource();
         if (newItems.length > 3) {
             const inboxUrl = `${this._webBase()}/notifications`;
@@ -2510,6 +2529,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _notifyBaseline(notes) {
+        if (this._isQuietHoursActive())
+            return;
         const source = this._ensureSource();
         const notification = _createMessageTrayNotification(source, 'GitHub Notifier', notes.join('\n'));
         source.addNotification(notification);

@@ -22,6 +22,7 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | 👁️ **Hide when empty** | Keep the panel icon hidden when there is nothing to show, unless an error needs attention. |
 | **Mark read on open** | Choose whether opening a notification also marks it as read on GitHub. |
 | **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available. |
+| **Quiet hours** | Suppress desktop alerts during a configurable local-time window; optionally pause polling instead of silently updating inbox and badge. |
 
 The inbox uses GitHub's notifications API with `participating=false`, so it includes unread activity such as mentions, review requests, and subscribed threads. Star tracking detects count changes; it does not identify individual new stargazers.
 
@@ -82,6 +83,10 @@ gnome-extensions prefs github-notifier@SakibShahariar
 | **GitHub CLI action** | When `gh` and a supported terminal are installed, issue and pull-request rows include an action to open them with the CLI. Browser opening remains available. |
 
 Settings are organized into **Account**, **Watching**, and **Settings** sections.
+
+### Quiet hours and Do Not Disturb
+
+Enable **Quiet hours** in Settings and choose local 24-hour start/end times (`HH:MM`). The interval includes the start and excludes the end; overnight windows such as `22:00`–`07:00` are supported. Equal start and end times disable the interval. During quiet hours, the extension suppresses new desktop alerts while continuing to update its inbox and badge. Enable **Pause polling during quiet hours** to avoid API requests during that interval; the badge may then become stale until polling resumes. GNOME's system Do Not Disturb setting is handled by GNOME's notification system and is not modified by this extension.
 
 ### GitHub CLI integration
 
