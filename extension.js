@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, renderList} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -333,116 +333,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _buildMenuSkeleton() {
-        // --- hero ---
-        const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
-        const heroItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
-        heroItem.style_class = 'github-notifier-hero-item';
-        const heroBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-hero'});
-        const heroIcon = new St.Icon({
-            gicon: Gio.icon_new_for_string(iconPath),
-            style_class: 'system-status-icon github-notifier-hero-icon',
-            icon_size: 24,
-        });
-        const textBox = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-        this._heroTitle = new St.Label({text: 'GitHub', style_class: 'github-notifier-hero-title'});
-        this._heroMeta = new St.Label({text: 'Checking…', style_class: 'github-notifier-hero-meta'});
-        // ellipsize meta so it fits ~420px
-        this._heroMeta.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        textBox.add_child(this._heroTitle);
-        textBox.add_child(this._heroMeta);
-        const gearButton = new St.Button({
-            style_class: 'github-notifier-hero-gear',
-            can_focus: true,
-            child: new St.Icon({icon_name: 'preferences-system-symbolic', style_class: 'popup-menu-icon'}),
-        });
-        this._heroBox = heroBox;
-        this._heroItem = heroItem;
-        this._heroIcon = heroIcon;
-        this._heroGear = gearButton;
-        this._setTooltip(gearButton, 'Settings');
-        gearButton.connect('clicked', () => this._ext.openPreferences());
-        heroBox.add_child(heroIcon);
-        heroBox.add_child(textBox);
-        heroBox.add_child(gearButton);
-        heroItem.add_child(heroBox);
-        this.menu.addMenuItem(heroItem);
-
-        // status / warning banner (hidden unless needed)
-        this._statusItem = new PopupMenu.PopupMenuItem('Checking GitHub…', {reactive: false});
-        this._statusItem.style_class = 'github-notifier-banner';
-        this._statusItem.label.clutter_text.line_wrap = true;
-        this._statusItem.label.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-        this.menu.addMenuItem(this._statusItem);
-        this._statusItem.visible = false;
-
-        // Give token and credential errors a direct, keyboard-accessible route
-        // to Preferences instead of leaving users to hunt for the settings gear.
-        this._statusAction = null;
-        this._statusActionItem = new PopupMenu.PopupMenuItem('Open Settings');
-        this._statusActionItem.connect('activate', () => {
-            if (this._statusAction === 'refresh')
-                this._refreshNow();
-            else if (this._statusAction === 'settings')
-                this._ext.openPreferences();
-        });
-        this._statusActionItem.visible = false;
-        this.menu.addMenuItem(this._statusActionItem);
-
-        // action status (marking …) centered dim text
-        this._statsItem = new PopupMenu.PopupMenuItem('', {reactive: false});
-        this._statsItem.style_class = 'github-notifier-rate';
-        this.menu.addMenuItem(this._statsItem);
-        this._statsItem.visible = false;
-
-        this._repositoryActionStatusGeneration = 0;
-        this._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
-        this._actionStatusItem.style_class = 'github-notifier-action-status';
-        this._actionStatusItem.visible = false;
-        this.menu.addMenuItem(this._actionStatusItem);
-
-        // Muting hides every row for that repository, so provide a short-lived
-        // undo action here rather than leaving the row's future Unmute control
-        // unreachable after the first click.
-        this._pendingMuteUndoRepository = null;
-        this._repositoryUndoItem = new PopupMenu.PopupMenuItem('Undo mute');
-        this._repositoryUndoItem.connect('activate', () => {
-            const repository = this._pendingMuteUndoRepository;
-            this._pendingMuteUndoRepository = null;
-            this._repositoryUndoItem.visible = false;
-            if (!repository)
-                return;
-            if (this._setRepositoryMembership('muted-repos', repository, false)) {
-                this._showRepositoryActionStatus(`Unmuted ${repository}`);
-                this._lastRenderHash = '';
-                this._renderList();
-            } else {
-                this._showRepositoryActionStatus('Could not unmute repository');
-            }
-        });
-        this._repositoryUndoItem.visible = false;
-        this.menu.addMenuItem(this._repositoryUndoItem);
-
-        // sections
-        this._notifSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._notifSection);
-        this._issuesSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._issuesSection);
-        this._starsSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._starsSection);
-
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        // footer controls + rate limit
-        this._footerSection = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._footerSection);
-        this._rateItem = new PopupMenu.PopupMenuItem('', {reactive: false});
-        this._rateItem.style_class = 'github-notifier-rate';
-        this._rateItem.label.clutter_text.line_wrap = true;
-        this.menu.addMenuItem(this._rateItem);
-        this._rateItem.visible = false;
-
-        this._updateHero();
-        this._updateDailyStatsItem();
+        buildMenuSkeleton(this);
     }
 
     _buildMenuContent() {
