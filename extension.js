@@ -13,7 +13,7 @@ import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
-import {pollIndicator, refreshPollNow, restartPollTimer} from './poll-controller.js';
+import {afterPoll, pollIndicator, refreshPollNow, restartPollTimer} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
@@ -811,27 +811,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     // ---------- UI update ----------
-    _afterPoll(notificationItems, newActivityItems, {updateFetchedAt = true} = {}) {
-        this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
-        const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
-        const toToast = notificationItems.filter(n => n.isNewToast &&
-            this._isNotificationTypeEnabled(n) && !this._isItemMuted(n));
-        if (this._settings.get_boolean('show-daily-stats'))
-            this._dailyStats = updateDailyStats(this._dailyStats, this._localDateKey(), newNotificationCount, newActivityItems.length);
-
-        if (newActivityItems.length > 0)
-            this._activityItems = newActivityItems.concat(this._activityItems).slice(0, MAX_RECENT);
-
-        if (updateFetchedAt)
-            this._lastFetchedAt = new Date().toISOString();
-        this._renderList();
-        this._updatePanel();
-        this._updateHero();
-        this._updateRateFooter();
-
-        const toNotify = toToast.concat(newActivityItems.filter(item => !this._isItemMuted(item)));
-        if (toNotify.length > 0)
-            this._notify(toNotify);
+    _afterPoll(notificationItems, newActivityItems, options = {}) {
+        return afterPoll(this, notificationItems, newActivityItems, options, MAX_RECENT);
     }
 
     _markAllRead() {
