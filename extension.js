@@ -2090,7 +2090,8 @@ class Indicator extends PanelMenu.Button {
     _afterPoll(notificationItems, newActivityItems, {updateFetchedAt = true} = {}) {
         this._notificationItems = notificationItems.map(({isNewToast, ...rest}) => rest);
         const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
-        const toToast = notificationItems.filter(n => n.isNewToast && this._isNotificationTypeEnabled(n));
+        const toToast = notificationItems.filter(n => n.isNewToast &&
+            this._isNotificationTypeEnabled(n) && !this._isItemMuted(n));
         if (this._settings.get_boolean('show-daily-stats'))
             this._dailyStats = updateDailyStats(this._dailyStats, this._localDateKey(), newNotificationCount, newActivityItems.length);
 
