@@ -621,3 +621,48 @@ export function setStatusBanner(indicator, text, kind = 'info') {
             indicator._statusItem.translation_y = 0;
         }
     }
+
+export function updatePanel(indicator, maxBadge) {
+        const unreadNotifications = indicator._visibleNotificationItems().length;
+        const activityItems = indicator._visibleActivityItems().length;
+        const unread = unreadNotifications + activityItems;
+        indicator._publishNotificationSummary(unreadNotifications, activityItems);
+        const prev = indicator._lastUnreadCount ?? 0;
+        const alwaysUnlit = indicator._settings.get_boolean('icon-always-unlit');
+        if (unread > 0) {
+            indicator._label.text = unread > maxBadge ? `${maxBadge}+` : String(unread);
+            indicator._label.show();
+            if (alwaysUnlit) indicator._label.remove_style_class_name('urgent');
+            else indicator._label.add_style_class_name('urgent');
+        } else {
+            indicator._label.hide();
+            indicator._label.remove_style_class_name('urgent');
+            indicator._label.scale_x = 1.0;
+            indicator._label.scale_y = 1.0;
+        }
+
+        // Dim the Octocat itself when "keep icon unlit" is on (even with unread)
+        if (indicator._icon) {
+            if (alwaysUnlit)
+                indicator._icon.add_style_class_name('github-notifier-icon-unlit');
+            else
+                indicator._icon.remove_style_class_name('github-notifier-icon-unlit');
+        }
+
+        // Subtle motion when new items arrive (not on every poll drop)
+        if (unread > prev) {
+            indicator._animateBadgePop();
+            indicator._animateIconPulse();
+        }
+        indicator._lastUnreadCount = unread;
+
+        if (indicator._statusIsError)
+            indicator._setTooltip(this, 'GitHub Notifier — attention needed');
+        else if (unread > 0)
+            indicator._setTooltip(this, `GitHub Notifier — ${unread} unread`);
+        else
+            indicator._setTooltip(this, 'GitHub Notifier');
+
+        const hideWhenEmpty = indicator._settings.get_boolean('hide-when-empty');
+        indicator.visible = !(hideWhenEmpty && unread === 0 && !indicator._statusIsError);
+    }
