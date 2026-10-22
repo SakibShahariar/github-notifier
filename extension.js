@@ -15,7 +15,7 @@ import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
-import {dismissActivityItem, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
+import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -654,12 +654,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _disarmMarkAll() {
-        this._markAllArmed = false;
-        if (this._markAllTimer) {
-            GLib.source_remove(this._markAllTimer);
-            this._markAllTimer = null;
-        }
-        this._renderList();
+        return disarmMarkAll(this);
     }
 
     // ---------- state persistence ----------
