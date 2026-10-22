@@ -21,8 +21,8 @@ GitHub Notifier is a GNOME Shell extension that brings your GitHub activity into
 | ⏸️ **Pause polling** | Temporarily stop checks from the panel menu. |
 | 👁️ **Hide when empty** | Keep the panel icon hidden when there is nothing to show, unless an error needs attention. |
 | **Mark read on open** | Choose whether opening a notification also marks it as read on GitHub. |
-| **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available. |
-| **Quiet hours** | Suppress desktop alerts during a configurable local-time window; optionally pause polling instead of silently updating inbox and badge. |
+| **Metered network handling** | Pause automatic polling on metered connections while keeping manual refresh available through the banner action. |
+| **Quiet hours** | Suppress desktop alerts during a configurable local-time window; optionally pause polling instead of silently updating inbox and badge, with a one-click Refresh once banner action. |
 | **Daily statistics** | Optional local-only counts for newly observed notifications and repository activity today and over the last seven days; off by default. |
 | **Companion integration** | Exposes a versioned, non-secret count summary for integrations such as material-panel without sharing tokens or adding another poller. |
 
