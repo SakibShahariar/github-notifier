@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter} from './ui-indicator.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -1397,83 +1397,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updateRateFooter() {
-        if (!this._rateItem) return;
-        const parts = [];
-        if (this._rateLimitResetEpoch > 0)
-            parts.push(`Rate limit resets in ${Math.max(1, Math.ceil((this._rateLimitResetEpoch - Date.now()/1000)/60))}m`);
-        if (this._lastFetchedAt)
-            parts.push(`updated ${this._relativeTime(this._lastFetchedAt)}`);
-        if (parts.length > 0) {
-            this._rateItem.label.text = parts.join(' · ');
-            this._rateItem.visible = true;
-        } else {
-            this._rateItem.visible = false;
-        }
-    }
-
-    async _pollNotifications(state) {
-        state.toastedNotificationIds ||= [];
-        const isInitialBaseline = !state.notificationBaselineEstablished;
-        const toasted = new Set(state.toastedNotificationIds);
-        const items = [];
-
-        let path = '/notifications?per_page=50&participating=false';
-        let pagesFetched = 0;
-
-        while (path && pagesFetched < MAX_NOTIFICATION_PAGES) {
-            const headers = pagesFetched === 0 && state.notificationsLastModified
-                ? {'If-Modified-Since': state.notificationsLastModified}
-                : {};
-            const response = await this._apiRequest('GET', path, {headers});
-            if (pagesFetched === 0 && response.notModified)
-                return this._notificationItems.slice();
-            const {data, linkHeader, lastModified} = response;
-            if (pagesFetched === 0 && lastModified)
-                state.notificationsLastModified = lastModified;
-            pagesFetched += 1;
-
-            for (const n of data) {
-                const kind = this._reasonToKind(n.reason, n.subject.type);
-                const reasonLabel = n.reason || n.subject.type || 'notification';
-                items.push({
-                    id: `notif-${n.id}`,
-                    rawId: n.id,
-                    title: `${kind}: ${n.subject.title}`,
-                    subtitle: n.repository.full_name,
-                    url: this._subjectHtmlUrl(n.subject, n.repository.full_name),
-                    kind: 'notification',
-                    ts: n.updated_at,
-                    // Establish a quiet baseline on first run; existing unread
-                    // notifications should not all generate desktop toasts.
-                    isNewToast: !isInitialBaseline && !toasted.has(n.id),
-                    reasonLabel: kind,
-                    notificationReason: n.reason,
-                    subjectType: n.subject.type,
-                });
-                toasted.add(n.id);
-            }
-
-            const nextUrl = data.length === 50 ? this._nextPageUrl(linkHeader) : null;
-            path = nextUrl ? this._pathFromAbsoluteUrl(nextUrl) : null;
-        }
-
-        state.toastedNotificationIds = Array.from(toasted).slice(-500);
-        state.notificationBaselineEstablished = true;
-        if (pagesFetched === MAX_NOTIFICATION_PAGES && items.length === MAX_NOTIFICATION_PAGES * 50) {
-            const inboxUrl = `${this._webBase()}/notifications`;
-            items.push({
-                id: `notif-more-${Date.now()}`,
-                title: 'More notifications than shown — check GitHub inbox directly',
-                subtitle: inboxUrl,
-                url: inboxUrl,
-                kind: 'notification',
-                ts: new Date().toISOString(),
-                isNewToast: false,
-                reasonLabel: 'more',
-                subjectType: '',
-            });
-        }
-        return items;
+        updateRateFooter(this);
     }
 
     _reasonToKind(reason, subjectType) {
