@@ -2109,6 +2109,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _addRow(section, item) {
+        const secondaryColor = this._matugenColors?.secondary || '#aaaaaa';
         const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
         menuItem.connect('activate', () => {
             if (!this._openUri(item.url))
@@ -2158,7 +2159,7 @@ class Indicator extends PanelMenu.Button {
                         y_align: Clutter.ActorAlign.CENTER,
                     }),
                 });
-                watchButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+                watchButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
                 this._setTooltip(watchButton, `Watch ${repository}`);
                 watchButton.connect('clicked', () => {
                     if (this._setRepositoryMembership('watched-repos', repository, true))
@@ -2186,7 +2187,7 @@ class Indicator extends PanelMenu.Button {
                     y_align: Clutter.ActorAlign.CENTER,
                 }),
             });
-            muteButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+            muteButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
             this._setTooltip(muteButton, muted ? `Unmute ${repositoryForMute}` : `Mute ${repositoryForMute}`);
             muteButton.connect('clicked', () => {
                 const nextMuted = !this._mutedRepositories().has(repositoryForMute);
@@ -2214,7 +2215,7 @@ class Indicator extends PanelMenu.Button {
                     y_align: Clutter.ActorAlign.CENTER,
                 }),
             });
-            cliButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+            cliButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
             this._setTooltip(cliButton, 'Open with GitHub CLI');
             cliButton.connect('clicked', () => {
                 this._openWithGitHubCli(item);
@@ -2233,7 +2234,7 @@ class Indicator extends PanelMenu.Button {
             can_focus: true,
             child: readIcon,
         });
-        btn.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+        btn.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
         this._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
