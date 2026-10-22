@@ -13,7 +13,7 @@ import {ApiError, apiRequest} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
-import {pollIndicator} from './poll-controller.js';
+import {pollIndicator, refreshPollNow, restartPollTimer} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
@@ -353,22 +353,9 @@ class Indicator extends PanelMenu.Button {
     }
 
     _restartTimer() {
-        if (this._timeoutId) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
-        }
-        const configuredInterval = Math.max(60, this._settings.get_int('poll-interval'));
-        const nowEpoch = Math.floor(Date.now() / 1000);
-        const backoffSeconds = Math.max(0, this._networkRetryAfterEpoch - nowEpoch);
-        const retryAfterSeconds = Math.max(0, this._retryAfterEpoch - nowEpoch);
-        const interval = Math.max(configuredInterval, this._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
-        this._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
-            this._poll();
-            return GLib.SOURCE_CONTINUE;
-        });
+        return restartPollTimer(this);
     }
 
-    // ---------- helpers borrowed from omarchy Panel.qml ----------
     _relativeTime(value) {
         return formatRelativeTime(value);
     }
@@ -771,20 +758,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _refreshNow() {
-        if (this._destroyed || this._paused)
-            return;
-        // An explicit user request may bypass automatic backoff and metered-network pausing.
-        this._manualRefreshPending = true;
-        this._networkFailureCount = 0;
-        this._networkRetryAfterEpoch = 0;
-        if (this._polling) {
-            // A manual refresh should not be ignored behind a stalled request.
-            // Cancel the active cycle and queue exactly one fresh cycle in finally.
-            this._restartPollRequested = true;
-            this._pollCancellable?.cancel();
-            return;
-        }
-        this._poll();
+        return refreshPollNow(this);
     }
 
     _poll() {
