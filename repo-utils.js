@@ -300,3 +300,28 @@ export function getItemDetail(item, relativeTime = '') {
     if (item?.kind === 'star') return `${repository} · star · ${time}`;
     return `${repository} · ${time}`;
 }
+
+
+/** Map GitHub notification reasons and subject types to concise display labels. */
+export function getNotificationReasonLabel(reason, subjectType) {
+    const typeLabels = {
+        Release: 'New release',
+        Commit: 'New commit',
+        CheckSuite: 'CI run',
+        WorkflowRun: 'CI run',
+    };
+    if (typeLabels[subjectType])
+        return typeLabels[subjectType];
+
+    const labels = {
+        mention: 'Mention',
+        review_requested: 'Review requested',
+        assign: 'Assigned',
+        author: 'Update on your thread',
+        comment: 'New comment',
+        state_change: 'State changed',
+        subscribed: 'Activity',
+        team_mention: 'Team mention',
+    };
+    return labels[reason] || 'Notification';
+}
