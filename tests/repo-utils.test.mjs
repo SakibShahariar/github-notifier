@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, isRepositoryMuted, isValidClockTime, isValidRepository, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -239,4 +239,25 @@ test('rejects API host values that could redirect credentials or form malformed 
     ]) {
         assert.throws(() => getApiBase(value), TypeError, String(value));
     }
+});
+
+
+test('maps notification and activity items to installed Adwaita symbolic icons', () => {
+    const cases = [
+        [{kind: 'notification', subjectType: 'PullRequest'}, 'insert-link-symbolic'],
+        [{kind: 'notification', subjectType: 'Issue'}, 'chat-message-new-symbolic'],
+        [{kind: 'notification', subjectType: 'Commit'}, 'document-edit-symbolic'],
+        [{kind: 'notification', subjectType: 'Release'}, 'tag-symbolic'],
+        [{kind: 'notification', subjectType: 'CheckSuite'}, 'emblem-ok-symbolic'],
+        [{kind: 'notification', subjectType: 'WorkflowRun'}, 'media-playback-start-symbolic'],
+        [{kind: 'notification', subjectType: 'Discussion'}, 'chat-bubbles-symbolic'],
+        [{kind: 'notification', subjectType: 'Unknown'}, 'mail-unread-symbolic'],
+        [{kind: 'pr'}, 'insert-link-symbolic'],
+        [{kind: 'issue'}, 'chat-message-new-symbolic'],
+        [{kind: 'star'}, 'starred-symbolic'],
+        [{kind: 'other'}, 'mail-unread-symbolic'],
+        [null, 'mail-unread-symbolic'],
+    ];
+    for (const [item, expected] of cases)
+        assert.equal(getNotificationIconName(item), expected, JSON.stringify(item));
 });
