@@ -696,6 +696,34 @@ class Indicator extends PanelMenu.Button {
         return new Set(parseRepositoryList(this._settings.get_string('muted-repos')));
     }
 
+    _watchedRepositories() {
+        return new Set(parseRepositoryList(this._settings.get_string('watched-repos')));
+    }
+
+    _setRepositoryMembership(settingKey, repository, shouldContain) {
+        if (!isValidRepository(repository))
+            return false;
+
+        const normalized = repository.trim().toLowerCase();
+        const repositories = parseRepositoryList(this._settings.get_string(settingKey));
+        const next = shouldContain
+            ? Array.from(new Set([...repositories, normalized]))
+            : repositories.filter(value => value !== normalized);
+        const serialized = next.join(', ');
+        if (this._settings.get_string(settingKey) !== serialized &&
+            !this._settings.set_string(settingKey, serialized))
+            return false;
+        return true;
+    }
+
+    _showRepositoryActionStatus(message) {
+        this._setActionStatus(message);
+        this._addTransientTimeout(3, () => {
+            this._setActionStatus('');
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     _isItemMuted(item, mutedRepositories = this._mutedRepositories()) {
         return isRepositoryMuted(item?.subtitle, mutedRepositories);
     }
@@ -2362,6 +2390,38 @@ class Indicator extends PanelMenu.Button {
         const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
         container.add_child(rowBox);
         const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+        // Repository actions are available on activity rows with a validated
+        // owner/repo identity. Notification rows usually have a reason label
+        // instead of a repository name, so they deliberately omit these actions.
+        const repository = item.kind !== 'notification' && typeof item.subtitle === 'string' &&
+            isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
+        if (repository) {
+            const watched = this._watchedRepositories().has(repository);
+            if (!watched) {
+                const watchButton = new St.Button({
+                    style_class: 'github-notifier-read-button',
+                    can_focus: true,
+                    child: new St.Icon({
+                        icon_name: 'list-add-symbolic',
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                    }),
+                });
+                watchButton.set_style(`color: ${c.secondary}; width: 24px; height: 24px;`);
+                this._setTooltip(watchButton, `Watch ${repository}`);
+                watchButton.connect('clicked', () => {
+                    if (this._setRepositoryMembership('watched-repos', repository, true))
+                        this._showRepositoryActionStatus(`Watching ${repository}`);
+                    else
+                        this._showRepositoryActionStatus('Could not update watched repositories');
+                    this._lastRenderHash = '';
+                    this._renderList();
+                    return Clutter.EVENT_STOP;
+                });
+                strip.add_child(watchButton);
+            }
+        }
+
         const githubCliConfig = this._githubCliLaunchConfig(item);
         if (githubCliConfig) {
             const cliButton = new St.Button({
