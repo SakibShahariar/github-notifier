@@ -189,3 +189,23 @@ test('does not clear a legacy token when removing a different host credential', 
     assert.equal(settings.get_string('github-token'), 'old-host-token');
     assert.equal(settings.get_string('legacy-token-host'), 'api.github.com');
 });
+
+
+test('refuses to use an unscoped legacy token if host binding cannot be persisted', async () => {
+    const settings = makeSettings({host: 'git.example.com/api/v3', token: 'legacy-token'});
+    const originalSet = settings.set_string;
+    settings.set_string = (key, value) => key === 'legacy-token-host' ? false : originalSet(key, value);
+    let lookedUp = false;
+    const api = {async lookup() { lookedUp = true; return ''; }, async store() { assert.fail('must not store an unbound token'); }};
+    await assert.rejects(loadGithubToken(settings, api), /Could not safely bind the existing legacy token/);
+    assert.equal(lookedUp, false);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
+
+test('clears the host-binding marker after clearing a same-host legacy token', () => {
+    const settings = makeSettings({host: 'api.github.com', token: 'legacy-token'});
+    settings.set_string('legacy-token-host', 'API.GITHUB.COM/');
+    assert.equal(clearLegacyTokenSetting(settings, 'api.github.com'), true);
+    assert.equal(settings.get_string('github-token'), '');
+    assert.equal(settings.get_string('legacy-token-host'), '');
+});
