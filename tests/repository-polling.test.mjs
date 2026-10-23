@@ -199,3 +199,25 @@ test('invalid persisted issue baselines are silently repaired instead of suppres
     assert.equal(state.repos[repo].lastIssueNumber, 31);
     assert.equal(state.repos[repo].issuesBaselineEstablished, true);
 });
+
+
+test('repairs malformed root and per-repository cache containers before polling', async () => {
+    const repo = 'owner/repo';
+    const issueIndicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
+            {number: 31, title: 'Existing issue', html_url: 'https://github.com/owner/repo/issues/31', created_at: '2026-10-23T00:00:00Z'},
+        ],
+    });
+    const issueState = {repos: 'corrupt'};
+    assert.deepEqual(await pollRepoIssues(issueIndicator, repo, issueState, []), []);
+    assert.equal(issueState.repos[repo].lastIssueNumber, 31);
+
+    const starIndicator = indicatorWithResponses({
+        '/repos/owner/repo': {stargazers_count: 8},
+    });
+    const starState = {repos: {[repo]: 'corrupt'}};
+    const baselineNotes = [];
+    assert.deepEqual(await pollRepoStars(starIndicator, repo, starState, baselineNotes), []);
+    assert.equal(starState.repos[repo].stars, 8);
+    assert.deepEqual(baselineNotes, ['owner/repo: now tracking stars (currently 8)']);
+});
