@@ -215,8 +215,21 @@ export async function pollIndicator(indicator) {
             indicator._persistCurrentItems(state);
             pollSucceeded = errors.length === 0 && !notificationPollFailed;
 
-            if (baselineNotes.length > 0)
-                indicator._notifyBaseline(baselineNotes);
+            const currentWatchedRepositories = new Set(
+                deduplicateRepositoryEntries(indicator._settings.get_string('watched-repos'))
+                    .map(repository => repository.toLowerCase())
+            );
+            const currentMutedRepositories = indicator._mutedRepositories();
+            const visibleBaselineNotes = baselineNotes.filter(note => {
+                const separator = note.indexOf(':');
+                if (separator <= 0)
+                    return false;
+                const repository = note.slice(0, separator).trim();
+                return currentWatchedRepositories.has(repository.toLowerCase()) &&
+                    !isRepositoryMuted(repository, currentMutedRepositories);
+            });
+            if (visibleBaselineNotes.length > 0)
+                indicator._notifyBaseline(visibleBaselineNotes);
 
             if (errors.length > 0) {
                 const errorText = errors.join(' ').toLowerCase();
@@ -236,8 +249,8 @@ export async function pollIndicator(indicator) {
                 else if (/network error|resolve|tls|timed out|connection reset|socket/.test(errorText))
                     message = `GitHub is unreachable — retrying in ${retryIn}; details in logs`;
                 indicator._setStatusBanner(message, 'error');
-            } else if (baselineNotes.length > 0) {
-                indicator._setStatusBanner(`Started tracking ${baselineNotes.length} new watch(es)`, 'info');
+            } else if (visibleBaselineNotes.length > 0) {
+                indicator._setStatusBanner(`Started tracking ${visibleBaselineNotes.length} new watch(es)`, 'info');
                 // auto-hide after 4s like omarchy banner
                 indicator._addTransientTimeout(4, () => {
                     if (indicator._statusItem.label.text.startsWith('Started tracking')) {
@@ -370,7 +383,13 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
             indicator._isNotificationTypeEnabled(n) && !indicator._isItemMuted(n));
         // A repository can be muted while its request is in flight. Never
         // cache/toast that activity after the preference has changed.
-        const visibleNewActivityItems = filterVisibleActivityItems(newActivityItems, indicator._mutedRepositories());
+        const currentWatchedRepositories = new Set(
+            deduplicateRepositoryEntries(indicator._settings.get_string('watched-repos'))
+                .map(repository => repository.toLowerCase())
+        );
+        const visibleNewActivityItems = filterVisibleActivityItems(newActivityItems, indicator._mutedRepositories())
+            .filter(item => !isValidRepository(item.subtitle) ||
+                currentWatchedRepositories.has(item.subtitle.trim().toLowerCase()));
         if (indicator._settings.get_boolean('show-daily-stats'))
             indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, visibleNewActivityItems.length);
 

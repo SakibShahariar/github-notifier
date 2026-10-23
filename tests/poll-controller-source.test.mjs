@@ -35,3 +35,11 @@ test('drops activity returned by an in-flight request after its repository becom
     assert.match(source, /indicator\._activityItems = visibleNewActivityItems\.concat\(indicator\._activityItems\)/);
     assert.match(source, /toToast\.concat\(visibleNewActivityItems\.filter/);
 });
+
+
+test('poll results filter in-flight activity and baseline notices against current watch/mute settings', () => {
+    assert.match(source, /currentWatchedRepositories = new Set\([\s\S]*?watched-repos[\s\S]*?\.filter\(item => !isValidRepository\(item\.subtitle\) \|\|\s*currentWatchedRepositories\.has\(item\.subtitle\.trim\(\)\.toLowerCase\(\)\)\)/);
+    assert.match(source, /visibleBaselineNotes = baselineNotes\.filter\(note => \{[\s\S]*?currentWatchedRepositories\.has\(repository\.toLowerCase\(\)\)[\s\S]*?!isRepositoryMuted\(repository, currentMutedRepositories\)/);
+    assert.match(source, /indicator\._notifyBaseline\(visibleBaselineNotes\)/);
+    assert.doesNotMatch(source, /indicator\._notifyBaseline\(baselineNotes\)/);
+});

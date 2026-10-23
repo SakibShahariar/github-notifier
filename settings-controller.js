@@ -25,6 +25,7 @@ export function connectSettingsSignals(indicator, constants) {
             // cycle so changes made mid-request are applied immediately.
             if (indicator._polling) {
                 indicator._restartPollRequested = true;
+                indicator._pollCancellable?.cancel();
                 return;
             }
             indicator._poll();
