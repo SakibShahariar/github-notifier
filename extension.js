@@ -13,7 +13,7 @@ import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
-import {afterPoll, pollIndicator, refreshPollNow, restartPollTimer} from './poll-controller.js';
+import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
@@ -557,39 +557,11 @@ class Indicator extends PanelMenu.Button {
         return persistCurrentItems(this, state);
     }
     _sleep(ms) {
-        return new Promise(resolve => {
-            let sourceId = 0;
-            const finish = () => {
-                if (sourceId) {
-                    GLib.source_remove(sourceId);
-                    this._sleepTimerIds.delete(sourceId);
-                    sourceId = 0;
-                }
-                this._pendingSleepResolvers.delete(finish);
-                resolve();
-            };
-            sourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
-                this._sleepTimerIds.delete(sourceId);
-                sourceId = 0;
-                this._pendingSleepResolvers.delete(finish);
-                resolve();
-                return GLib.SOURCE_REMOVE;
-            });
-            this._sleepTimerIds.add(sourceId);
-            this._pendingSleepResolvers.add(finish);
-        });
+        return sleepIndicator(this, ms);
     }
 
     _addTransientTimeout(seconds, callback) {
-        let sourceId = 0;
-        sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, seconds, () => {
-            this._transientTimeouts.delete(sourceId);
-            if (this._destroyed)
-                return GLib.SOURCE_REMOVE;
-            return callback();
-        });
-        this._transientTimeouts.add(sourceId);
-        return sourceId;
+        return addTransientTimeout(this, seconds, callback);
     }
 
     _buildMessage(method, uri, token, body, headers = {}) {
