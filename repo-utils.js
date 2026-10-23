@@ -461,7 +461,9 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
             web.username || web.password)
             return repoUrl;
 
-        const apiPath = api.pathname.replace(/\/+$/, '');
+        let apiPath = api.pathname;
+        while (apiPath.endsWith('/'))
+            apiPath = apiPath.slice(0, -1);
         const apiReposPrefix = `${apiPath}/repos/`;
         if (!source.pathname.startsWith(apiReposPrefix))
             return repoUrl;
@@ -469,17 +471,19 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
         const resourcePath = source.pathname.slice(apiReposPrefix.length);
         if (!resourcePath)
             return repoUrl;
-        const webPath = web.pathname.replace(/\/+$/, '');
+        let webPath = web.pathname;
+        while (webPath.endsWith('/'))
+            webPath = webPath.slice(0, -1);
         let browserPath = `${webPath}/${resourcePath}`;
         switch (subject.type) {
             case 'Issue':
             case 'Discussion':
                 break;
             case 'PullRequest':
-                browserPath = browserPath.replace(/\/pulls\//i, '/pull/');
+                browserPath = browserPath.replace('/pulls/', '/pull/');
                 break;
             case 'Commit':
-                browserPath = browserPath.replace(/\/commits\//i, '/commit/');
+                browserPath = browserPath.replace('/commits/', '/commit/');
                 break;
             case 'Release':
                 browserPath = `${webPath}/${repoFullName}/releases`;
