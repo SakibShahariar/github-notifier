@@ -39,7 +39,7 @@ export function githubCliLaunchConfig(indicator, item) {
     }
 
 export function openWithGitHubCli(indicator, item) {
-        const config = githubCliLaunchConfig(item);
+        const config = githubCliLaunchConfig(indicator, item);
         if (!config) {
             indicator._setActionStatus('GitHub CLI or a supported terminal is unavailable');
             indicator._addTransientTimeout(4, () => {
