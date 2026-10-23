@@ -146,7 +146,7 @@ These checks do not replace testing inside GNOME Shell; runtime behavior and com
 ### Source layout
 
 - `extension.js` coordinates the GNOME Shell indicator, settings, lifecycle, and delegates each poll cycle to `poll-controller.js`.
-- `api.js`, `state.js`, `repository-polling.js`, `bounded-workers.js`, `poll-controller.js`, `notification-actions.js`, `link-actions.js`, `settings-controller.js`, and `indicator-lifecycle.js` handle API transport, testable bounded worker scheduling, poll orchestration/timers, watched-repository polling, read/dismiss actions, external-link/CLI launches, settings signal wiring, teardown, and persisted state.
+- `api.js`, `state.js`, `notification-polling.js`, `repository-polling.js`, `bounded-workers.js`, `poll-controller.js`, `notification-actions.js`, `link-actions.js`, `settings-controller.js`, and `indicator-lifecycle.js` handle API transport, state persistence, inbox pagination and toast baselines, watched-repository polling, testable bounded worker scheduling, poll orchestration/timers, read/dismiss actions, external-link/CLI launches, settings signal wiring, and teardown.
 - `secret-store.js` manages host-scoped credentials through Secret Service, with safe migration from the legacy setting.
 - `repo-utils.js` contains pure validation, categorization, formatting, and summary helpers that can be tested without GNOME Shell.
 - `ui-indicator.js`, `ui-animations.js`, `ui-utils.js`, `ui-theme.js`, and `notifications.js` separate menu rendering/status UI, motion, tooltips, Matugen theme lifecycle, and desktop notifications from the main indicator class.
