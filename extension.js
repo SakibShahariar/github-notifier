@@ -7,7 +7,7 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
@@ -295,14 +295,14 @@ class Indicator extends PanelMenu.Button {
     }
 
     _visibleNotificationItems() {
-        const mutedRepositories = this._mutedRepositories();
-        return this._notificationItems.filter(item =>
-            this._isNotificationTypeEnabled(item) && !this._isItemMuted(item, mutedRepositories));
+        const enabledCategories = new Set(NOTIFICATION_FILTER_CATEGORIES.filter(category =>
+            this._settings.get_boolean(`filter-${category}`)));
+        return filterVisibleNotificationItems(
+            this._notificationItems, enabledCategories, this._mutedRepositories());
     }
 
     _visibleActivityItems() {
-        const mutedRepositories = this._mutedRepositories();
-        return this._activityItems.filter(item => !this._isItemMuted(item, mutedRepositories));
+        return filterVisibleActivityItems(this._activityItems, this._mutedRepositories());
     }
 
     _iconForItem(item) {
