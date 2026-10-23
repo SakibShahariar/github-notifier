@@ -24,3 +24,9 @@ test('network recovery imports Gio before creating the default network monitor',
     assert.match(source, /^import Gio from 'gi:\/\/Gio';/m);
     assert.match(source, /Gio\.NetworkMonitor\.get_default\(\)/);
 });
+
+test('network recovery handlers and debounce timer are cleaned up on disable', () => {
+    assert.match(source, /if \(indicator\._networkDebounceId\)\s*\{\s*GLib\.source_remove\(indicator\._networkDebounceId\);\s*indicator\._networkDebounceId = null;/);
+    assert.match(source, /if \(indicator\._networkChangedId\)\s*\{\s*indicator\._networkMonitor\.disconnect\(indicator\._networkChangedId\)/);
+    assert.match(source, /if \(indicator\._connectivityChangedId\)\s*\{\s*indicator\._networkMonitor\.disconnect\(indicator\._connectivityChangedId\)/);
+});
