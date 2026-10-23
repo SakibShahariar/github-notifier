@@ -28,3 +28,12 @@ test('token save and removal report when the extension refresh signal cannot be 
     assert.equal((source.match(/const refreshSignaled = signalTokenChanged\(settings\)/g) || []).length, 2);
     assert.equal((source.match(/reload GitHub Notifier to apply the token change/g) || []).length, 2);
 });
+
+
+test('automatic username and polling-preset writes report failure instead of silently losing preferences', () => {
+    assert.ok(source.includes("if (!curUser && !settings.set_string('github-username', login))"));
+    assert.ok(source.includes("testRow.subtitle += ' · connected, but the username could not be saved';"));
+    assert.ok(source.includes("r.subtitle = settings.set_int('poll-interval', p.value)"));
+    assert.ok(source.includes("'Polling interval saved'"));
+    assert.ok(source.includes("'Could not save polling interval'"));
+});
