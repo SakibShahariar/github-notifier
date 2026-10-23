@@ -492,3 +492,16 @@ test('distinguishes inbox loading, missing credentials, errors, filters, and cau
     assert.equal(getNotificationEmptyState({watchEnabled: false, hasToken: false}), 'Inbox monitoring is disabled.');
     assert.equal(getNotificationEmptyState({hasToken: true, hasFetched: true}), "You're all caught up.");
 });
+
+
+test('repository membership changes preserve unrelated invalid entries for user-visible reporting', () => {
+    const values = new Map([['watched-repos', 'Owner/Repo, invalid path, Other/Project, bad//repo']]);
+    const settings = {
+        get_string(key) { return values.get(key) ?? ''; },
+        set_string(key, value) { values.set(key, value); return true; },
+    };
+    assert.equal(setRepositoryMembership(settings, 'watched-repos', 'owner/new', true), true);
+    assert.equal(values.get('watched-repos'), 'owner/repo, invalid path, other/project, bad//repo, owner/new');
+    assert.equal(setRepositoryMembership(settings, 'watched-repos', 'OWNER/REPO', false), true);
+    assert.equal(values.get('watched-repos'), 'invalid path, other/project, bad//repo, owner/new');
+});
