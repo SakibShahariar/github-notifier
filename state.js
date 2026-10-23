@@ -70,7 +70,9 @@ export function restoreCachedState(indicator) {
         : null;
     indicator._dailyStats = updateDailyStats(persistedState.dailyStats, indicator._localDateKey());
     indicator._notificationItems = Array.isArray(persistedState.notificationItems)
-        ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
+        ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string' && item.id.length > 0 &&
+            (item.rawId == null || (typeof item.rawId === 'string' && /^\\d{1,20}$/.test(item.rawId))))
+            .slice(0, MAX_NOTIFICATION_PAGES * 50)
         : []; // cached inbox, restored when GitHub is temporarily unavailable
     indicator._activityItems = Array.isArray(persistedState.activityItems)
         ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
