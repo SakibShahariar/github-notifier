@@ -8,7 +8,7 @@ import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
-import {loadGithubToken} from './secret-store.js';
+import {connectSettingsSignals} from './settings-controller.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
@@ -143,107 +143,11 @@ class Indicator extends PanelMenu.Button {
         // --- menu ---
         this._buildMenuSkeleton();
 
-        this._settingsChangedId = this._settings.connect('changed::poll-interval', () => this._restartTimer());
-        this._hideEmptyChangedId = this._settings.connect('changed::hide-when-empty', () => this._updatePanel());
-        this._unlitChangedId = this._settings.connect('changed::icon-always-unlit', () => this._updatePanel());
-        this._statsChangedId = this._settings.connect('changed::show-daily-stats', () => this._updateDailyStatsItem());
-        // live hero update when username changes
-        this._usernameChangedId = this._settings.connect('changed::github-username', () => this._updateHero());
-        this._filterChangedIds = NOTIFICATION_FILTER_CATEGORIES.map(category =>
-            this._settings.connect(`changed::filter-${category}`, () => {
-                if (this._destroyed)
-                    return;
-                this._lastRenderHash = '';
-                this._renderList();
-                this._updatePanel();
-                this._updateHero();
-            }));
-        const refreshIfMenuOpen = () => {
-            if (this._destroyed || !this.menu?.isOpen)
-                return;
-            this._lastRenderHash = '';
-            this._renderList();
-        };
-        const refreshAccountScope = () => {
-            if (this._destroyed)
-                return;
-            // A poll already in flight may still hold the previous account's data.
-            // Queue a fresh poll; the old result is discarded before it can be saved.
-            if (this._polling)
-                this._accountRefreshPending = true;
-            // Rate-limit headers are host/account-specific; do not carry the old
-            // account's API backoff into the newly selected account.
-            this._rateLimitResetEpoch = 0;
-            this._retryAfterEpoch = 0;
-            this._serverPollIntervalSeconds = 0;
-            const state = this._loadState();
-            this._notificationItems = Array.isArray(state.notificationItems)
-                ? state.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
-                : [];
-            this._activityItems = Array.isArray(state.activityItems)
-                ? state.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
-                : [];
-            this._pendingReadItems = Array.isArray(state.pendingReadItems)
-                ? state.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
-                    .slice(0, MAX_NOTIFICATION_PAGES * 50)
-                : [];
-            this._pendingMarkAllRead = this._isValidPendingMarkAll(state.pendingMarkAllRead)
-                ? state.pendingMarkAllRead
-                : null;
-            this._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
-            this._dailyStats = updateDailyStats(state.dailyStats, this._localDateKey());
-            this._lastRenderHash = '';
-            this._updateHero();
-            this._updatePanel();
-            this._poll();
-        };
-        let tokenRefreshGeneration = 0;
-        const refreshToken = async () => {
-            const generation = ++tokenRefreshGeneration;
-            this._tokenLoading = true;
-            try {
-                const credential = await loadGithubToken(this._settings);
-                if (this._destroyed || generation !== tokenRefreshGeneration)
-                    return;
-                this._token = credential.token;
-                this._tokenWarning = credential.warning || '';
-                if (this._tokenWarning)
-                    log('github-notifier: Secret Service credential migration needs attention');
-            } catch (e) {
-                if (this._destroyed || generation !== tokenRefreshGeneration)
-                    return;
-                this._token = '';
-                this._tokenWarning = e.message;
-                logError(e, 'github-notifier: unable to retrieve GitHub token from Secret Service');
-            } finally {
-                if (!this._destroyed && generation === tokenRefreshGeneration) {
-                    this._tokenLoading = false;
-                    refreshAccountScope();
-                }
-            }
-        };
-        this._tokenChangedId = this._settings.connect('changed::token-generation', refreshToken);
-        this._reposChangedId = this._settings.connect('changed::watched-repos', () => {
-            if (this._destroyed)
-                return;
-            refreshIfMenuOpen();
-            // Establish the new repository's baseline immediately rather than
-            // waiting for the next scheduled poll interval.
-            this._poll();
+        connectSettingsSignals(this, {
+            notificationFilterCategories: NOTIFICATION_FILTER_CATEGORIES,
+            maxNotificationPages: MAX_NOTIFICATION_PAGES,
+            maxRecent: MAX_RECENT,
         });
-        this._mutedReposChangedId = this._settings.connect('changed::muted-repos', () => {
-            if (this._destroyed)
-                return;
-            this._lastRenderHash = '';
-            this._renderList();
-            this._updatePanel();
-            this._updateHero();
-            this._poll();
-        });
-        this._hostChangedId = this._settings.connect('changed::github-host', refreshToken);
-        // Secret Service access is asynchronous so it cannot block GNOME Shell.
-        refreshToken();
-
         this._networkMonitor = Gio.NetworkMonitor.get_default();
         const scheduleNetworkRecoveryPoll = () => {
             if (this._destroyed ||
