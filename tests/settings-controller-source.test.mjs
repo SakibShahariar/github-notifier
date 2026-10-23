@@ -36,3 +36,8 @@ test('repository setting changes queue a fresh poll when the current cycle has s
 test('credential refresh cancels an in-flight poll without treating it as a network failure', () => {
     assert.match(source, /indicator\._tokenLoading = true;[\s\S]*?if \(indicator\._polling\) \{[\s\S]*?indicator\._restartPollRequested = true;[\s\S]*?indicator\._pollCancellable\?\.cancel\(\);/);
 });
+
+
+test('account-scope restoration rejects malformed notification thread IDs too', () => {
+    assert.match(source, /state\.pendingReadItems\.filter\(item => item && typeof item\.id === 'string' && typeof item\.rawId === 'string' && \/\^\\d\+\$\/\.test\(item\.rawId\)\)/);
+});
