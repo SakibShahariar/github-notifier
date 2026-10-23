@@ -26,7 +26,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in extension.js prefs.js repo-utils.js secret-store.js api.js state.js ui-utils.js ui-theme.js notifications.js ui-indicator.js ui-animations.js repository-polling.js notification-actions.js poll-controller.js link-actions.js settings-controller.js indicator-lifecycle.js bounded-workers.js; do
+          shopt -s nullglob
+          files=( *.js )
+          if (( ${#files[@]} == 0 )); then
+            echo "No JavaScript files found" >&2
+            exit 1
+          fi
+          for file in "${files[@]}"; do
             echo "Checking $file"
             node --check --input-type=module < "$file"
           done
