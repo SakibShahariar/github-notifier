@@ -9,7 +9,8 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         let maxId = repoState.lastIssueNumber || 0;
         // A zero issue number is a valid baseline for a repo that had no issues
         // when first watched; don't mistake that established baseline for absence.
-        const seenAnyBefore = repoState.issuesBaselineEstablished === true || !!repoState.lastIssueNumber;
+        const seenAnyBefore = repoState.issuesBaselineEstablished === true ||
+            (typeof repoState.lastIssueNumber === 'number' && Number.isFinite(repoState.lastIssueNumber));
 
         for (const issue of data) {
             const isPR = !!issue.pull_request;
