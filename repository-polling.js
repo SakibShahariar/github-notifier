@@ -6,15 +6,18 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
 
         const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=all&sort=created&direction=desc&per_page=20`);
         const items = [];
-        let maxId = repoState.lastIssueNumber || 0;
-        // A zero issue number is a valid baseline for a repo that had no issues
-        // when first watched; don't mistake that established baseline for absence.
-        const seenAnyBefore = repoState.issuesBaselineEstablished === true ||
-            (typeof repoState.lastIssueNumber === 'number' && Number.isFinite(repoState.lastIssueNumber));
+        // Treat only non-negative safe integers as valid baselines. Zero is a
+        // valid baseline for a repository that had no issues when first watched;
+        // malformed persisted values must trigger a silent re-baseline, not suppress alerts.
+        const hasValidBaseline = Number.isSafeInteger(repoState.lastIssueNumber) &&
+            repoState.lastIssueNumber >= 0;
+        const lastIssueNumber = hasValidBaseline ? repoState.lastIssueNumber : 0;
+        let maxId = lastIssueNumber;
+        const seenAnyBefore = hasValidBaseline;
 
         for (const issue of data) {
             const isPR = !!issue.pull_request;
-            if (seenAnyBefore && issue.number > repoState.lastIssueNumber) {
+            if (seenAnyBefore && issue.number > lastIssueNumber) {
                 items.push({
                     id: `${repo}-${issue.number}`,
                     title: `${isPR ? 'New PR' : 'New issue'}: ${issue.title}`,
@@ -35,7 +38,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
                     if (issue.number > maxId)
                         maxId = issue.number;
                 }
-                const hasMoreNew = data2.some(issue => issue.number > repoState.lastIssueNumber);
+                const hasMoreNew = data2.some(issue => issue.number > lastIssueNumber);
                 if (hasMoreNew) {
                     items.push({
                         id: `${repo}-more-${maxId}`,
