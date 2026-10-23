@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
@@ -412,10 +412,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _encodeRepo(repo) {
-        const [owner, name] = repo.split('/');
-        return `${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+        return encodeRepositoryPath(repo);
     }
-
     async _pollRepoIssues(repo, state, baselineNotes) {
         return pollRepoIssues(this, repo, state, baselineNotes);
     }
@@ -471,15 +469,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _truncate(text, maxLen) {
-        if (!text)
-            return text;
-        const characters = Array.from(String(text));
-        if (characters.length <= maxLen)
-            return text;
-        return `${characters.slice(0, Math.max(0, maxLen - 1)).join('')}…`;
+        return truncateText(text, maxLen);
     }
-
-    // --- section helpers — inline Matugen like update-checker@local (guarantees popup reflects new wallpaper even if theme cached) ---
     _addSectionHeader(section, title, count) {
         addSectionHeader(section, title, count);
     }
