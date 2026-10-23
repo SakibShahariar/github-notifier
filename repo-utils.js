@@ -90,6 +90,28 @@ export function parseRepositoryList(value) {
     ));
 }
 
+/**
+ * Deduplicate watched entries case-insensitively while preserving invalid values
+ * so the poller can report them to the user instead of silently dropping them.
+ */
+export function deduplicateRepositoryEntries(value) {
+    if (typeof value !== 'string')
+        return [];
+    const seen = new Set();
+    const repositories = [];
+    for (const entry of value.split(',')) {
+        const repository = entry.trim();
+        if (!repository)
+            continue;
+        const key = repository.toLowerCase();
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        repositories.push(repository);
+    }
+    return repositories;
+}
+
 export function isRepositoryMuted(repository, mutedRepositories) {
     return typeof repository === 'string' &&
         mutedRepositories.has(repository.trim().toLowerCase());
