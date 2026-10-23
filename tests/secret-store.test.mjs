@@ -180,3 +180,12 @@ test('refuses to migrate a legacy token to a different host even when Secret Ser
     assert.equal(stored, false);
     assert.equal(settings.get_string('github-token'), 'legacy-token');
 });
+
+
+test('does not clear a legacy token when removing a different host credential', () => {
+    const settings = makeSettings({host: 'git.example.com/api/v3', token: 'old-host-token'});
+    settings.set_string('legacy-token-host', 'api.github.com');
+    assert.equal(clearLegacyTokenSetting(settings, 'git.example.com/api/v3'), false);
+    assert.equal(settings.get_string('github-token'), 'old-host-token');
+    assert.equal(settings.get_string('legacy-token-host'), 'api.github.com');
+});
