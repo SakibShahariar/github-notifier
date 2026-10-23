@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import Soup from 'gi://Soup';
 
 // HTTP request and GitHub rate-limit handling shared by the indicator.
 export class ApiError extends Error {
@@ -98,7 +99,7 @@ export function buildMessage(indicator, method, uri, token, body, headers = {}) 
     }
 
 export async function sendOnce(indicator, method, uri, token, body, headers = {}, cancellable = null) {
-        const msg = this._buildMessage(method, uri, token, body, headers);
-        const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, cancellable);
+        const msg = indicator._buildMessage(method, uri, token, body, headers);
+        const bytes = await indicator._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, cancellable);
         return {bytes, msg};
     }
