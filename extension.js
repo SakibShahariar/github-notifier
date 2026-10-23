@@ -13,7 +13,7 @@ import {cleanupIndicator} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, setActionStatus, setStatusBanner, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
@@ -287,24 +287,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _showRepositoryActionStatus(message, undoMuteRepository = null) {
-        const generation = ++this._repositoryActionStatusGeneration;
-        this._setActionStatus(message);
-        this._pendingMuteUndoRepository = undoMuteRepository;
-        if (this._repositoryUndoItem) {
-            this._repositoryUndoItem.label.text = undoMuteRepository
-                ? `Undo mute for ${undoMuteRepository}`
-                : 'Undo mute';
-            this._repositoryUndoItem.visible = Boolean(undoMuteRepository);
-        }
-        this._addTransientTimeout(3, () => {
-            if (generation !== this._repositoryActionStatusGeneration)
-                return GLib.SOURCE_REMOVE;
-            this._setActionStatus('');
-            this._pendingMuteUndoRepository = null;
-            if (this._repositoryUndoItem)
-                this._repositoryUndoItem.visible = false;
-            return GLib.SOURCE_REMOVE;
-        });
+        showRepositoryActionStatus(this, message, undoMuteRepository);
     }
 
     _isItemMuted(item, mutedRepositories = this._mutedRepositories()) {
