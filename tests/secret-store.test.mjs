@@ -209,3 +209,11 @@ test('clears the host-binding marker after clearing a same-host legacy token', (
     assert.equal(settings.get_string('github-token'), '');
     assert.equal(settings.get_string('legacy-token-host'), '');
 });
+
+
+test('does not clear an unscoped legacy token from a host-specific removal/save action', () => {
+    const settings = makeSettings({host: 'git.example.com/api/v3', token: 'legacy-token'});
+    assert.equal(clearLegacyTokenSetting(settings, 'git.example.com/api/v3'), false);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+    assert.equal(settings.get_string('legacy-token-host'), '');
+});
