@@ -304,8 +304,12 @@ test('composes compact secondary detail text for each item kind', () => {
     assert.equal(getItemDetail({kind: 'pr', subtitle: 'owner/repo'}, '2d ago'), 'owner/repo · PR · 2d ago');
     assert.equal(getItemDetail({kind: 'issue', subtitle: 'owner/repo'}, 'just now'), 'owner/repo · issue · just now');
     assert.equal(getItemDetail({kind: 'star', subtitle: 'owner/repo'}, '3d ago'), 'owner/repo · star · 3d ago');
-    assert.equal(getItemDetail({kind: 'other', subtitle: 'owner/repo'}, ''), 'owner/repo · ');
-    assert.equal(getItemDetail(null, ''), ' · ');
+    assert.equal(getItemDetail({kind: 'other', subtitle: 'owner/repo'}, ''), 'owner/repo');
+    assert.equal(getItemDetail({kind: 'other'}, '4m ago'), '4m ago');
+    assert.equal(getItemDetail({kind: 'notification', reasonLabel: 'Mention'}, ''), 'Mention');
+    assert.equal(getItemDetail({kind: 'pr'}, ''), 'PR');
+    assert.equal(getItemDetail(null, ''), '');
+    assert.equal(getItemDetail({kind: 'other', subtitle: '  owner/repo  '}, '  '), 'owner/repo');
 });
 
 
