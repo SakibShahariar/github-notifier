@@ -21,6 +21,7 @@ The Account preferences provide a **Remove saved token** action for the currentl
 - **Secret Service unavailable with no legacy token:** do not issue authenticated requests; show an actionable token/keyring status.
 - **Store failure while saving a new token:** retain the value in the preferences entry for retry, report the error, and do not write it to GSettings.
 - **Legacy cleanup failure after a successful store or removal:** report the partial result clearly and retain the legacy setting rather than claiming it was cleared.
+- **Unscoped legacy token during a host-specific save/removal:** retain it because its original host is unknown; first load binds it to the configured host before host-scoped migration or cleanup can occur.
 - **Legacy migration failure:** keep the old setting and do not claim migration succeeded.
 - **Host change:** look up a separate credential for the new API host. Existing host-specific items remain available.
 - **Username change:** the credential remains unchanged. The user should save the token belonging to the intended account and verify it with **Test connection**.
