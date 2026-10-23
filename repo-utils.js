@@ -397,3 +397,22 @@ export function getStatusAction(message) {
         return 'refresh';
     return null;
 }
+
+
+/** Filter cached notifications by enabled categories and muted repository names. */
+export function filterVisibleNotificationItems(items, enabledCategories, mutedRepositories) {
+    if (!Array.isArray(items))
+        return [];
+    const enabled = enabledCategories instanceof Set
+        ? enabledCategories
+        : new Set(Array.isArray(enabledCategories) ? enabledCategories : []);
+    return items.filter(item => item && enabled.has(getNotificationCategory(item)) &&
+        !isRepositoryMuted(item.subtitle, mutedRepositories));
+}
+
+/** Filter cached activity rows using the same repository mute policy as notifications. */
+export function filterVisibleActivityItems(items, mutedRepositories) {
+    if (!Array.isArray(items))
+        return [];
+    return items.filter(item => item && !isRepositoryMuted(item.subtitle, mutedRepositories));
+}
