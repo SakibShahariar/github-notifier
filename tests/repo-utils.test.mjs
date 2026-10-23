@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -399,4 +399,21 @@ test('filters activity rows by muted repositories and safely handles malformed c
     ];
     assert.deepEqual(filterVisibleActivityItems(items, new Set(['owner/repo'])).map(item => item.id), ['2', '3']);
     assert.deepEqual(filterVisibleActivityItems(null, new Set()), []);
+});
+
+test('encodes repository path segments without encoding the separator', () => {
+    assert.equal(encodeRepositoryPath('octo/repo'), 'octo/repo');
+    assert.equal(encodeRepositoryPath('owner name/repo name'), 'owner%20name/repo%20name');
+    assert.equal(encodeRepositoryPath('owner/repo/subpath'), 'owner/repo');
+    assert.equal(encodeRepositoryPath(''), '/');
+});
+
+test('truncates text by Unicode code point and preserves short values', () => {
+    assert.equal(truncateText('', 3), '');
+    assert.equal(truncateText(null, 3), null);
+    assert.equal(truncateText('hello', 5), 'hello');
+    assert.equal(truncateText('hello', 4), 'hel…');
+    assert.equal(truncateText('A😀BC', 3), 'A😀…');
+    assert.equal(truncateText('hello', 1), '…');
+    assert.equal(truncateText('hello', 0), '…');
 });
