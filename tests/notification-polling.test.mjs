@@ -24,7 +24,7 @@ function makeIndicator(responses) {
             return `https://github.com/${repository}`;
         },
         _nextPageUrl(linkHeader) {
-            const match = linkHeader?.match(/<([^>]+)>;\\s*rel="next"/);
+            const match = linkHeader?.match(/<([^>]+)>;\s*rel="next"/);
             return match ? match[1] : null;
         },
         _pathFromAbsoluteUrl(url) {
@@ -187,4 +187,41 @@ test('corrupt Last-Modified metadata is discarded instead of sent as a request h
     assert.deepEqual(await pollNotifications(indicator, state), indicator._notificationItems);
     assert.deepEqual(indicator.calls[0].options.headers, {});
     assert.equal(state.notificationsLastModified, null);
+});
+
+
+test('follows the next-page link when a full inbox page is returned', async () => {
+    const nextPath = '/notifications?per_page=50&participating=false&page=2';
+    const firstPage = Array.from({length: 50}, (_, index) => ({
+        id: index + 1,
+        reason: 'mention',
+        subject: {type: 'Issue', title: `Existing ${index + 1}`},
+        repository: {full_name: 'owner/repo'},
+        updated_at: '2026-10-23T00:00:00Z',
+    }));
+    const indicator = makeIndicator({
+        [inboxPath]: {
+            data: firstPage,
+            linkHeader: '<https://api.github.com/notifications?per_page=50&participating=false&page=2>; rel="next"',
+            lastModified: 'Fri, 23 Oct 2026 00:00:00 GMT',
+            notModified: false,
+        },
+        [nextPath]: {
+            data: [{id: 51, reason: 'mention', subject: {type: 'Issue', title: 'New'}, repository: {full_name: 'owner/repo'}, updated_at: '2026-10-23T00:01:00Z'}],
+            linkHeader: null,
+            lastModified: null,
+            notModified: false,
+        },
+    });
+    const state = {
+        notificationBaselineEstablished: true,
+        toastedNotificationIds: Array.from({length: 50}, (_, index) => String(index + 1)),
+    };
+
+    const items = await pollNotifications(indicator, state, 3);
+    assert.equal(indicator.calls.length, 2);
+    assert.equal(indicator.calls[1].path, nextPath);
+    assert.equal(items.length, 51);
+    assert.equal(items[50].rawId, '51');
+    assert.equal(items[50].isNewToast, true);
 });
