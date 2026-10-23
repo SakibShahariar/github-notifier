@@ -94,5 +94,4 @@ export function cleanupIndicator(indicator) {
         }
         if (indicator._session)
             indicator._session.abort();
-        super.destroy();
     }
