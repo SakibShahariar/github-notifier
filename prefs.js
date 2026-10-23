@@ -68,7 +68,15 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         const userRow = new Adw.EntryRow({title: 'GitHub username', show_apply_button: true});
         userRow.add_prefix(new Gtk.Image({icon_name: 'system-users-symbolic', pixel_size: 16}));
         userRow.set_text(settings.get_string('github-username'));
-        userRow.connect('apply', () => settings.set_string('github-username', userRow.get_text().trim()));
+        userRow.connect('apply', () => {
+            const username = userRow.get_text().trim();
+            if (!settings.set_string('github-username', username)) {
+                testRow.subtitle = 'Could not save GitHub username setting';
+                userRow.set_text(settings.get_string('github-username'));
+                return;
+            }
+            testRow.subtitle = 'GitHub username saved';
+        });
         accountGroup.add(userRow);
 
         const hostRow = new Adw.EntryRow({title: 'API host', show_apply_button: true});
@@ -309,8 +317,13 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 mutedError.set_revealed(true);
                 return;
             }
+            if (!settings.set_string('muted-repos', values.join(', '))) {
+                mutedError.set_title('Could not save muted repositories');
+                mutedError.set_revealed(true);
+                mutedRow.set_text(settings.get_string('muted-repos'));
+                return;
+            }
             mutedError.set_revealed(false);
-            settings.set_string('muted-repos', values.join(', '));
             mutedRow.set_text(values.join(', '));
         });
 
@@ -335,6 +348,11 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         });
         reposGroup.add(invalidBanner);
         reposGroup.add(emptyBanner);
+        const saveErrorBanner = new Adw.Banner({
+            title: 'Could not save watched repositories',
+            revealed: false,
+        });
+        reposGroup.add(saveErrorBanner);
 
         const repoRows = [];
         let syncing = false;
@@ -343,8 +361,9 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             if (syncing) return;
             const values = repoRows.map(r => r.get_text().trim()).filter(t => t.length > 0);
             syncing = true;
-            settings.set_string('watched-repos', values.join(', '));
+            const saved = settings.set_string('watched-repos', values.join(', '));
             syncing = false;
+            saveErrorBanner.set_revealed(!saved);
             let hasInvalid = false;
             for (const row of repoRows) {
                 const txt = row.get_text().trim();
