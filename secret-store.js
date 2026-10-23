@@ -79,7 +79,17 @@ async function resolveApi(apiOverride) {
 
 export async function loadGithubToken(settings, apiOverride = null) {
     const host = settings.get_string('github-host').trim() || 'api.github.com';
+    const normalizedHost = normalizeSecretHost(host);
     const legacyToken = settings.get_string('github-token');
+    let legacyHost = normalizeSecretHost(settings.get_string('legacy-token-host') || '');
+
+    // The old plaintext setting was not host-scoped. Bind it once, before any
+    // fallback or migration, so a later host change cannot send it elsewhere.
+    if (legacyToken && !settings.get_string('legacy-token-host').trim()) {
+        if (!settings.set_string('legacy-token-host', normalizedHost))
+            throw new Error('Could not safely bind the existing legacy token to this API host. The token was retained; check GSettings access and retry.');
+        legacyHost = normalizedHost;
+    }
 
     let api;
     let storedToken;
@@ -87,23 +97,26 @@ export async function loadGithubToken(settings, apiOverride = null) {
         api = await resolveApi(apiOverride);
         storedToken = await api.lookup(host);
     } catch (_error) {
-        if (legacyToken) {
+        if (legacyToken && legacyHost === normalizedHost) {
             return {
                 token: legacyToken,
                 source: 'legacy',
                 warning: 'Secret Service is unavailable; the existing legacy token was retained',
             };
         }
+        if (legacyToken && legacyHost !== normalizedHost)
+            throw new Error(`Secret Service is unavailable and the legacy token is bound to ${legacyHost}; refusing to send it to ${normalizedHost}. Unlock the keyring or enter a token for this host.`);
         throw new Error('Secret Service is unavailable. Unlock or install a compatible keyring to use a saved token.');
     }
 
     if (storedToken) {
         let warning = '';
-        // Recover safely from a crash between writing the secret and clearing
-        // the old setting. Never clear a legacy value before a successful store.
-        if (legacyToken && settings.get_string('github-token') === legacyToken &&
-            !settings.set_string('github-token', '')) {
+        if (legacyToken && legacyHost === normalizedHost &&
+            settings.get_string('github-token') === legacyToken &&
+            !clearLegacyTokenSetting(settings)) {
             warning = 'The saved token is available, but the legacy setting could not be cleared';
+        } else if (legacyToken && legacyHost !== normalizedHost) {
+            warning = `A legacy token for ${legacyHost} remains stored; it was not used for ${normalizedHost}`;
         }
         return {token: storedToken, source: 'secret-service', warning};
     }
@@ -111,11 +124,12 @@ export async function loadGithubToken(settings, apiOverride = null) {
     if (!legacyToken)
         return {token: '', source: 'none', warning: ''};
 
+    if (legacyHost !== normalizedHost)
+        throw new Error(`The legacy token is bound to ${legacyHost}, not ${normalizedHost}. Switch back to that API host or enter a token for the new host; the existing token was retained.`);
+
     try {
         await api.store(host, legacyToken);
     } catch (_error) {
-        // Keep using an existing credential if migration cannot complete.
-        // New tokens are never written to the legacy setting as a fallback.
         return {
             token: legacyToken,
             source: 'legacy',
@@ -124,7 +138,7 @@ export async function loadGithubToken(settings, apiOverride = null) {
     }
 
     if (settings.get_string('github-token') === legacyToken &&
-        !settings.set_string('github-token', '')) {
+        !clearLegacyTokenSetting(settings)) {
         return {
             token: legacyToken,
             source: 'legacy',
@@ -137,7 +151,12 @@ export async function loadGithubToken(settings, apiOverride = null) {
 
 export function clearLegacyTokenSetting(settings) {
     const legacyToken = settings.get_string('github-token');
-    return !legacyToken || settings.set_string('github-token', '');
+    if (legacyToken && !settings.set_string('github-token', ''))
+        return false;
+    // The host marker is non-secret metadata; clear it only after plaintext is gone.
+    if (settings.get_string('legacy-token-host'))
+        settings.set_string('legacy-token-host', '');
+    return true;
 }
 
 export async function storeGithubToken(host, token, apiOverride = null) {
