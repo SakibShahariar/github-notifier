@@ -106,3 +106,72 @@ export function cleanupIndicator(indicator) {
         if (indicator._session)
             indicator._session.abort();
     }
+
+
+// Attach debounced recovery handlers once the indicator state is initialized.
+export function setupNetworkRecovery(indicator) {
+            indicator._networkMonitor = Gio.NetworkMonitor.get_default();
+            const scheduleNetworkRecoveryPoll = () => {
+                if (indicator._destroyed ||
+                    indicator._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
+                    return;
+    
+                // A real network recovery is a new opportunity; don't carry the
+                // exponential delay from the previous failed connection forward.
+                indicator._networkFailureCount = 0;
+                indicator._networkRetryAfterEpoch = 0;
+    
+                // Network and connectivity signals can fire in bursts during a
+                // Wi-Fi/VPN transition. Share one debounce window between both.
+                if (indicator._networkDebounceId)
+                    GLib.source_remove(indicator._networkDebounceId);
+                indicator._networkDebounceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+                    indicator._networkDebounceId = null;
+                    if (!indicator._destroyed &&
+                        indicator._networkMonitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
+                        indicator._poll();
+                    return GLib.SOURCE_REMOVE;
+                });
+            };
+            indicator._networkChangedId = indicator._networkMonitor.connect('network-changed', (monitor, available) => {
+                if (available)
+                    scheduleNetworkRecoveryPoll();
+            });
+            // Connectivity can become FULL after a captive-portal sign-in without
+            // an availability transition, so listen for the property notification too.
+            indicator._connectivityChangedId = indicator._networkMonitor.connect('notify::connectivity', scheduleNetworkRecoveryPoll);
+    
+}
+
+// Start polling after Shell startup, with a bounded fallback if the signal is delayed.
+export function scheduleInitialPoll(indicator) {
+            // Defer first poll until shell startup completes (or ~5–8s).
+            const startPoll = () => {
+                if (indicator._destroyed)
+                    return;
+                if (indicator._startupId) {
+                    GLib.source_remove(indicator._startupId);
+                    indicator._startupId = null;
+                }
+                if (indicator._startupCompleteId) {
+                    try { Main.layoutManager.disconnect(indicator._startupCompleteId); } catch (e) {}
+                    indicator._startupCompleteId = null;
+                }
+                indicator._poll();
+            };
+            indicator._startupId = null;
+            indicator._startupCompleteId = null;
+            if (Main.layoutManager._startingUp) {
+                indicator._startupCompleteId = Main.layoutManager.connect('startup-complete', () => startPoll());
+                indicator._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
+                    startPoll();
+                    return GLib.SOURCE_REMOVE;
+                });
+            } else {
+                indicator._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
+                    startPoll();
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+    
+}
