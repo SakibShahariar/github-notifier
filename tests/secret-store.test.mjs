@@ -5,6 +5,7 @@ import {
     clearGithubToken,
     clearLegacyTokenSetting,
     getSecretAttributes,
+    hasLegacyTokenForDifferentHost,
     loadGithubToken,
     normalizeSecretHost,
     storeGithubToken,
@@ -216,4 +217,14 @@ test('does not clear an unscoped legacy token from a host-specific removal/save 
     assert.equal(clearLegacyTokenSetting(settings, 'git.example.com/api/v3'), false);
     assert.equal(settings.get_string('github-token'), 'legacy-token');
     assert.equal(settings.get_string('legacy-token-host'), '');
+});
+
+
+test('does not report a stale host marker as a retained legacy token after plaintext cleanup', () => {
+    const settings = makeSettings({host: 'git.example.com/api/v3'});
+    settings.set_string('legacy-token-host', 'api.github.com');
+    assert.equal(hasLegacyTokenForDifferentHost(settings, 'git.example.com/api/v3'), false);
+    settings.set_string('github-token', 'legacy-token');
+    assert.equal(hasLegacyTokenForDifferentHost(settings, 'git.example.com/api/v3'), true);
+    assert.equal(hasLegacyTokenForDifferentHost(settings, 'API.GITHUB.COM/'), false);
 });
