@@ -78,7 +78,10 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             const host = hostRow.get_text().trim();
             try {
                 getApiBase(host || 'api.github.com');
-                settings.set_string('github-host', host || 'api.github.com');
+                if (!settings.set_string('github-host', host || 'api.github.com')) {
+                    testRow.subtitle = 'Could not save API host setting';
+                    return;
+                }
                 testRow.subtitle = 'API host saved';
             } catch (error) {
                 testRow.subtitle = error.message;
