@@ -66,3 +66,20 @@ test('every named local module import resolves to an exported symbol', () => {
     }
     assert.deepEqual(missing, []);
 });
+
+test('every referenced GNOME GI namespace is imported or locally declared', () => {
+    const namespaces = ['Gio', 'GLib', 'St', 'Clutter', 'Pango', 'Main', 'GObject', 'Soup', 'PopupMenu', 'PanelMenu', 'Extension', 'Secret', 'Adw', 'Gtk', 'Gdk', 'Meta', 'Shell', 'ByteArray'];
+    const missing = [];
+    for (const [path, source] of sources) {
+        const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+        for (const name of namespaces) {
+            if (!new RegExp('\\b' + name + '\\s*\\.').test(code))
+                continue;
+            const declared = new RegExp('\\bimport\\s+(?:\\*\\s+as\\s+' + name + '\\b|' + name + '\\s+from|\\{[^}]*\\b' + name + '\\b[^}]*\\}\\s+from)').test(source) ||
+                new RegExp('\\b(?:const|let|var)\\s+(?:\\{[^}]*\\b' + name + '\\b[^}]*\\}|'+name+')\\s*=').test(source);
+            if (!declared)
+                missing.push(path + ': references ' + name + ' without importing or declaring it');
+        }
+    }
+    assert.deepEqual(missing, []);
+});
