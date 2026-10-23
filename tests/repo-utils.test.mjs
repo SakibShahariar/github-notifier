@@ -375,6 +375,10 @@ test('converts GitHub API subject URLs into browser-facing issue, PR, commit and
     assert.equal(getSubjectHtmlUrl({type: 'WorkflowRun', url: `${api}/repos/${repo}/actions/runs/2`}, repo, api, web), `${web}/${repo}/actions`);
     assert.equal(getSubjectHtmlUrl({type: 'Unknown', url: `${api}/repos/${repo}/x`}, repo, api, web), `${web}/${repo}`);
     assert.equal(getSubjectHtmlUrl({}, repo, api, web), `${web}/${repo}`);
+    assert.equal(getSubjectHtmlUrl({type: 'Issue', url: 'https://evil.example/repos/owner/project/issues/7'}, repo, api, web), `${web}/${repo}`);
+    assert.equal(getSubjectHtmlUrl({type: 'Issue', url: 'https://git.example.com/githubish/api/v3/repos/owner/project/issues/7'}, repo, api, web), `${web}/${repo}`);
+    assert.equal(getSubjectHtmlUrl({type: 'Issue', url: 'http://git.example.com/github/api/v3/repos/owner/project/issues/7'}, repo, api, web), `${web}/${repo}`);
+    assert.equal(getSubjectHtmlUrl({type: 'Issue', url: 'https://git.example.com/github/api/v3/repos/owner/project/issues/7'}, repo, api, web), `${web}/${repo}/issues/7`);
 });
 
 
