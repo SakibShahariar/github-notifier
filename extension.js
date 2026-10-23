@@ -14,6 +14,7 @@ import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSk
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator, togglePollingPause} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
+import {pollNotifications} from './notification-polling.js';
 import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, publishNotificationSummary, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {githubCliLaunchConfig, openUri, openWithGitHubCli} from './link-actions.js';
 import {_createMessageTraySource, notify, notifyBaseline} from './notifications.js';
@@ -388,6 +389,10 @@ class Indicator extends PanelMenu.Button {
 
     _updateRateFooter() {
         updateRateFooter(this);
+    }
+
+    async _pollNotifications(state) {
+        return pollNotifications(this, state, MAX_NOTIFICATION_PAGES);
     }
 
     _reasonToKind(reason, subjectType) {
