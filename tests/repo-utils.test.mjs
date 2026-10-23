@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -478,4 +478,17 @@ test('browser links stay within the configured GitHub or Enterprise web base', (
         ['https://user:pass@github.com/owner/repo', 'https://github.com'],
         ['not a URL', 'https://github.com'],
     ]) assert.equal(isSafeWebUrl(value, base), false, value);
+});
+
+
+test('distinguishes inbox loading, missing credentials, errors, filters, and caught-up state', () => {
+    assert.equal(getNotificationEmptyState({tokenLoading: true}), 'Checking GitHub…');
+    assert.equal(getNotificationEmptyState({hasToken: false}), 'Add a GitHub token in Settings to start.');
+    assert.equal(getNotificationEmptyState({hasToken: false, tokenWarning: 'keyring locked'}), 'GitHub token unavailable — check Settings.');
+    assert.equal(getNotificationEmptyState({hasToken: true, hasFetched: false}), 'Checking GitHub for notifications…');
+    assert.equal(getNotificationEmptyState({hasToken: true, statusIsError: true}), 'No notifications loaded. See the message above for details.');
+    assert.equal(getNotificationEmptyState({hasToken: true, statusIsError: true, hasCachedNotifications: true}), 'Could not refresh notifications. See the message above for details.');
+    assert.equal(getNotificationEmptyState({hasToken: true, hasCachedNotifications: true}), 'No notifications match your filters or muted repositories.');
+    assert.equal(getNotificationEmptyState({watchEnabled: false, hasToken: false}), 'Inbox monitoring is disabled.');
+    assert.equal(getNotificationEmptyState({hasToken: true, hasFetched: true}), "You're all caught up.");
 });
