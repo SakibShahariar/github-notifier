@@ -14,3 +14,10 @@ test('quiet-hours settings report failed GSettings writes instead of false succe
     assert.match(source, /if \(!settings\.set_string\('quiet-hours-start', value\)\)\s*\{\s*quietStatusRow\.subtitle = 'Could not save quiet-hours start\.';\s*quietStartRow\.set_text\(settings\.get_string\('quiet-hours-start'\)\);\s*return;/);
     assert.match(source, /if \(!settings\.set_string\('quiet-hours-end', value\)\)\s*\{\s*quietStatusRow\.subtitle = 'Could not save quiet-hours end\.';\s*quietEndRow\.set_text\(settings\.get_string\('quiet-hours-end'\)\);\s*return;/);
 });
+
+
+test('username, muted-repository, and watched-repository saves report write failures', () => {
+    assert.match(source, /if \(!settings\.set_string\('github-username', username\)\)\s*\{\s*testRow\.subtitle = 'Could not save GitHub username setting';\s*userRow\.set_text\(settings\.get_string\('github-username'\)\);/);
+    assert.match(source, /if \(!settings\.set_string\('muted-repos', values\.join\(', '\)\)\)\s*\{\s*mutedError\.set_title\('Could not save muted repositories'\)/);
+    assert.match(source, /const saved = settings\.set_string\('watched-repos', values\.join\(', '\)\);\s*syncing = false;\s*saveErrorBanner\.set_revealed\(!saved\);/);
+});
