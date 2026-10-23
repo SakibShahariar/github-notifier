@@ -87,6 +87,24 @@ test('subsequent inbox polls toast only unseen thread IDs and send If-Modified-S
     assert.deepEqual(state.toastedNotificationIds, ['123', '456']);
 });
 
+test('malformed persisted toast baselines are normalized without breaking inbox polling', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {
+            data: [{id: '123', reason: 'mention', subject: {type: 'Issue', title: 'Hello'}, repository: {full_name: 'owner/repo'}, updated_at: '2026-10-23T00:00:00Z'}],
+            linkHeader: null,
+            lastModified: null,
+            notModified: false,
+        },
+    });
+    const state = {notificationBaselineEstablished: 'true', toastedNotificationIds: 'corrupt'};
+    const items = await pollNotifications(indicator, state);
+
+    assert.equal(items.length, 1);
+    assert.equal(items[0].isNewToast, false);
+    assert.deepEqual(state.toastedNotificationIds, ['123']);
+    assert.equal(state.notificationBaselineEstablished, true);
+});
+
 test('a 304 inbox response preserves the cached notifications without rebuilding them', async () => {
     const cached = [{id: 'notif-123', rawId: '123'}];
     const indicator = makeIndicator({
