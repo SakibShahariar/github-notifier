@@ -4,10 +4,10 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
-import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
+import {apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, restoreCachedState, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, buildPanelButton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
@@ -19,7 +19,6 @@ import {githubCliLaunchConfig, openUri, openWithGitHubCli} from './link-actions.
 import {_createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {applyMatugenThemeInternal, loadMatugenColorsIfChanged, removeMatugenTheme, setupMatugenMonitor} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 const MAX_RECENT = 40;
