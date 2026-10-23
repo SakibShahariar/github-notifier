@@ -15,14 +15,14 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
 
     let path = '/notifications?per_page=50&participating=false';
     let pagesFetched = 0;
-    const lastModified = state.notificationsLastModified;
-    const hasValidLastModified = isValidLastModified(lastModified);
-    if (lastModified && !hasValidLastModified)
+    const conditionalLastModified = state.notificationsLastModified;
+    const hasValidLastModified = isValidLastModified(conditionalLastModified);
+    if (conditionalLastModified && !hasValidLastModified)
         state.notificationsLastModified = null;
 
     while (path && pagesFetched < maxPages) {
         const headers = pagesFetched === 0 && hasValidLastModified
-            ? {'If-Modified-Since': lastModified}
+            ? {'If-Modified-Since': conditionalLastModified}
             : {};
         const response = await indicator._apiRequest('GET', path, {headers});
         if (pagesFetched === 0 && response.notModified) {
