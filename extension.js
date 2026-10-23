@@ -1,6 +1,4 @@
 import GObject from 'gi://GObject';
-import St from 'gi://St';
-import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
@@ -13,7 +11,7 @@ import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './ind
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, buildPanelButton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
@@ -107,24 +105,8 @@ class Indicator extends PanelMenu.Button {
             ? persistedState.lastFetchedAt
             : null;
 
-        // --- panel button contents ---
-        const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
-        const iconPath = GLib.build_filenamev([this._ext.path, 'icons', 'github-symbolic.svg']);
-        this._icon = new St.Icon({
-            gicon: Gio.icon_new_for_string(iconPath),
-            style_class: 'system-status-icon',
-        });
-        this._label = new St.Label({
-            text: '',
-            y_align: Clutter.ActorAlign.CENTER,
-            style_class: 'github-notifier-label',
-        });
-        box.add_child(this._icon);
-        box.add_child(this._label);
-        this.add_child(box);
-        this._label.hide();
-        this._setTooltip(this, 'GitHub Notifier');
-        
+        buildPanelButton(this);
+
         // Scope menu styling to this extension to match update-checker
         this.menu.box.add_style_class_name('github-notifier-menu');
 
