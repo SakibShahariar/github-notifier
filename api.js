@@ -79,3 +79,8 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
             : null;
         return {data, linkHeader, lastModified, notModified: false};
 }
+
+
+export function buildMessage(indicator, method, uri, token, body, headers = {}) {}
+
+export async function sendOnce(indicator, method, uri, token, body, headers = {}, cancellable = null) {}
