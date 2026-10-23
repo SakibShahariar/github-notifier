@@ -1,8 +1,16 @@
 // Watched-repository polling. The indicator remains the owner of API access and web-host settings.
+// Repair malformed nested cache containers before reading or updating baselines.
+function getRepositoryState(state, repo) {
+    if (!state.repos || typeof state.repos !== 'object' || Array.isArray(state.repos))
+        state.repos = {};
+    const existing = state.repos[repo];
+    if (!existing || typeof existing !== 'object' || Array.isArray(existing))
+        state.repos[repo] = {};
+    return state.repos[repo];
+}
+
 export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
-        state.repos ||= {};
-        state.repos[repo] ||= {};
-        const repoState = state.repos[repo];
+        const repoState = getRepositoryState(state, repo);
 
         const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=all&sort=created&direction=desc&per_page=20`);
         const items = [];
@@ -71,9 +79,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
     }
 
 export async function pollRepoStars(indicator, repo, state, baselineNotes) {
-        state.repos ||= {};
-        state.repos[repo] ||= {};
-        const repoState = state.repos[repo];
+        const repoState = getRepositoryState(state, repo);
 
         const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}`);
         const count = data.stargazers_count;
