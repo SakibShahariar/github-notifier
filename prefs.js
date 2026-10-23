@@ -50,11 +50,14 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
+                const legacyHostUnknown = Boolean(settings.get_string('github-token')) && !legacyHost;
                 testRow.subtitle = legacyHostDiffers
                     ? `Token saved for this host; legacy token for ${legacyHost} was retained`
-                    : legacyCleared
-                        ? 'Token saved in Secret Service'
-                        : 'Token saved, but the legacy plaintext setting could not be cleared';
+                    : legacyHostUnknown
+                        ? 'Token saved; an unscoped legacy token was retained because its original host is unknown'
+                        : legacyCleared
+                            ? 'Token saved in Secret Service'
+                            : 'Token saved, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not save token: ' + error.message;
             } finally {
@@ -117,11 +120,14 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
+                const legacyHostUnknown = Boolean(settings.get_string('github-token')) && !legacyHost;
                 testRow.subtitle = legacyHostDiffers
                     ? `Saved token removed for this host; legacy token for ${legacyHost} was retained`
-                    : legacyCleared
-                        ? 'Saved token removed for this API host'
-                        : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
+                    : legacyHostUnknown
+                        ? 'Saved token removed; an unscoped legacy token was retained because its original host is unknown'
+                        : legacyCleared
+                            ? 'Saved token removed for this API host'
+                            : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not remove token: ' + error.message;
             } finally {
