@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
@@ -14,7 +14,7 @@ import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSk
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
-import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
+import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, publishNotificationSummary, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {githubCliLaunchConfig, openUri, openWithGitHubCli} from './link-actions.js';
 import {_createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {applyMatugenThemeInternal, loadMatugenColorsIfChanged, removeMatugenTheme, setupMatugenMonitor} from './ui-theme.js';
@@ -448,20 +448,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _publishNotificationSummary(unreadNotifications, activityItems, enabled = true) {
-        const previousText = this._settings.get_string('notification-summary');
-        let previous = null;
-        try { previous = JSON.parse(previousText || '{}'); } catch (_error) {}
-        const sameCounts = previous && previous.version === 1 && previous.enabled === enabled &&
-            previous.unreadNotifications === unreadNotifications && previous.activityItems === activityItems;
-        if (this._summaryPublished && sameCounts)
-            return;
-
-        const serialized = JSON.stringify(createNotificationSummary(
-            unreadNotifications, activityItems, enabled, new Date().toISOString()
-        ));
-        if (previousText !== serialized && !this._settings.set_string('notification-summary', serialized))
-            return;
-        this._summaryPublished = true;
+        return publishNotificationSummary(this, unreadNotifications, activityItems, enabled);
     }
 
     _updatePanel() {

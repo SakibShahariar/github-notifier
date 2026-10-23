@@ -11,3 +11,10 @@ test('opened notification rows respect mark-read-on-open while activity rows are
     assert.match(source, /return indicator\._markThreadRead\(item\)/);
     assert.match(source, /return indicator\._dismissActivityItem\(item\)/);
 });
+
+test('notification summary publisher avoids redundant writes and preserves failed writes for retry', () => {
+    assert.match(source, /export function publishNotificationSummary\(indicator, unreadNotifications, activityItems, enabled = true\)/);
+    assert.match(source, /indicator\._summaryPublished && sameCounts/);
+    assert.match(source, /previousText !== serialized && !indicator\._settings\.set_string\('notification-summary', serialized\)/);
+    assert.match(source, /indicator\._summaryPublished = true/);
+});

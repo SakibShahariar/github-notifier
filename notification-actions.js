@@ -1,5 +1,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import {createNotificationSummary} from './repo-utils.js';
 
 // Read/dismiss actions and their offline retry state are delegated while the indicator owns UI and persistence.
 export async function markThreadRead(indicator, item) {
@@ -199,4 +200,22 @@ export function handleOpenedItem(indicator, item) {
     } else {
         return indicator._dismissActivityItem(item);
     }
+}
+
+/** Publish the current unread counts to the extension's shared settings key. */
+export function publishNotificationSummary(indicator, unreadNotifications, activityItems, enabled = true) {
+    const previousText = indicator._settings.get_string('notification-summary');
+    let previous = null;
+    try { previous = JSON.parse(previousText || '{}'); } catch (_error) {}
+    const sameCounts = previous && previous.version === 1 && previous.enabled === enabled &&
+        previous.unreadNotifications === unreadNotifications && previous.activityItems === activityItems;
+    if (indicator._summaryPublished && sameCounts)
+        return;
+
+    const serialized = JSON.stringify(createNotificationSummary(
+        unreadNotifications, activityItems, enabled, new Date().toISOString()
+    ));
+    if (previousText !== serialized && !indicator._settings.set_string('notification-summary', serialized))
+        return;
+    indicator._summaryPublished = true;
 }
