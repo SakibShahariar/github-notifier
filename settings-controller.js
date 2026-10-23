@@ -18,6 +18,17 @@ export function connectSettingsSignals(indicator, constants) {
                 indicator._updatePanel();
                 indicator._updateHero();
             }));
+        const pollAfterRepositorySettingsChange = () => {
+            if (indicator._destroyed)
+                return;
+            // The current cycle captured the old watch/mute set. Queue one fresh
+            // cycle so changes made mid-request are applied immediately.
+            if (indicator._polling) {
+                indicator._restartPollRequested = true;
+                return;
+            }
+            indicator._poll();
+        };
         const refreshIfMenuOpen = () => {
             if (indicator._destroyed || !indicator.menu?.isOpen)
                 return;
@@ -87,9 +98,9 @@ export function connectSettingsSignals(indicator, constants) {
             if (indicator._destroyed)
                 return;
             refreshIfMenuOpen();
-            // Establish the new repository's baseline immediately rather than
-            // waiting for the next scheduled poll interval.
-            indicator._poll();
+            // Establish the new repository's baseline immediately, even when
+            // another poll cycle was already in flight.
+            pollAfterRepositorySettingsChange();
         });
         indicator._mutedReposChangedId = indicator._settings.connect('changed::muted-repos', () => {
             if (indicator._destroyed)
@@ -98,7 +109,7 @@ export function connectSettingsSignals(indicator, constants) {
             indicator._renderList();
             indicator._updatePanel();
             indicator._updateHero();
-            indicator._poll();
+            pollAfterRepositorySettingsChange();
         });
         indicator._hostChangedId = indicator._settings.connect('changed::github-host', refreshToken);
         // Secret Service access is asynchronous so it cannot block GNOME Shell.

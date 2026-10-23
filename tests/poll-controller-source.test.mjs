@@ -27,3 +27,11 @@ test('pause toggle refreshes the menu and polls immediately when resumed', () =>
 test('watched repository polling uses a bounded three-worker pool', () => {
     assert.match(source, /runBoundedWorkers\(\s*repos,\s*3,/);
 });
+
+
+test('drops activity returned by an in-flight request after its repository becomes muted', () => {
+    assert.match(source, /import \{[^}]*filterVisibleActivityItems[^}]*\} from '\.\/repo-utils\.js'/);
+    assert.match(source, /const visibleNewActivityItems = filterVisibleActivityItems\(newActivityItems, indicator\._mutedRepositories\(\)\)/);
+    assert.match(source, /indicator\._activityItems = visibleNewActivityItems\.concat\(indicator\._activityItems\)/);
+    assert.match(source, /toToast\.concat\(visibleNewActivityItems\.filter/);
+});

@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
-import {deduplicateRepositoryEntries, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {deduplicateRepositoryEntries, filterVisibleActivityItems, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
 import {runBoundedWorkers} from './bounded-workers.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
@@ -368,11 +368,14 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
         const newNotificationCount = notificationItems.filter(item => item.isNewToast).length;
         const toToast = notificationItems.filter(n => n.isNewToast &&
             indicator._isNotificationTypeEnabled(n) && !indicator._isItemMuted(n));
+        // A repository can be muted while its request is in flight. Never
+        // cache/toast that activity after the preference has changed.
+        const visibleNewActivityItems = filterVisibleActivityItems(newActivityItems, indicator._mutedRepositories());
         if (indicator._settings.get_boolean('show-daily-stats'))
-            indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, newActivityItems.length);
+            indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, visibleNewActivityItems.length);
 
-        if (newActivityItems.length > 0)
-            indicator._activityItems = newActivityItems.concat(indicator._activityItems).slice(0, maxRecent);
+        if (visibleNewActivityItems.length > 0)
+            indicator._activityItems = visibleNewActivityItems.concat(indicator._activityItems).slice(0, maxRecent);
 
         if (updateFetchedAt)
             indicator._lastFetchedAt = new Date().toISOString();
@@ -381,7 +384,7 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
         indicator._updateHero();
         indicator._updateRateFooter();
 
-        const toNotify = toToast.concat(newActivityItems.filter(item => !indicator._isItemMuted(item)));
+        const toNotify = toToast.concat(visibleNewActivityItems.filter(item => !indicator._isItemMuted(item)));
         if (toNotify.length > 0)
             indicator._notify(toNotify);
 }
