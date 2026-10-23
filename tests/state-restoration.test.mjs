@@ -82,3 +82,9 @@ test('validates queued mark-all timestamps and caps persisted identifier arrays'
     assert.equal(isValidPendingMarkAll({}, {...valid, notificationIds: [null]}), false);
     assert.equal(isValidPendingMarkAll({}, {...valid, activityIds: [null]}), false);
 });
+
+
+test('cached state persistence reports rejected GSettings writes', () => {
+    assert.ok(stateSource.includes("!indicator._settings.set_string('last-state', serialized)"));
+    assert.ok(stateSource.includes("log('github-notifier: GSettings refused to persist cached state')"));
+});
