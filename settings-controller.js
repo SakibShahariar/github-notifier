@@ -62,7 +62,7 @@ export function connectSettingsSignals(indicator, constants) {
             indicator._pendingMarkAllRead = indicator._isValidPendingMarkAll(state.pendingMarkAllRead)
                 ? state.pendingMarkAllRead
                 : null;
-            indicator._lastFetchedAt = typeof state.lastFetchedAt === 'string' ? state.lastFetchedAt : null;
+            indicator._lastFetchedAt = typeof state.lastFetchedAt === 'string' && Number.isFinite(Date.parse(state.lastFetchedAt)) ? state.lastFetchedAt : null;
             indicator._dailyStats = updateDailyStats(state.dailyStats, indicator._localDateKey());
             indicator._lastRenderHash = '';
             indicator._updateHero();
