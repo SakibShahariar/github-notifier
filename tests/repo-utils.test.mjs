@@ -359,6 +359,8 @@ test('resolves browser base URLs for GitHub.com and GitHub Enterprise hosts', ()
     assert.equal(getWebBase('api.github.com'), 'https://github.com');
     assert.equal(getWebBase('git.example.com/api/v3'), 'https://git.example.com');
     assert.equal(getWebBase('git.example.com/github/api/v3/'), 'https://git.example.com/github');
+    assert.equal(getWebBase('api.github.com/'), 'https://github.com');
+    assert.equal(getWebBase('API.GITHUB.COM///'), 'https://github.com');
 });
 
 test('converts GitHub API subject URLs into browser-facing issue, PR, commit and action links', () => {
