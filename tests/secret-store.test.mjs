@@ -80,6 +80,19 @@ test('uses an existing Secret Service token and repairs interrupted migration cl
     assert.equal(settings.get_string('github-token'), '');
 });
 
+test('does not bind a legacy token to an invalid configured API host', async () => {
+    const settings = makeSettings({host: 'https://evil.example', token: 'legacy-token'});
+    let lookedUp = false;
+    const api = {
+        async lookup() { lookedUp = true; return ''; },
+        async store() { assert.fail('must not store a token for an invalid host'); },
+    };
+    await assert.rejects(loadGithubToken(settings, api), /Enter a hostname|Invalid API host/);
+    assert.equal(lookedUp, false);
+    assert.equal(settings.get_string('legacy-token-host'), '');
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
+
 test('does not pretend a missing secret service means a credential exists', async () => {
     await assert.rejects(loadGithubToken(makeSettings(), {
         async lookup() { throw new Error('missing service'); },
