@@ -438,3 +438,19 @@ export function filterVisibleActivityItems(items, mutedRepositories) {
         return [];
     return items.filter(item => item && !isRepositoryMuted(item.subtitle, mutedRepositories));
 }
+
+/** Encode owner/repository segments without encoding their separator. */
+export function encodeRepositoryPath(repository) {
+    const [owner, name] = String(repository || '').split('/');
+    return encodeURIComponent(owner || '') + '/' + encodeURIComponent(name || '');
+}
+
+/** Truncate by Unicode code point rather than UTF-16 code unit. */
+export function truncateText(text, maxLength) {
+    if (!text)
+        return text;
+    const characters = Array.from(String(text));
+    if (characters.length <= maxLength)
+        return text;
+    return characters.slice(0, Math.max(0, maxLength - 1)).join('') + '…';
+}
