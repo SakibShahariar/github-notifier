@@ -1,3 +1,5 @@
+import {getApiBase} from './repo-utils.js';
+
 const APPLICATION_ID = 'github-notifier@SakibShahariar';
 const SCHEMA_NAME = 'org.gnome.shell.extensions.github-notifier';
 const TOKEN_LABEL = 'GitHub Notifier personal access token';
@@ -79,6 +81,9 @@ async function resolveApi(apiOverride) {
 
 export async function loadGithubToken(settings, apiOverride = null) {
     const host = settings.get_string('github-host').trim() || 'api.github.com';
+    // Validate before binding legacy plaintext to a host. A stale or manually
+    // edited invalid setting must not permanently strand the existing token.
+    getApiBase(host);
     const normalizedHost = normalizeSecretHost(host);
     const legacyToken = settings.get_string('github-token');
     let legacyHost = normalizeSecretHost(settings.get_string('legacy-token-host') || '');
