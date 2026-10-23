@@ -105,6 +105,8 @@ test('new tokens are never stored through the legacy settings key', async () => 
     await storeGithubToken('GIT.EXAMPLE.COM/api/v3/', 'new-token', api);
     assert.deepEqual(calls, [['GIT.EXAMPLE.COM/api/v3/', 'new-token']]);
     await assert.rejects(storeGithubToken('api.github.com', '   ', api), /non-empty/);
+    await assert.rejects(storeGithubToken('https://evil.example', 'token', api), /Enter a hostname|Invalid API host/);
+    assert.deepEqual(calls, [['GIT.EXAMPLE.COM/api/v3/', 'new-token']]);
 });
 
 test('removal is scoped to the selected API host', async () => {
