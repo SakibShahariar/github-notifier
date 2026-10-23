@@ -449,26 +449,51 @@ export function getWebBase(configuredHost = '') {
 /** Convert API subject URLs into browser URLs for GitHub.com and GHES deployments. */
 export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
     const repoUrl = `${webBase}/${repoFullName}`;
-    if (!subject?.url)
+    if (!subject?.url || !isSafeHttpsUrl(apiBase) || !isSafeHttpsUrl(webBase))
         return repoUrl;
-    const apiReposPrefix = `${apiBase}/repos`;
-    const escaped = apiReposPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const url = subject.url.replace(new RegExp(escaped, 'i'), webBase);
-    switch (subject.type) {
-        case 'Issue':
-        case 'Discussion':
-            return url;
-        case 'PullRequest':
-            return url.replace(/\/pulls\//i, '/pull/');
-        case 'Commit':
-            return url.replace(/\/commits\//i, '/commit/');
-        case 'Release':
-            return `${repoUrl}/releases`;
-        case 'CheckSuite':
-        case 'WorkflowRun':
-            return `${repoUrl}/actions`;
-        default:
+
+    try {
+        const source = new URL(subject.url);
+        const api = new URL(apiBase);
+        const web = new URL(webBase);
+        if (source.protocol !== 'https:' || source.username || source.password ||
+            source.origin !== api.origin || web.protocol !== 'https:' ||
+            web.username || web.password)
             return repoUrl;
+
+        const apiPath = api.pathname.replace(/\\/+$/, '');
+        const apiReposPrefix = `${apiPath}/repos/`.replace(/^\\/\\/+, '/');
+        if (!source.pathname.startsWith(apiReposPrefix))
+            return repoUrl;
+
+        const resourcePath = source.pathname.slice(apiReposPrefix.length);
+        if (!resourcePath)
+            return repoUrl;
+        const webPath = web.pathname.replace(/\\/+$/, '');
+        let browserPath = `${webPath}/${resourcePath}`;
+        switch (subject.type) {
+            case 'Issue':
+            case 'Discussion':
+                break;
+            case 'PullRequest':
+                browserPath = browserPath.replace(/\\/pulls\\//i, '/pull/');
+                break;
+            case 'Commit':
+                browserPath = browserPath.replace(/\\/commits\\//i, '/commit/');
+                break;
+            case 'Release':
+                browserPath = `${webPath}/${repoFullName}/releases`;
+                break;
+            case 'CheckSuite':
+            case 'WorkflowRun':
+                browserPath = `${webPath}/${repoFullName}/actions`;
+                break;
+            default:
+                return repoUrl;
+        }
+        return `${web.origin}${browserPath}`;
+    } catch (_error) {
+        return repoUrl;
     }
 }
 
