@@ -9,6 +9,7 @@ import Pango from 'gi://Pango';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
+import {cleanupIndicator} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
@@ -671,98 +672,7 @@ class Indicator extends PanelMenu.Button {
         return notifyBaseline(this, notes);
     }
     destroy() {
-        this._tooltipController?.destroy();
-        this._tooltipController = null;
-        try {
-            this._publishNotificationSummary(
-                this._visibleNotificationItems().length,
-                this._visibleActivityItems().length,
-                false
-            );
-        } catch (e) {
-            logError(e, 'github-notifier: failed to publish disabled summary');
-        }
-        this._destroyed = true;
-        this._pollCancellable?.cancel();
-        if (this._pollDeadlineId) {
-            GLib.source_remove(this._pollDeadlineId);
-            this._pollDeadlineId = null;
-        }
-        try { this._stopRefreshSpin(); } catch (e) {}
-        try { this._removeMatugenTheme(); } catch (e) {}
-        if (this._timeoutId) {
-            GLib.source_remove(this._timeoutId);
-            this._timeoutId = null;
-        }
-        if (this._networkDebounceId) {
-            GLib.source_remove(this._networkDebounceId);
-            this._networkDebounceId = null;
-        }
-        for (const sourceId of this._transientTimeouts)
-            GLib.source_remove(sourceId);
-        this._transientTimeouts.clear();
-        for (const finish of this._pendingSleepResolvers)
-            finish();
-        if (this._markAllTimer) {
-            GLib.source_remove(this._markAllTimer);
-            this._markAllTimer = null;
-        }
-        if (this._settingsChangedId) {
-            this._settings.disconnect(this._settingsChangedId);
-            this._settingsChangedId = null;
-        }
-        if (this._hideEmptyChangedId) {
-            this._settings.disconnect(this._hideEmptyChangedId);
-            this._hideEmptyChangedId = null;
-        }
-        if (this._unlitChangedId) {
-            this._settings.disconnect(this._unlitChangedId);
-            this._unlitChangedId = null;
-        }
-        if (this._statsChangedId) {
-            this._settings.disconnect(this._statsChangedId);
-            this._statsChangedId = null;
-        }
-        if (this._usernameChangedId) {
-            this._settings.disconnect(this._usernameChangedId);
-            this._usernameChangedId = null;
-        }
-        for (const id of this._filterChangedIds || [])
-            this._settings.disconnect(id);
-        this._filterChangedIds = [];
-        // These handlers are connected to the shared GSettings object, which
-        // outlives this indicator. Disconnect them to avoid stale callbacks
-        // and retained indicator instances across extension reloads.
-        if (this._tokenChangedId) {
-            this._settings.disconnect(this._tokenChangedId);
-            this._tokenChangedId = null;
-        }
-        if (this._reposChangedId) {
-            this._settings.disconnect(this._reposChangedId);
-            this._reposChangedId = null;
-        }
-        if (this._hostChangedId) {
-            this._settings.disconnect(this._hostChangedId);
-            this._hostChangedId = null;
-        }
-        if (this._mutedReposChangedId) {
-            this._settings.disconnect(this._mutedReposChangedId);
-            this._mutedReposChangedId = null;
-        }
-        if (this._networkChangedId) {
-            this._networkMonitor.disconnect(this._networkChangedId);
-            this._networkChangedId = null;
-        }
-        if (this._connectivityChangedId) {
-            this._networkMonitor.disconnect(this._connectivityChangedId);
-            this._connectivityChangedId = null;
-        }
-        if (this._source) {
-            this._source.destroy();
-            this._source = null;
-        }
-        if (this._session)
-            this._session.abort();
+        cleanupIndicator(this);
         super.destroy();
     }
 });
