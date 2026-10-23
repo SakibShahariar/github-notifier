@@ -31,8 +31,9 @@ export function saveState(indicator, state) {
         try {
             state.scope = indicator._stateScope();
             const serialized = JSON.stringify(state);
-            if (indicator._settings.get_string('last-state') !== serialized)
-                indicator._settings.set_string('last-state', serialized);
+            if (indicator._settings.get_string('last-state') !== serialized &&
+                !indicator._settings.set_string('last-state', serialized))
+                log('github-notifier: GSettings refused to persist cached state');
         } catch (e) {
             logError(e, 'github-notifier: failed to save state');
         }
