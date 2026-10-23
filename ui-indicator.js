@@ -48,6 +48,8 @@ export function addFooter(indicator, section, opts, activityExpanded) {
                 can_focus: true,
                 child: new St.Icon({icon_name: iconName, icon_size: 14, style_class: 'popup-menu-icon'}),
             });
+            const accessibleLabel = tooltip || iconName.replace(/-symbolic$/, '').replaceAll('-', ' ');
+            btn.accessible_name = accessibleLabel;
             if (tooltip) indicator._setTooltip(btn, tooltip);
             btn.connect('clicked', cb);
             box.add_child(btn);
@@ -64,13 +66,16 @@ export function addFooter(indicator, section, opts, activityExpanded) {
         }
         if (opts.paginated) {
             const prev = makeIconBtn('go-previous-symbolic', opts.onPrev, 'Previous page');
-            prev.can_focus = true;
-            if (opts.page <= 0) prev.reactive = false;
+            const previousDisabled = opts.page <= 0;
+            prev.reactive = !previousDisabled;
+            prev.can_focus = !previousDisabled;
             const lab = new St.Label({text: `${opts.page + 1} / ${opts.pageCount}`, y_align: Clutter.ActorAlign.CENTER, style_class: 'github-notifier-hero-meta'});
             lab.set_style('padding: 0 6px; opacity: 1;');
             box.add_child(lab);
             const next = makeIconBtn('go-next-symbolic', opts.onNext, 'Next page');
-            if (opts.page + 1 >= opts.pageCount) next.reactive = false;
+            const nextDisabled = opts.page + 1 >= opts.pageCount;
+            next.reactive = !nextDisabled;
+            next.can_focus = !nextDisabled;
         }
         if (opts.showOpen) {
             const openLabel = opts.openLabel || 'Open in GitHub';
@@ -78,6 +83,7 @@ export function addFooter(indicator, section, opts, activityExpanded) {
             openBox.add_child(new St.Label({text: openLabel}));
             openBox.add_child(new St.Icon({icon_name: 'go-next-symbolic', icon_size: 14, style_class: 'popup-menu-icon', y_align: Clutter.ActorAlign.CENTER}));
             const openBtn = new St.Button({style_class: 'github-notifier-footer-button', can_focus: true, child: openBox});
+            openBtn.accessible_name = openLabel;
             openBtn.connect('clicked', () => indicator._openUri(opts.openUrl));
             box.add_child(openBtn);
             if (indicator.hasMotion()) indicator._addButtonHoverScale(openBtn);
@@ -303,6 +309,7 @@ export function addRow(indicator, section, item) {
                     }),
                 });
                 watchButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+                watchButton.accessible_name = `Watch ${repository}`;
                 indicator._setTooltip(watchButton, `Watch ${repository}`);
                 watchButton.connect('clicked', () => {
                     if (indicator._setRepositoryMembership('watched-repos', repository, true))
@@ -331,7 +338,8 @@ export function addRow(indicator, section, item) {
                 }),
             });
             muteButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
-            indicator._setTooltip(muteButton, muted ? `Unmute ${repositoryForMute}` : `Mute ${repositoryForMute}`);
+            muteButton.accessible_name = muted ? `Unmute ${repositoryForMute}` : `Mute ${repositoryForMute}`;
+            indicator._setTooltip(muteButton, muteButton.accessible_name);
             muteButton.connect('clicked', () => {
                 const nextMuted = !indicator._mutedRepositories().has(repositoryForMute);
                 if (indicator._setRepositoryMembership('muted-repos', repositoryForMute, nextMuted))
@@ -359,6 +367,7 @@ export function addRow(indicator, section, item) {
                 }),
             });
             cliButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+            cliButton.accessible_name = 'Open with GitHub CLI';
             indicator._setTooltip(cliButton, 'Open with GitHub CLI');
             cliButton.connect('clicked', () => {
                 indicator._openWithGitHubCli(item);
@@ -378,7 +387,8 @@ export function addRow(indicator, section, item) {
             child: readIcon,
         });
         btn.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
-        indicator._setTooltip(btn, item.kind === 'notification' ? 'Mark read' : 'Dismiss');
+        btn.accessible_name = item.kind === 'notification' ? 'Mark read' : 'Dismiss';
+        indicator._setTooltip(btn, btn.accessible_name);
         btn.connect('clicked', () => {
             if (item.kind === 'notification' && item.rawId)
                 indicator._markThreadRead(item);
@@ -429,6 +439,7 @@ export function buildMenuSkeleton(indicator) {
         indicator._heroItem = heroItem;
         indicator._heroIcon = heroIcon;
         indicator._heroGear = gearButton;
+        gearButton.accessible_name = 'Settings';
         indicator._setTooltip(gearButton, 'Settings');
         gearButton.connect('clicked', () => indicator._ext.openPreferences());
         heroBox.add_child(heroIcon);
