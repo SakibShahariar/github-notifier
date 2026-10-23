@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 // Tear down all indicator-owned resources before PanelMenu.Button is destroyed.
 export function cleanupIndicator(indicator) {
@@ -14,6 +15,16 @@ export function cleanupIndicator(indicator) {
             logError(e, 'github-notifier: failed to publish disabled summary');
         }
         indicator._destroyed = true;
+        // Cancel delayed startup polling and detach the shared startup signal.
+        // Otherwise a disabled extension can leave a closure retaining the indicator.
+        if (indicator._startupId) {
+            GLib.source_remove(indicator._startupId);
+            indicator._startupId = null;
+        }
+        if (indicator._startupCompleteId) {
+            try { Main.layoutManager.disconnect(indicator._startupCompleteId); } catch (e) {}
+            indicator._startupCompleteId = null;
+        }
         indicator._pollCancellable?.cancel();
         if (indicator._pollDeadlineId) {
             GLib.source_remove(indicator._pollDeadlineId);
