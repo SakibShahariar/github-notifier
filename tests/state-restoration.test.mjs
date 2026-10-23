@@ -57,3 +57,13 @@ test('drops malformed pending mark-all state during restoration', () => {
 test('extension initialization does not reference state restoration locals', () => {
     assert.doesNotMatch(extensionSource, /\bpersistedState\b/);
 });
+
+test('resets a malformed cached last-fetch timestamp instead of trusting it', () => {
+    const indicator = {
+        _loadState: () => ({lastFetchedAt: 12345}),
+        _localDateKey: () => '2026-10-23',
+        _isValidPendingMarkAll: () => false,
+    };
+    restoreCachedState(indicator);
+    assert.equal(indicator._lastFetchedAt, null);
+});
