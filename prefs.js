@@ -6,7 +6,7 @@ import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import {getApiBase, isValidClockTime, isValidRepository} from './repo-utils.js';
-import {clearGithubToken, clearLegacyTokenSetting, loadGithubToken, normalizeSecretHost, storeGithubToken} from './secret-store.js';
+import {clearGithubToken, clearLegacyTokenSetting, hasLegacyTokenForDifferentHost, loadGithubToken, storeGithubToken} from './secret-store.js';
 
 function signalTokenChanged(settings) {
     const current = settings.get_int('token-generation');
@@ -45,8 +45,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 await storeGithubToken(host, token);
                 // Clear legacy plaintext only after Secret Service confirms storage.
                 const legacyHost = settings.get_string('legacy-token-host').trim();
-                const legacyHostDiffers = Boolean(legacyHost) &&
-                    normalizeSecretHost(legacyHost) !== normalizeSecretHost(host);
+                const legacyHostDiffers = hasLegacyTokenForDifferentHost(settings, host);
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
@@ -115,8 +114,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
                 await clearGithubToken(host);
                 const legacyHost = settings.get_string('legacy-token-host').trim();
-                const legacyHostDiffers = Boolean(legacyHost) &&
-                    normalizeSecretHost(legacyHost) !== normalizeSecretHost(host);
+                const legacyHostDiffers = hasLegacyTokenForDifferentHost(settings, host);
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
