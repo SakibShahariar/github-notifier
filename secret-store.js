@@ -176,6 +176,8 @@ export async function storeGithubToken(host, token, apiOverride = null) {
     const normalizedToken = String(token || '').trim();
     if (!normalizedToken)
         throw new Error('Enter a non-empty GitHub token');
+    // Never report success for a credential tied to an invalid API endpoint.
+    getApiBase(String(host || 'api.github.com').trim() || 'api.github.com');
     const api = await resolveApi(apiOverride);
     await api.store(host, normalizedToken);
     return true;
