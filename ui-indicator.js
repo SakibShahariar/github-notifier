@@ -732,3 +732,26 @@ export function setupMenuLifecycle(indicator) {
             });
     
 }
+
+
+// Construct the panel actor tree and establish its initial accessible label.
+export function buildPanelButton(indicator) {
+            // --- panel button contents ---
+            const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
+            const iconPath = GLib.build_filenamev([indicator._ext.path, 'icons', 'github-symbolic.svg']);
+            indicator._icon = new St.Icon({
+                gicon: Gio.icon_new_for_string(iconPath),
+                style_class: 'system-status-icon',
+            });
+            indicator._label = new St.Label({
+                text: '',
+                y_align: Clutter.ActorAlign.CENTER,
+                style_class: 'github-notifier-label',
+            });
+            box.add_child(indicator._icon);
+            box.add_child(indicator._label);
+            indicator.add_child(box);
+            indicator._label.hide();
+            indicator._setTooltip(this, 'GitHub Notifier');
+            
+}
