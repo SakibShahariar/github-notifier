@@ -152,6 +152,10 @@ export async function loadGithubToken(settings, apiOverride = null) {
 export function clearLegacyTokenSetting(settings, expectedHost = null) {
     const legacyToken = settings.get_string('github-token');
     const legacyHost = settings.get_string('legacy-token-host').trim();
+    // An unscoped legacy token has no reliable host identity. Do not delete it
+    // from a host-specific action until loadGithubToken has bound it safely.
+    if (legacyToken && expectedHost && !legacyHost)
+        return false;
     if (legacyToken && expectedHost && legacyHost &&
         normalizeSecretHost(legacyHost) !== normalizeSecretHost(expectedHost))
         return false;
