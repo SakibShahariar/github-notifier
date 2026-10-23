@@ -1,3 +1,9 @@
+function isValidLastModified(value) {
+    return typeof value === 'string' &&
+        Number.isFinite(Date.parse(value)) &&
+        new Date(value).toUTCString() === value;
+}
+
 // Fetch the GitHub inbox while keeping pagination, cache metadata, and toast baselines together.
 export async function pollNotifications(indicator, state, maxPages = 3) {
     const isInitialBaseline = state.notificationBaselineEstablished !== true;
@@ -9,10 +15,14 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
 
     let path = '/notifications?per_page=50&participating=false';
     let pagesFetched = 0;
+    const lastModified = state.notificationsLastModified;
+    const hasValidLastModified = isValidLastModified(lastModified);
+    if (lastModified && !hasValidLastModified)
+        state.notificationsLastModified = null;
 
     while (path && pagesFetched < maxPages) {
-        const headers = pagesFetched === 0 && state.notificationsLastModified
-            ? {'If-Modified-Since': state.notificationsLastModified}
+        const headers = pagesFetched === 0 && hasValidLastModified
+            ? {'If-Modified-Since': lastModified}
             : {};
         const response = await indicator._apiRequest('GET', path, {headers});
         if (pagesFetched === 0 && response.notModified) {
