@@ -11,7 +11,7 @@ import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, restoreCachedState, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, buildPanelButton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
-import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
+import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator, togglePollingPause} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, publishNotificationSummary, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
@@ -144,11 +144,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _togglePause() {
-        this._paused = !this._paused;
-        // update footer pause button if exists via re-render
-        this._renderList();
-        if (!this._paused)
-            this._poll();
+        togglePollingPause(this);
     }
 
     _restartTimer() {

@@ -424,3 +424,11 @@ export function addTransientTimeout(indicator, seconds, callback) {
     indicator._transientTimeouts.add(sourceId);
     return sourceId;
 }
+
+/** Toggle automatic polling and refresh the menu; resuming triggers a fresh poll. */
+export function togglePollingPause(indicator) {
+    indicator._paused = !indicator._paused;
+    indicator._renderList();
+    if (!indicator._paused)
+        indicator._poll();
+}
