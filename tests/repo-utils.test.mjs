@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -73,6 +73,15 @@ test('parses and normalizes a comma-separated muted repository list', () => {
     );
     assert.deepEqual(parseRepositoryList(null), []);
     assert.deepEqual(parseRepositoryList('not-a-repo, owner/'), []);
+});
+
+test('deduplicates watched repository entries case-insensitively while preserving invalid entries', () => {
+    assert.deepEqual(
+        deduplicateRepositoryEntries('GNOME/gnome-shell, gnome/GNOME-SHELL, bad-value, BAD-VALUE, owner/repo, owner/repo'),
+        ['GNOME/gnome-shell', 'bad-value', 'owner/repo']
+    );
+    assert.deepEqual(deduplicateRepositoryEntries(' , , '), []);
+    assert.deepEqual(deduplicateRepositoryEntries(null), []);
 });
 
 test('matches muted repositories case-insensitively', () => {
