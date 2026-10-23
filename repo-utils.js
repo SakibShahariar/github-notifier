@@ -349,16 +349,22 @@ export function formatRelativeTime(value, now = Date.now()) {
 
 /** Compose the secondary text shown under a notification/activity title. */
 export function getItemDetail(item, relativeTime = '') {
-    const repository = item?.subtitle || '';
-    const time = relativeTime || '';
-    if (item?.kind === 'notification') {
-        const reason = item.reasonLabel || item.kind;
-        return `${repository} · ${reason} · ${time}`.trim();
-    }
-    if (item?.kind === 'pr') return `${repository} · PR · ${time}`;
-    if (item?.kind === 'issue') return `${repository} · issue · ${time}`;
-    if (item?.kind === 'star') return `${repository} · star · ${time}`;
-    return `${repository} · ${time}`;
+    const repository = typeof item?.subtitle === 'string' ? item.subtitle.trim() : '';
+    const time = typeof relativeTime === 'string' ? relativeTime.trim() : '';
+    const parts = [];
+    if (repository)
+        parts.push(repository);
+    if (item?.kind === 'notification')
+        parts.push(item.reasonLabel || 'notification');
+    else if (item?.kind === 'pr')
+        parts.push('PR');
+    else if (item?.kind === 'issue')
+        parts.push('issue');
+    else if (item?.kind === 'star')
+        parts.push('star');
+    if (time)
+        parts.push(time);
+    return parts.join(' · ');
 }
 
 
