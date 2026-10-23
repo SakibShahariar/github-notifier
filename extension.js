@@ -17,6 +17,7 @@ import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPo
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
+import {githubCliLaunchConfig, openUri, openWithGitHubCli} from './link-actions.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {applyMatugenThemeInternal, buildMatugenCss, loadMatugenColors, loadMatugenColorsIfChanged, removeMatugenTheme, setupMatugenMonitor} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -728,65 +729,15 @@ class Indicator extends PanelMenu.Button {
     }
 
     _openUri(uri) {
-        try {
-            if (Gio.AppInfo.launch_default_for_uri(uri, null))
-                return true;
-        } catch (e) {
-            logError(e, 'github-notifier: failed to open link');
-        }
-
-        this._setActionStatus('Could not open link — check your default browser');
-        this._addTransientTimeout(4, () => {
-            this._setActionStatus('');
-            return GLib.SOURCE_REMOVE;
-        });
-        return false;
+        return openUri(this, uri);
     }
 
     _githubCliLaunchConfig(item) {
-        const commandArgs = getGitHubCliArguments(item);
-        const ghPath = GLib.find_program_in_path('gh');
-        if (!commandArgs || !ghPath)
-            return null;
-
-        const terminals = [
-            {name: 'kgx', args: ['--']},
-            {name: 'ptyxis', args: ['--new-window', '--']},
-            {name: 'gnome-terminal', args: ['--']},
-            {name: 'x-terminal-emulator', args: ['-e']},
-        ];
-        for (const terminal of terminals) {
-            const path = GLib.find_program_in_path(terminal.name);
-            if (path)
-                return {argv: [path, ...terminal.args, ghPath, ...commandArgs]};
-        }
-        return null;
+        return githubCliLaunchConfig(this, item);
     }
 
     _openWithGitHubCli(item) {
-        const config = this._githubCliLaunchConfig(item);
-        if (!config) {
-            this._setActionStatus('GitHub CLI or a supported terminal is unavailable');
-            this._addTransientTimeout(4, () => {
-                this._setActionStatus('');
-                return GLib.SOURCE_REMOVE;
-            });
-            return false;
-        }
-
-        try {
-            GLib.spawn_async(null, config.argv, null, GLib.SpawnFlags.SEARCH_PATH, null);
-            this._handleOpenedItem(item);
-            return true;
-        } catch (e) {
-            logError(e, 'github-notifier: failed to launch GitHub CLI');
-            this._setActionStatus(`Could not launch GitHub CLI: ${e.message}`);
-            this._addTransientTimeout(4, () => {
-                this._setActionStatus('');
-                return GLib.SOURCE_REMOVE;
-            });
-            return false;
-        }
+        return openWithGitHubCli(this, item);
     }
 
     _handleOpenedItem(item) {
