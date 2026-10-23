@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
 import {updateDailyStats} from './repo-utils.js';
+import {runBoundedWorkers} from './bounded-workers.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
 export async function pollIndicator(indicator) {
@@ -136,28 +137,21 @@ export async function pollIndicator(indicator) {
                 // repositories so large watch lists do not spend most of the
                 // cycle waiting on serial network round-trips. Requests for a
                 // single repo remain ordered, and result merging stays stable.
-                const results = new Array(repos.length);
-                const concurrency = Math.min(3, repos.length);
-                let nextRepoIndex = 0;
                 let fatalRepoError = null;
-
-                const pollNextRepository = async () => {
-                    while (!indicator._destroyed && !fatalRepoError) {
-                        const index = nextRepoIndex++;
-                        if (index >= repos.length)
-                            return;
-
-                        const repo = repos[index];
+                const results = await runBoundedWorkers(
+                    repos,
+                    3,
+                    async repo => {
                         const repoActivity = [];
                         const repoErrors = [];
-                        results[index] = {activity: repoActivity, errors: repoErrors};
+                        const result = {activity: repoActivity, errors: repoErrors};
 
                         if (!isValidRepository(repo)) {
                             repoErrors.push(`Skipped invalid repo "${repo}" (expected owner/repo)`);
-                            continue;
+                            return result;
                         }
                         if (isRepositoryMuted(repo, mutedRepositories))
-                            continue;
+                            return result;
 
                         if (indicator._settings.get_boolean('watch-issues-prs')) {
                             try {
@@ -165,14 +159,14 @@ export async function pollIndicator(indicator) {
                             } catch (e) {
                                 if (e instanceof ApiError && [0, 401, 403, 429].includes(e.status)) {
                                     fatalRepoError ||= e;
-                                    continue;
+                                    return result;
                                 }
                                 repoErrors.push(`${repo} issues: ${e.message}`);
                                 logError(e, `github-notifier: issues poll failed for ${repo}`);
                             }
                         }
                         if (indicator._destroyed || fatalRepoError)
-                            continue;
+                            return result;
 
                         if (indicator._settings.get_boolean('watch-stars')) {
                             try {
@@ -180,16 +174,16 @@ export async function pollIndicator(indicator) {
                             } catch (e) {
                                 if (e instanceof ApiError && [0, 401, 403, 429].includes(e.status)) {
                                     fatalRepoError ||= e;
-                                    continue;
+                                    return result;
                                 }
                                 repoErrors.push(`${repo} stars: ${e.message}`);
                                 logError(e, `github-notifier: stars poll failed for ${repo}`);
                             }
                         }
-                    }
-                };
-
-                await Promise.all(Array.from({length: concurrency}, () => pollNextRepository()));
+                        return result;
+                    },
+                    () => indicator._destroyed || !!fatalRepoError
+                );
                 if (indicator._destroyed)
                     return;
                 if (fatalRepoError)
