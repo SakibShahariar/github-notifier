@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
-import {updateDailyStats} from './repo-utils.js';
+import {deduplicateRepositoryEntries, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
 import {runBoundedWorkers} from './bounded-workers.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
@@ -114,7 +114,7 @@ export async function pollIndicator(indicator) {
             // Always prune last-state.repos to the current watch list (or empty)
             {
                 const reposStr = indicator._settings.get_string('watched-repos');
-                const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
+                const rawRepos = deduplicateRepositoryEntries(reposStr);
                 const watched = new Set(Array.from(new Set(rawRepos)));
                 const mutedRepositories = indicator._mutedRepositories();
                 if (state.repos && typeof state.repos === 'object') {
@@ -130,7 +130,7 @@ export async function pollIndicator(indicator) {
             if (indicator._settings.get_boolean('watch-issues-prs') || indicator._settings.get_boolean('watch-stars')) {
                 const reposStr = indicator._settings.get_string('watched-repos');
                 const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
-                const repos = Array.from(new Set(rawRepos));
+                const repos = rawRepos;
                 const mutedRepositories = indicator._mutedRepositories();
 
                 // Keep one poll cycle at a time, but overlap a few independent
