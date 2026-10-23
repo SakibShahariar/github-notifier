@@ -1,4 +1,5 @@
 import GLib from 'gi://GLib';
+import {updateDailyStats} from './repo-utils.js';
 
 const MAX_RECENT = 40;
 const MAX_NOTIFICATION_PAGES = 3;
@@ -52,4 +53,24 @@ export function persistCurrentItems(indicator, state = null) {
         currentState.lastFetchedAt = indicator._lastFetchedAt;
         currentState.dailyStats = indicator._dailyStats;
         indicator._saveState(currentState);
+}
+
+
+// Restore only structurally valid cached records before the first network poll.
+export function restoreCachedState(indicator) {
+    const persistedState = indicator._loadState();
+    indicator._dailyStats = updateDailyStats(persistedState.dailyStats, indicator._localDateKey());
+    indicator._notificationItems = Array.isArray(persistedState.notificationItems)
+        ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
+        : []; // cached inbox, restored when GitHub is temporarily unavailable
+    indicator._activityItems = Array.isArray(persistedState.activityItems)
+        ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
+        : []; // accumulated issue/PR/star events, restored across shell restarts
+    indicator._pendingReadItems = Array.isArray(persistedState.pendingReadItems)
+        ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
+            .slice(0, MAX_NOTIFICATION_PAGES * 50)
+        : [];
+    indicator._pendingMarkAllRead = indicator._isValidPendingMarkAll(persistedState.pendingMarkAllRead)
+        ? persistedState.pendingMarkAllRead
+        : null;
 }
