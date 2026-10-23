@@ -182,3 +182,20 @@ test('detects a newly created issue even if it was closed before the next poll',
     assert.equal(state.repos[repo].lastIssueNumber, 31);
     assert.match(indicator.calls[0], /state=all/);
 });
+
+
+test('invalid persisted issue baselines are silently repaired instead of suppressing future alerts', async () => {
+    const repo = 'owner/repo';
+    const responses = {
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
+            {number: 31, title: 'Existing issue', html_url: 'https://github.com/owner/repo/issues/31', created_at: '2026-10-23T00:00:00Z'},
+            {number: 30, title: 'Older issue', html_url: 'https://github.com/owner/repo/issues/30', created_at: '2026-10-22T00:00:00Z'},
+        ],
+    };
+    const indicator = indicatorWithResponses(responses);
+    const state = {repos: {[repo]: {lastIssueNumber: 'corrupt', issuesBaselineEstablished: true}}};
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.deepEqual(items, []);
+    assert.equal(state.repos[repo].lastIssueNumber, 31);
+    assert.equal(state.repos[repo].issuesBaselineEstablished, true);
+});
