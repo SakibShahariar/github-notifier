@@ -1,8 +1,10 @@
 // Fetch the GitHub inbox while keeping pagination, cache metadata, and toast baselines together.
 export async function pollNotifications(indicator, state, maxPages = 3) {
-    state.toastedNotificationIds ||= [];
-    const isInitialBaseline = !state.notificationBaselineEstablished;
-    const toasted = new Set(state.toastedNotificationIds.map(String));
+    const isInitialBaseline = state.notificationBaselineEstablished !== true;
+    const previousToastedIds = Array.isArray(state.toastedNotificationIds)
+        ? state.toastedNotificationIds.slice(-500)
+        : [];
+    const toasted = new Set(previousToastedIds.map(String).filter(id => /^\d{1,20}$/.test(id)));
     const items = [];
 
     let path = '/notifications?per_page=50&participating=false';
