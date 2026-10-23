@@ -60,14 +60,16 @@ test('extension initialization does not reference state restoration locals', () 
     assert.doesNotMatch(extensionSource, /\bpersistedState\b/);
 });
 
-test('resets a malformed cached last-fetch timestamp instead of trusting it', () => {
-    const indicator = {
-        _loadState: () => ({lastFetchedAt: 12345}),
-        _localDateKey: () => '2026-10-23',
-        _isValidPendingMarkAll: () => false,
-    };
-    restoreCachedState(indicator);
-    assert.equal(indicator._lastFetchedAt, null);
+test('resets malformed cached last-fetch timestamps instead of trusting them', () => {
+    for (const lastFetchedAt of [12345, 'not-a-date']) {
+        const indicator = {
+            _loadState: () => ({lastFetchedAt}),
+            _localDateKey: () => '2026-10-23',
+            _isValidPendingMarkAll: () => false,
+        };
+        restoreCachedState(indicator);
+        assert.equal(indicator._lastFetchedAt, null);
+    }
 });
 
 
