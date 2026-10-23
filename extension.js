@@ -14,7 +14,7 @@ import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSk
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
-import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
+import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {githubCliLaunchConfig, openUri, openWithGitHubCli} from './link-actions.js';
 import {_createMessageTraySource, notify, notifyBaseline} from './notifications.js';
 import {applyMatugenThemeInternal, loadMatugenColorsIfChanged, removeMatugenTheme, setupMatugenMonitor} from './ui-theme.js';
@@ -496,12 +496,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _handleOpenedItem(item) {
-        if (item.kind === 'notification' && item.rawId) {
-            if (this._settings.get_boolean('mark-read-on-open'))
-                this._markThreadRead(item);
-        } else {
-            this._dismissActivityItem(item);
-        }
+        return handleOpenedItem(this, item);
     }
 
     _addRow(section, item) {
