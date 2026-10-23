@@ -19,7 +19,7 @@ export function openUri(indicator, uri) {
     }
 
 export function githubCliLaunchConfig(indicator, item) {
-        const commandArgs = getGitHubCliArguments(item);
+        const commandArgs = getGitHubCliArguments(item, indicator._webBase());
         const ghPath = GLib.find_program_in_path('gh');
         if (!commandArgs || !ghPath)
             return null;

@@ -119,6 +119,17 @@ test('builds GitHub CLI arguments for issue and pull-request links', () => {
     );
 });
 
+test('validates HTTPS and configured host/path before building CLI targets', () => {
+    const item = {kind: 'issue', subtitle: 'owner/repo', url: 'https://github.com/owner/repo/issues/1'};
+    assert.deepEqual(getGitHubCliArguments(item, 'https://github.com'), ['issue', 'view', '1', '--repo', 'owner/repo']);
+    assert.equal(getGitHubCliArguments({...item, url: 'http://github.com/owner/repo/issues/1'}, 'https://github.com'), null);
+    assert.equal(getGitHubCliArguments({...item, url: 'https://evil.example/owner/repo/issues/1'}, 'https://github.com'), null);
+    assert.equal(getGitHubCliArguments({...item, url: 'https://github.com/other/repo/issues/1'}, 'https://github.com'), null);
+    const enterprise = {...item, url: 'https://git.example.com/github/owner/repo/issues/8'};
+    assert.deepEqual(getGitHubCliArguments(enterprise, 'https://git.example.com/github'), ['issue', 'view', '8', '--repo', 'git.example.com/owner/repo']);
+    assert.equal(getGitHubCliArguments({...enterprise, url: 'https://git.example.com/other/owner/repo/issues/8'}, 'https://git.example.com/github'), null);
+});
+
 test('does not create GitHub CLI commands for non-issue links or invalid data', () => {
     for (const item of [
         {kind: 'star', subtitle: 'owner/repo', url: 'https://github.com/owner/repo/stargazers'},

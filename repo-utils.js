@@ -117,7 +117,7 @@ export function isRepositoryMuted(repository, mutedRepositories) {
         mutedRepositories.has(repository.trim().toLowerCase());
 }
 
-export function getGitHubCliArguments(item) {
+export function getGitHubCliArguments(item, configuredWebBase = null) {
     if (!item || typeof item.url !== 'string' || typeof item.subtitle !== 'string')
         return null;
 
@@ -131,10 +131,30 @@ export function getGitHubCliArguments(item) {
     } catch (_error) {
         return null;
     }
+    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password)
+        return null;
 
-    const match = url.pathname.match(/\/(issues|pull)\/(\d+)(?:\/|$)/i);
+    const [owner, name] = repository.split('/');
+    const escapeRegExp = value => value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+    const match = url.pathname.match(new RegExp(
+        `/${escapeRegExp(owner)}/${escapeRegExp(name)}/(issues|pull)/(\\d+)(?:/|$)`,
+        'i'
+    ));
     if (!match)
         return null;
+
+    if (configuredWebBase) {
+        try {
+            const base = new URL(configuredWebBase);
+            const basePath = base.pathname.replace(/\\/+$/, '');
+            if (base.protocol !== 'https:' || url.origin !== base.origin ||
+                (basePath && basePath !== '/' && url.pathname !== basePath &&
+                    !url.pathname.startsWith(basePath + '/')))
+                return null;
+        } catch (_error) {
+            return null;
+        }
+    }
 
     const [, resource, number] = match;
     const command = resource.toLowerCase() === 'pull' || item.kind === 'pr'
@@ -143,9 +163,10 @@ export function getGitHubCliArguments(item) {
     // GitHub CLI accepts [HOST/]OWNER/REPO for Enterprise instances.
     const repoTarget = url.hostname.toLowerCase() === 'github.com'
         ? repository
-        : `${url.hostname}/${repository}`;
+        : `${url.host}/${repository}`;
     return [command, 'view', number, '--repo', repoTarget];
 }
+
 
 function clockTimeToMinutes(value) {
     if (typeof value !== 'string' || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value))
