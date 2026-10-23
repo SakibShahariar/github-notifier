@@ -69,6 +69,7 @@ export function addFooter(indicator, section, opts, activityExpanded) {
             prev.reactive = !previousDisabled;
             prev.can_focus = !previousDisabled;
             const lab = new St.Label({text: `${opts.page + 1} / ${opts.pageCount}`, y_align: Clutter.ActorAlign.CENTER, style_class: 'github-notifier-hero-meta'});
+            lab.accessible_name = `Page ${opts.page + 1} of ${opts.pageCount}`;
             lab.set_style('padding: 0 6px; opacity: 1;');
             box.add_child(lab);
             const next = makeIconBtn('go-next-symbolic', opts.onNext, 'Next page');
