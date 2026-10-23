@@ -7,7 +7,9 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=all&sort=created&direction=desc&per_page=20`);
         const items = [];
         let maxId = repoState.lastIssueNumber || 0;
-        const seenAnyBefore = !!repoState.lastIssueNumber;
+        // A zero issue number is a valid baseline for a repo that had no issues
+        // when first watched; don't mistake that established baseline for absence.
+        const seenAnyBefore = repoState.issuesBaselineEstablished === true || !!repoState.lastIssueNumber;
 
         for (const issue of data) {
             const isPR = !!issue.pull_request;
@@ -60,6 +62,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         }
 
         repoState.lastIssueNumber = maxId;
+        repoState.issuesBaselineEstablished = true;
         return items;
     }
 
