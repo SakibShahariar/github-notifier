@@ -533,26 +533,7 @@ export default class GithubNotifierExtension extends Extension {
     }
 
     disable() {
-        const ind = this._indicator;
-        if (ind) {
-            if (ind._startupId) {
-                GLib.source_remove(ind._startupId);
-                ind._startupId = null;
-            }
-            if (ind._startupCompleteId) {
-                try { Main.layoutManager.disconnect(ind._startupCompleteId); } catch (e) {}
-                ind._startupCompleteId = null;
-            }
-            if (ind._matugenDebounceId) {
-                GLib.source_remove(ind._matugenDebounceId);
-                ind._matugenDebounceId = null;
-            }
-            if (ind._timeoutId) {
-                GLib.source_remove(ind._timeoutId);
-                ind._timeoutId = null;
-            }
-            ind._destroyed = true;
-        }
+        // Indicator.destroy() owns complete teardown through cleanupIndicator().
         this._indicator?.destroy();
         this._indicator = null;
     }
