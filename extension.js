@@ -9,7 +9,7 @@ import Pango from 'gi://Pango';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
-import {cleanupIndicator} from './indicator-lifecycle.js';
+import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
@@ -149,36 +149,7 @@ class Indicator extends PanelMenu.Button {
             maxNotificationPages: MAX_NOTIFICATION_PAGES,
             maxRecent: MAX_RECENT,
         });
-        this._networkMonitor = Gio.NetworkMonitor.get_default();
-        const scheduleNetworkRecoveryPoll = () => {
-            if (this._destroyed ||
-                this._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL)
-                return;
-
-            // A real network recovery is a new opportunity; don't carry the
-            // exponential delay from the previous failed connection forward.
-            this._networkFailureCount = 0;
-            this._networkRetryAfterEpoch = 0;
-
-            // Network and connectivity signals can fire in bursts during a
-            // Wi-Fi/VPN transition. Share one debounce window between both.
-            if (this._networkDebounceId)
-                GLib.source_remove(this._networkDebounceId);
-            this._networkDebounceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
-                this._networkDebounceId = null;
-                if (!this._destroyed &&
-                    this._networkMonitor.get_connectivity() === Gio.NetworkConnectivity.FULL)
-                    this._poll();
-                return GLib.SOURCE_REMOVE;
-            });
-        };
-        this._networkChangedId = this._networkMonitor.connect('network-changed', (monitor, available) => {
-            if (available)
-                scheduleNetworkRecoveryPoll();
-        });
-        // Connectivity can become FULL after a captive-portal sign-in without
-        // an availability transition, so listen for the property notification too.
-        this._connectivityChangedId = this._networkMonitor.connect('notify::connectivity', scheduleNetworkRecoveryPoll);
+        setupNetworkRecovery(this);
 
         this._setupMatugenMonitor();
 
@@ -206,34 +177,7 @@ class Indicator extends PanelMenu.Button {
         });
 
         this._restartTimer();
-        // Defer first poll until shell startup completes (or ~5–8s).
-        const startPoll = () => {
-            if (this._destroyed)
-                return;
-            if (this._startupId) {
-                GLib.source_remove(this._startupId);
-                this._startupId = null;
-            }
-            if (this._startupCompleteId) {
-                try { Main.layoutManager.disconnect(this._startupCompleteId); } catch (e) {}
-                this._startupCompleteId = null;
-            }
-            this._poll();
-        };
-        this._startupId = null;
-        this._startupCompleteId = null;
-        if (Main.layoutManager._startingUp) {
-            this._startupCompleteId = Main.layoutManager.connect('startup-complete', () => startPoll());
-            this._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 8, () => {
-                startPoll();
-                return GLib.SOURCE_REMOVE;
-            });
-        } else {
-            this._startupId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 5, () => {
-                startPoll();
-                return GLib.SOURCE_REMOVE;
-            });
-        }
+        scheduleInitialPoll(this);
         // Defer Matugen stylesheet load so the panel settles first
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             if (!this._destroyed)
