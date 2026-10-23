@@ -129,7 +129,7 @@ export async function pollIndicator(indicator) {
 
             if (indicator._settings.get_boolean('watch-issues-prs') || indicator._settings.get_boolean('watch-stars')) {
                 const reposStr = indicator._settings.get_string('watched-repos');
-                const rawRepos = reposStr.split(',').map(r => r.trim()).filter(r => r.length > 0);
+                const rawRepos = deduplicateRepositoryEntries(reposStr);
                 const repos = rawRepos;
                 const mutedRepositories = indicator._mutedRepositories();
 
