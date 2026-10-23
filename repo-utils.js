@@ -81,7 +81,9 @@ export function isSafeWebUrl(value, configuredWebBase) {
         const base = new URL(configuredWebBase);
         if (url.origin !== base.origin)
             return false;
-        const basePath = base.pathname.replace(/\\/+$/, '');
+        let basePath = base.pathname;
+        while (basePath.endsWith('/'))
+            basePath = basePath.slice(0, -1);
         return !basePath || basePath === '/' || url.pathname === basePath ||
             url.pathname.startsWith(basePath + '/');
     } catch (_error) {
