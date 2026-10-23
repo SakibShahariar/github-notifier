@@ -29,3 +29,20 @@ test('action status generation prevents stale transient timers from hiding newer
     assert.match(source, /indicator\._actionStatusGeneration = generation/);
     assert.match(source, /statusGeneration === indicator\._actionStatusGeneration/);
 });
+
+
+test('icon-only controls have explicit accessible names, not just tooltips', () => {
+    for (const pattern of [
+        /btn\\.accessible_name = accessibleLabel/,
+        /watchButton\\.accessible_name = `Watch \\$\\{repository\\}`/,
+        /muteButton\\.accessible_name = muted \\? `Unmute \\$\\{repositoryForMute\\}` : `Mute \\$\\{repositoryForMute\\}`/,
+        /cliButton\\.accessible_name = 'Open with GitHub CLI'/,
+        /btn\\.accessible_name = item\\.kind === 'notification' \\? 'Mark read' : 'Dismiss'/,
+        /gearButton\\.accessible_name = 'Settings'/,
+    ]) assert.match(source, pattern);
+});
+
+test('disabled pagination buttons are excluded from keyboard focus', () => {
+    assert.match(source, /prev\\.reactive = !previousDisabled;\\s*prev\\.can_focus = !previousDisabled;/);
+    assert.match(source, /next\\.reactive = !nextDisabled;\\s*next\\.can_focus = !nextDisabled;/);
+});
