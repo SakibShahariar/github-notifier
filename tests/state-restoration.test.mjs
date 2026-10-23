@@ -10,7 +10,7 @@ const executableStateSource = stateSource
     .replace("import GLib from 'gi://GLib';", 'const GLib = {};')
     .replace("import {updateDailyStats} from './repo-utils.js';", `const {updateDailyStats} = await import('${utilsUrl}');`);
 const stateUrl = `data:text/javascript;base64,${Buffer.from(executableStateSource).toString('base64')}`;
-const {restoreCachedState} = await import(stateUrl);
+const {restoreCachedState, isValidPendingMarkAll} = await import(stateUrl);
 
 test('restores cached records defensively and applies retention caps', () => {
     const state = {
@@ -66,4 +66,15 @@ test('resets a malformed cached last-fetch timestamp instead of trusting it', ()
     };
     restoreCachedState(indicator);
     assert.equal(indicator._lastFetchedAt, null);
+});
+
+
+test('validates queued mark-all timestamps and caps persisted identifier arrays', () => {
+    const valid = {lastReadAt: '2026-10-23T00:00:00Z', notificationIds: ['n1'], activityIds: ['a1']};
+    assert.equal(isValidPendingMarkAll({}, valid), true);
+    assert.equal(isValidPendingMarkAll({}, {...valid, lastReadAt: 'not a timestamp'}), false);
+    assert.equal(isValidPendingMarkAll({}, {...valid, notificationIds: Array(151).fill('n')}), false);
+    assert.equal(isValidPendingMarkAll({}, {...valid, activityIds: Array(41).fill('a')}), false);
+    assert.equal(isValidPendingMarkAll({}, {...valid, notificationIds: [null]}), false);
+    assert.equal(isValidPendingMarkAll({}, {...valid, activityIds: [null]}), false);
 });

@@ -39,9 +39,15 @@ export function saveState(indicator, state) {
 }
 
 export function isValidPendingMarkAll(indicator, value) {
-        return !!value && typeof value.lastReadAt === 'string' &&
-            Array.isArray(value.notificationIds) && value.notificationIds.every(id => typeof id === 'string') &&
-            Array.isArray(value.activityIds) && value.activityIds.every(id => typeof id === 'string');
+        return !!value &&
+            typeof value.lastReadAt === 'string' &&
+            Number.isFinite(Date.parse(value.lastReadAt)) &&
+            Array.isArray(value.notificationIds) &&
+            value.notificationIds.length <= MAX_NOTIFICATION_PAGES * 50 &&
+            value.notificationIds.every(id => typeof id === 'string') &&
+            Array.isArray(value.activityIds) &&
+            value.activityIds.length <= MAX_RECENT &&
+            value.activityIds.every(id => typeof id === 'string');
 }
 
 export function persistCurrentItems(indicator, state = null) {
