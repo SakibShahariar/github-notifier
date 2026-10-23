@@ -386,3 +386,14 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
             return repoUrl;
     }
 }
+
+
+/** Map actionable status messages to one primary follow-up action. */
+export function getStatusAction(message) {
+    const text = typeof message === 'string' ? message : '';
+    if (/add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(text))
+        return 'settings';
+    if (/quiet hours|metered connection/i.test(text))
+        return 'refresh';
+    return null;
+}
