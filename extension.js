@@ -13,7 +13,7 @@ import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './ind
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
@@ -156,25 +156,7 @@ class Indicator extends PanelMenu.Button {
         // Theme changes only happen while the menu is closed (focus leaves the
         // popup). Skip Matugen on open — colors already applied at launch / by
         // the file monitor. Still build/render + entrance animation.
-        this.menu.connect('open-state-changed', (menu, open) => {
-            if (open) {
-                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                    if (this._destroyed)
-                        return GLib.SOURCE_REMOVE;
-                    if (!this._menuBuilt) {
-                        this._buildMenuContent();
-                        this._menuBuilt = true;
-                    }
-                    // Force re-render in case data changed while menu was closed
-                    this._lastRenderHash = '';
-                    this._animateHeaderEntrance();
-                    this._renderList();
-                    return GLib.SOURCE_REMOVE;
-                });
-            } else {
-                this._stopRefreshSpin();
-            }
-        });
+        setupMenuLifecycle(this);
 
         this._restartTimer();
         scheduleInitialPoll(this);
