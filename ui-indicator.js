@@ -707,3 +707,28 @@ export function showRepositoryActionStatus(indicator, message, undoMuteRepositor
         return GLib.SOURCE_REMOVE;
     });
 }
+
+
+// Own menu-open rendering and stop animation when the popup closes.
+export function setupMenuLifecycle(indicator) {
+            indicator.menu.connect('open-state-changed', (menu, open) => {
+                if (open) {
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        if (indicator._destroyed)
+                            return GLib.SOURCE_REMOVE;
+                        if (!indicator._menuBuilt) {
+                            indicator._buildMenuContent();
+                            indicator._menuBuilt = true;
+                        }
+                        // Force re-render in case data changed while menu was closed
+                        indicator._lastRenderHash = '';
+                        indicator._animateHeaderEntrance();
+                        indicator._renderList();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                } else {
+                    indicator._stopRefreshSpin();
+                }
+            });
+    
+}
