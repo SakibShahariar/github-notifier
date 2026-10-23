@@ -38,7 +38,8 @@ function makeIndicator(responses) {
 const inboxPath = '/notifications?per_page=50&participating=false';
 
 test('indicator delegates inbox polling to the extracted implementation', () => {
-    assert.match(extensionSource, /async _pollNotifications\\(state\\)\\s*\\{\\s*return pollNotifications\\(this, state, MAX_NOTIFICATION_PAGES\\);/);
+    assert.ok(extensionSource.includes('async _pollNotifications(state) {'));
+    assert.ok(extensionSource.includes('return pollNotifications(this, state, MAX_NOTIFICATION_PAGES);'));
 });
 
 test('initial inbox poll establishes a quiet toast baseline and saves conditional metadata', async () => {
