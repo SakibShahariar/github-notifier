@@ -17,3 +17,10 @@ test('GitHub CLI launch failure remains actionable when no valid command or term
 test('link and CLI error timers cannot clear a newer action status', () => {
     assert.ok((source.match(/statusGeneration === indicator\._actionStatusGeneration/g) || []).length >= 3);
 });
+
+
+test('browser launches validate the URL scheme and credentials before handing links to the desktop', () => {
+    assert.match(source, /import \{getGitHubCliArguments, isSafeHttpsUrl\} from '\.\/repo-utils\.js'/);
+    assert.match(source, /if \(!isSafeHttpsUrl\(uri\)\)\s*throw new Error\('Refusing to open an invalid or non-HTTPS link'\)/);
+    assert.ok(source.indexOf('if (!isSafeHttpsUrl(uri))') < source.indexOf('Gio.AppInfo.launch_default_for_uri(uri, null)'));
+});

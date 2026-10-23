@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -428,4 +428,21 @@ test('truncates text by Unicode code point and preserves short values', () => {
     assert.equal(truncateText('A😀BC', 3), 'A😀…');
     assert.equal(truncateText('hello', 1), '…');
     assert.equal(truncateText('hello', 0), '…');
+});
+
+
+test('accepts only absolute HTTPS URLs without embedded credentials', () => {
+    for (const url of [
+        'https://github.com/owner/repo/issues/1',
+        'https://git.example.com/github/owner/repo/pull/2',
+    ]) assert.equal(isSafeHttpsUrl(url), true, url);
+    for (const url of [
+        'http://github.com/owner/repo/issues/1',
+        'file:///etc/passwd',
+        'javascript:alert(1)',
+        'https://user:password@github.com/owner/repo/issues/1',
+        'not a URL',
+        '',
+        null,
+    ]) assert.equal(isSafeHttpsUrl(url), false, String(url));
 });

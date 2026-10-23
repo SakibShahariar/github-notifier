@@ -1,9 +1,11 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import {getGitHubCliArguments} from './repo-utils.js';
+import {getGitHubCliArguments, isSafeHttpsUrl} from './repo-utils.js';
 
 export function openUri(indicator, uri) {
         try {
+            if (!isSafeHttpsUrl(uri))
+                throw new Error('Refusing to open an invalid or non-HTTPS link');
             if (Gio.AppInfo.launch_default_for_uri(uri, null))
                 return true;
         } catch (e) {

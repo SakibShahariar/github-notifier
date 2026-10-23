@@ -59,6 +59,19 @@ export function getApiBase(host) {
     return 'https://' + parsed.host + path;
 }
 
+/** Accept only absolute HTTPS links without embedded credentials. */
+export function isSafeHttpsUrl(value) {
+    if (typeof value !== 'string')
+        return false;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'https:' && Boolean(url.hostname) &&
+            !url.username && !url.password;
+    } catch (_error) {
+        return false;
+    }
+}
+
 export function isValidRepository(value) {
     return typeof value === 'string' && REPO_RE.test(value);
 }
