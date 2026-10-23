@@ -17,7 +17,7 @@ const exportsByPath = new Map([...sources].map(([path, source]) => [path, new Se
 
 const exportedFunctions = new Map();
 for (const [path, source] of sources) {
-    for (const match of source.matchAll(/^export\\s+(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)/gm))
+    for (const match of source.matchAll(/^export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm))
         exportedFunctions.set(match[1], path);
 }
 
@@ -25,23 +25,23 @@ test('bare calls to exported local helpers are imported or defined in the same m
     const missing = [];
     for (const [sourcePath, source] of sources) {
         const imported = new Set();
-        for (const match of source.matchAll(/import\\s*\\{([^}]+)\\}\\s*from\\s*['"]\\.\\/([^'"]+)['"]/gs)) {
+        for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*['"]\.\/([^'"]+)['"]/gs)) {
             for (const entry of match[1].split(',')) {
-                const name = entry.trim().split(/\\s+as\\s+/)[0].trim();
+                const name = entry.trim().split(/\s+as\s+/)[0].trim();
                 if (name)
                     imported.add(name);
             }
         }
         const localDefinitions = new Set(
-            [...source.matchAll(/^(?:export\\s+)?(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)/gm)]
+            [...source.matchAll(/^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm)]
                 .map(match => match[1])
         );
         for (const [name, owner] of exportedFunctions) {
             if (owner === sourcePath || imported.has(name) || localDefinitions.has(name))
                 continue;
-            const call = new RegExp(`(?<![.$\\\\w])${name}\\\\s*\\\\(`);
+            const call = new RegExp('(?<![.$\\w])' + name + '\\s*\\(');
             if (call.test(source))
-                missing.push(`${sourcePath}: calls ${name}() without importing it`);
+                missing.push(sourcePath + ': calls ' + name + '() without importing it');
         }
     }
     assert.deepEqual(missing, []);
