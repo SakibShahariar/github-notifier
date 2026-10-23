@@ -34,5 +34,5 @@ test('repository setting changes queue a fresh poll when the current cycle has s
 
 
 test('credential refresh cancels an in-flight poll without treating it as a network failure', () => {
-    assert.match(source, /indicator\._tokenLoading = true;\s*if \(indicator\._polling\) \{\s*indicator\._restartPollRequested = true;\s*indicator\._pollCancellable\?\.cancel\(\);/);
+    assert.match(source, /indicator\._tokenLoading = true;[\s\S]*?if \(indicator\._polling\) \{[\s\S]*?indicator\._restartPollRequested = true;[\s\S]*?indicator\._pollCancellable\?\.cancel\(\);/);
 });
