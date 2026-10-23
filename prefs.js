@@ -6,7 +6,7 @@ import Soup from 'gi://Soup';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import {getApiBase, isValidClockTime, isValidRepository} from './repo-utils.js';
-import {clearGithubToken, clearLegacyTokenSetting, loadGithubToken, storeGithubToken} from './secret-store.js';
+import {clearGithubToken, clearLegacyTokenSetting, loadGithubToken, normalizeSecretHost, storeGithubToken} from './secret-store.js';
 
 function signalTokenChanged(settings) {
     const current = settings.get_int('token-generation');
@@ -44,12 +44,17 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
                 await storeGithubToken(host, token);
                 // Clear legacy plaintext only after Secret Service confirms storage.
-                const legacyCleared = clearLegacyTokenSetting(settings);
+                const legacyHost = settings.get_string('legacy-token-host').trim();
+                const legacyHostDiffers = Boolean(legacyHost) &&
+                    normalizeSecretHost(legacyHost) !== normalizeSecretHost(host);
+                const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
-                testRow.subtitle = legacyCleared
-                    ? 'Token saved in Secret Service'
-                    : 'Token saved, but the legacy plaintext setting could not be cleared';
+                testRow.subtitle = legacyHostDiffers
+                    ? `Token saved for this host; legacy token for ${legacyHost} was retained`
+                    : legacyCleared
+                        ? 'Token saved in Secret Service'
+                        : 'Token saved, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not save token: ' + error.message;
             } finally {
@@ -106,12 +111,17 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             try {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
                 await clearGithubToken(host);
-                const legacyCleared = clearLegacyTokenSetting(settings);
+                const legacyHost = settings.get_string('legacy-token-host').trim();
+                const legacyHostDiffers = Boolean(legacyHost) &&
+                    normalizeSecretHost(legacyHost) !== normalizeSecretHost(host);
+                const legacyCleared = clearLegacyTokenSetting(settings, host);
                 signalTokenChanged(settings);
                 tokenRow.set_text('');
-                testRow.subtitle = legacyCleared
-                    ? 'Saved token removed for this API host'
-                    : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
+                testRow.subtitle = legacyHostDiffers
+                    ? `Saved token removed for this host; legacy token for ${legacyHost} was retained`
+                    : legacyCleared
+                        ? 'Saved token removed for this API host'
+                        : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
             } catch (error) {
                 testRow.subtitle = 'Could not remove token: ' + error.message;
             } finally {
