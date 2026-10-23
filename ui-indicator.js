@@ -4,6 +4,7 @@ import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import {getDailyStatsTotals, updateDailyStats} from './repo-utils.js';
 import {isValidRepository} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
@@ -666,3 +667,27 @@ export function updatePanel(indicator, maxBadge) {
         const hideWhenEmpty = indicator._settings.get_boolean('hide-when-empty');
         indicator.visible = !(hideWhenEmpty && unread === 0 && !indicator._statusIsError);
     }
+
+
+export function updateDailyStatsItem(indicator) {
+    if (!indicator._statsItem)
+        return;
+    if (!indicator._settings.get_boolean('show-daily-stats')) {
+        indicator._statsItem.visible = false;
+        return;
+    }
+    indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey());
+    const totals = getDailyStatsTotals(indicator._dailyStats, indicator._localDateKey());
+    indicator._statsItem.label.text = `Today: ${totals.todayNotifications} notifications · ${totals.todayActivity} activity | 7 days: ${totals.weekNotifications} notifications · ${totals.weekActivity} activity`;
+    indicator._statsItem.visible = true;
+}
+
+export function setActionStatus(indicator, text) {
+    if (!indicator._actionStatusItem) return;
+    if (text) {
+        indicator._actionStatusItem.label.text = text;
+        indicator._actionStatusItem.visible = true;
+    } else {
+        indicator._actionStatusItem.visible = false;
+    }
+}
