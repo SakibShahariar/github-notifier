@@ -469,7 +469,11 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
             return repoUrl;
 
         const resourcePath = source.pathname.slice(apiReposPrefix.length);
-        if (!resourcePath)
+        const [urlOwner, urlRepository] = resourcePath.split('/');
+        const [expectedOwner, expectedRepository] = repoFullName.split('/');
+        if (!urlOwner || !urlRepository ||
+            urlOwner.toLowerCase() !== expectedOwner?.toLowerCase() ||
+            urlRepository.toLowerCase() !== expectedRepository?.toLowerCase())
             return repoUrl;
         let webPath = web.pathname;
         while (webPath.endsWith('/'))
