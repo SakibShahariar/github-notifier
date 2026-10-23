@@ -31,6 +31,13 @@ The Account preferences provide a **Remove saved token** action for the currentl
 
 The implementation uses libsecret's asynchronous GObject API so Secret Service operations do not synchronously block GNOME Shell or the preferences UI. CI can validate syntax, schema, and source-level migration/error-path tests, but it cannot prove that a real GNOME Keyring session is unlocked or that a prompt behaves correctly. Live testing in a GNOME session remains required before claiming complete runtime verification.
 
+
+## Browser-link validation
+
+Links opened from notification and activity rows are validated before calling the desktop URI handler. The URL must use HTTPS, contain no embedded username/password, and match the configured GitHub.com or GitHub Enterprise web origin and base path. Enterprise path prefixes are respected, so a host configured below a subpath cannot open a similarly prefixed but unrelated path (for example, `/enterprise-evil`). Invalid or cross-host links are rejected and surfaced as an actionable status rather than opened.
+
+This is a defense-in-depth check for cached/API-provided URLs; it does not replace the browser's own security controls or guarantee that a trusted GitHub page itself is safe.
+
 ## References
 
 - [freedesktop.org Secret Service API](https://specifications.freedesktop.org/secret-service/latest/)
