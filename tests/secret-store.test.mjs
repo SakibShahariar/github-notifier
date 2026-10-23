@@ -11,7 +11,7 @@ import {
 } from '../secret-store.js';
 
 function makeSettings({host = 'api.github.com', token = ''} = {}) {
-    const strings = {'github-host': host, 'github-token': token};
+    const strings = {'github-host': host, 'github-token': token, 'legacy-token-host': ''};
     const integers = {'token-generation': 0};
     return {
         get_string(key) { return strings[key] ?? ''; },
@@ -154,5 +154,29 @@ test('reports successful storage but preserves the legacy token when migration c
     assert.equal(result.token, 'legacy-token');
     assert.equal(result.source, 'legacy');
     assert.match(result.warning, /stored, but the legacy setting could not be cleared/);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+});
+
+
+test('binds a legacy token to its first configured host and refuses cross-host fallback', async () => {
+    const settings = makeSettings({host: 'api.github.com', token: 'legacy-token'});
+    const api = {async lookup() { throw new Error('keyring locked'); }, async store() { assert.fail('must not migrate while lookup failed'); }};
+    const first = await loadGithubToken(settings, api);
+    assert.equal(first.token, 'legacy-token');
+    assert.equal(settings.get_string('legacy-token-host'), 'api.github.com');
+
+    settings.set_string('github-host', 'git.example.com/api/v3');
+    await assert.rejects(loadGithubToken(settings, api), /refusing to send it to git\.example\.com\/api\/v3/);
+    assert.equal(settings.get_string('github-token'), 'legacy-token');
+    assert.equal(settings.get_string('legacy-token-host'), 'api.github.com');
+});
+
+test('refuses to migrate a legacy token to a different host even when Secret Service is available', async () => {
+    const settings = makeSettings({host: 'git.example.com/api/v3', token: 'legacy-token'});
+    settings.set_string('legacy-token-host', 'api.github.com');
+    let stored = false;
+    const api = {async lookup() { return ''; }, async store() { stored = true; }};
+    await assert.rejects(loadGithubToken(settings, api), /bound to api\.github\.com, not git\.example\.com\/api\/v3/);
+    assert.equal(stored, false);
     assert.equal(settings.get_string('github-token'), 'legacy-token');
 });
