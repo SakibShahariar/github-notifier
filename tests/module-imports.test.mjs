@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readdir, readFile} from 'node:fs/promises';
 import test from 'node:test';
 
-const modules = [
-    'extension.js', 'prefs.js', 'repo-utils.js', 'secret-store.js', 'api.js', 'state.js',
-    'ui-utils.js', 'ui-theme.js', 'notifications.js', 'ui-indicator.js', 'ui-animations.js',
-    'repository-polling.js', 'notification-actions.js', 'poll-controller.js', 'link-actions.js',
-    'settings-controller.js', 'indicator-lifecycle.js', 'bounded-workers.js',
-];
+// Discover modules automatically so adding a new top-level module cannot silently
+// escape the import/export audit.
+const modules = (await readdir(new URL('../', import.meta.url)))
+    .filter(path => path.endsWith('.js'))
+    .sort();
 const sources = new Map(await Promise.all(modules.map(async path => [
     path, await readFile(new URL(`../${path}`, import.meta.url), 'utf8'),
 ])));
