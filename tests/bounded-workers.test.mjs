@@ -30,7 +30,7 @@ test('does not assign more work after the stop condition is observed', async () 
     }, () => stopped);
 
     assert.deepEqual(assigned, [1, 2]);
-    assert.deepEqual(results, [1, 2, undefined, undefined]);
+    assert.deepEqual(Array.from(results), [1, 2, undefined, undefined]);
 });
 
 test('handles empty input without creating workers', async () => {
