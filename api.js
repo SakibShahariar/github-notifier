@@ -81,6 +81,24 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
 }
 
 
-export function buildMessage(indicator, method, uri, token, body, headers = {}) {}
+export function buildMessage(indicator, method, uri, token, body, headers = {}) {
+        const msg = new Soup.Message({method, uri});
+        msg.request_headers.append('Accept', 'application/vnd.github+json');
+        msg.request_headers.append('X-GitHub-Api-Version', '2022-11-28');
+        msg.request_headers.append('User-Agent', 'gnome-shell-github-notifier');
+        if (token)
+            msg.request_headers.append('Authorization', `Bearer ${token}`);
+        for (const [name, value] of Object.entries(headers))
+            msg.request_headers.append(name, value);
+        if (body !== null) {
+            const bodyBytes = new TextEncoder().encode(JSON.stringify(body));
+            msg.set_request_body_from_bytes('application/json', new GLib.Bytes(bodyBytes));
+        }
+        return msg;
+    }
 
-export async function sendOnce(indicator, method, uri, token, body, headers = {}, cancellable = null) {}
+export async function sendOnce(indicator, method, uri, token, body, headers = {}, cancellable = null) {
+        const msg = this._buildMessage(method, uri, token, body, headers);
+        const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, cancellable);
+        return {bytes, msg};
+    }
