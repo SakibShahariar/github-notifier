@@ -135,18 +135,23 @@ export function getGitHubCliArguments(item, configuredWebBase = null) {
         return null;
 
     const [owner, name] = repository.split('/');
-    const escapeRegExp = value => value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
-    const match = url.pathname.match(new RegExp(
-        `/${escapeRegExp(owner)}/${escapeRegExp(name)}/(issues|pull)/(\\d+)(?:/|$)`,
-        'i'
-    ));
-    if (!match)
+    const segments = url.pathname.split('/').filter(Boolean);
+    if (segments.length < 4)
+        return null;
+    const number = segments[segments.length - 1];
+    const resource = segments[segments.length - 2];
+    const urlName = segments[segments.length - 3];
+    const urlOwner = segments[segments.length - 4];
+    if (!/^\d+$/.test(number) || urlOwner !== owner || urlName !== name ||
+        !['issues', 'pull'].includes(resource.toLowerCase()))
         return null;
 
     if (configuredWebBase) {
         try {
             const base = new URL(configuredWebBase);
-            const basePath = base.pathname.replace(/\\/+$/, '');
+            let basePath = base.pathname;
+            while (basePath.endsWith('/'))
+                basePath = basePath.slice(0, -1);
             if (base.protocol !== 'https:' || url.origin !== base.origin ||
                 (basePath && basePath !== '/' && url.pathname !== basePath &&
                     !url.pathname.startsWith(basePath + '/')))
@@ -156,14 +161,13 @@ export function getGitHubCliArguments(item, configuredWebBase = null) {
         }
     }
 
-    const [, resource, number] = match;
     const command = resource.toLowerCase() === 'pull' || item.kind === 'pr'
         ? 'pr'
         : 'issue';
     // GitHub CLI accepts [HOST/]OWNER/REPO for Enterprise instances.
     const repoTarget = url.hostname.toLowerCase() === 'github.com'
         ? repository
-        : `${url.host}/${repository}`;
+        : url.host + '/' + repository;
     return [command, 'view', number, '--repo', repoTarget];
 }
 
