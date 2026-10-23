@@ -8,3 +8,9 @@ test('API host preferences validate input and report GSettings write failures', 
     assert.match(source, /getApiBase\(host \|\| 'api\.github\.com'\);\s*if \(!settings\.set_string\('github-host', host \|\| 'api\.github\.com'\)\)\s*\{\s*testRow\.subtitle = 'Could not save API host setting';\s*return;/);
     assert.match(source, /testRow\.subtitle = 'API host saved';/);
 });
+
+
+test('quiet-hours settings report failed GSettings writes instead of false success', () => {
+    assert.match(source, /if \(!settings\.set_string\('quiet-hours-start', value\)\)\s*\{\s*quietStatusRow\.subtitle = 'Could not save quiet-hours start\.';\s*quietStartRow\.set_text\(settings\.get_string\('quiet-hours-start'\)\);\s*return;/);
+    assert.match(source, /if \(!settings\.set_string\('quiet-hours-end', value\)\)\s*\{\s*quietStatusRow\.subtitle = 'Could not save quiet-hours end\.';\s*quietEndRow\.set_text\(settings\.get_string\('quiet-hours-end'\)\);\s*return;/);
+});

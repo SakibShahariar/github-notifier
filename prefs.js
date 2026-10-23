@@ -514,7 +514,11 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 quietStartRow.set_text(settings.get_string('quiet-hours-start'));
                 return;
             }
-            settings.set_string('quiet-hours-start', value);
+            if (!settings.set_string('quiet-hours-start', value)) {
+                quietStatusRow.subtitle = 'Could not save quiet-hours start.';
+                quietStartRow.set_text(settings.get_string('quiet-hours-start'));
+                return;
+            }
             quietStatusRow.subtitle = 'Quiet-hours start saved.';
         });
         quietGroup.add(quietStartRow);
@@ -529,7 +533,11 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 quietEndRow.set_text(settings.get_string('quiet-hours-end'));
                 return;
             }
-            settings.set_string('quiet-hours-end', value);
+            if (!settings.set_string('quiet-hours-end', value)) {
+                quietStatusRow.subtitle = 'Could not save quiet-hours end.';
+                quietEndRow.set_text(settings.get_string('quiet-hours-end'));
+                return;
+            }
             quietStatusRow.subtitle = 'Quiet-hours end saved.';
         });
         quietGroup.add(quietEndRow);
