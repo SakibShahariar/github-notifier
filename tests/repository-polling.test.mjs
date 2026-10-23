@@ -45,7 +45,7 @@ test('pollRepoIssues records the initial baseline without creating false alerts'
     const notes = [];
     assert.deepEqual(await pollRepoIssues(indicator, repo, state, notes), []);
     assert.equal(state.repos[repo].lastIssueNumber, 4);
-    assert.deepEqual(notes, ['owner/repo: now tracking issues/PRs (1 recent items checked)']);
+    assert.deepEqual(notes, ['owner/repo: now tracking issues/PRs (baseline established from recent items)']);
 });
 
 test('pollRepoIssues emits a direct-link summary when a second page has more new items', async () => {

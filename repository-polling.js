@@ -56,7 +56,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         }
 
         if (!seenAnyBefore) {
-            baselineNotes.push(`${repo}: now tracking issues/PRs (${data.length} recent items checked)`);
+            baselineNotes.push(`${repo}: now tracking issues/PRs (baseline established from recent items)`);
         }
 
         repoState.lastIssueNumber = maxId;
