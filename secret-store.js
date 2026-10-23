@@ -113,7 +113,7 @@ export async function loadGithubToken(settings, apiOverride = null) {
         let warning = '';
         if (legacyToken && legacyHost === normalizedHost &&
             settings.get_string('github-token') === legacyToken &&
-            !clearLegacyTokenSetting(settings)) {
+            !clearLegacyTokenSetting(settings, normalizedHost)) {
             warning = 'The saved token is available, but the legacy setting could not be cleared';
         } else if (legacyToken && legacyHost !== normalizedHost) {
             warning = `A legacy token for ${legacyHost} remains stored; it was not used for ${normalizedHost}`;
@@ -149,12 +149,16 @@ export async function loadGithubToken(settings, apiOverride = null) {
     return {token: legacyToken, source: 'secret-service', migrated: true, warning: ''};
 }
 
-export function clearLegacyTokenSetting(settings) {
+export function clearLegacyTokenSetting(settings, expectedHost = null) {
     const legacyToken = settings.get_string('github-token');
+    const legacyHost = settings.get_string('legacy-token-host').trim();
+    if (legacyToken && expectedHost && legacyHost &&
+        normalizeSecretHost(legacyHost) !== normalizeSecretHost(expectedHost))
+        return false;
     if (legacyToken && !settings.set_string('github-token', ''))
         return false;
     // The host marker is non-secret metadata; clear it only after plaintext is gone.
-    if (settings.get_string('legacy-token-host'))
+    if (legacyHost)
         settings.set_string('legacy-token-host', '');
     return true;
 }
