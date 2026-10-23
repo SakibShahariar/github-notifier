@@ -11,6 +11,12 @@
       </description>
     </key>
 
+    <key name="legacy-token-host" type="s">
+      <default>''</default>
+      <summary>API host associated with the legacy token</summary>
+      <description>Internal non-secret marker preventing a legacy plaintext token from being sent to a different API host.</description>
+    </key>
+
     <key name="token-generation" type="i">
       <default>0</default>
       <summary>Credential revision counter</summary>
