@@ -48,6 +48,31 @@ test('pollRepoIssues records the initial baseline without creating false alerts'
     assert.deepEqual(notes, ['owner/repo: now tracking issues/PRs (baseline established from recent items)']);
 });
 
+test('pollRepoIssues detects the first issue created after an empty baseline', async () => {
+    const repo = 'owner/repo';
+    const issuesPath = '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20';
+    const responses = {[issuesPath]: []};
+    const indicator = indicatorWithResponses(responses);
+    const state = {repos: {}};
+    const notes = [];
+
+    assert.deepEqual(await pollRepoIssues(indicator, repo, state, notes), []);
+    assert.equal(state.repos[repo].lastIssueNumber, 0);
+    assert.equal(state.repos[repo].issuesBaselineEstablished, true);
+
+    responses[issuesPath] = [{
+        number: 1,
+        title: 'First issue',
+        html_url: 'https://github.com/owner/repo/issues/1',
+        created_at: '2026-10-23T00:00:00Z',
+    }];
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, 'owner/repo-1');
+    assert.equal(items[0].title, 'New issue: First issue');
+    assert.equal(state.repos[repo].lastIssueNumber, 1);
+});
+
 test('pollRepoIssues emits a direct-link summary when a second page has more new items', async () => {
     const repo = 'owner/repo';
     const firstPage = Array.from({length: 20}, (_, i) => ({
