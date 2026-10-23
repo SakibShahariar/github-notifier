@@ -7,16 +7,27 @@ export async function runBoundedWorkers(items, concurrency, worker, shouldStop =
     const requested = Number.isFinite(concurrency) ? Math.floor(concurrency) : 1;
     const workerCount = Math.min(items.length, Math.max(1, requested));
     let nextIndex = 0;
+    let failure = null;
 
     const runWorker = async () => {
-        while (!shouldStop()) {
+        while (!failure && !shouldStop()) {
             const index = nextIndex++;
             if (index >= items.length)
                 return;
-            results[index] = await worker(items[index], index);
+            try {
+                results[index] = await worker(items[index], index);
+            } catch (error) {
+                // Stop handing out work after the first failure. Other in-flight
+                // workers may finish, but the caller receives the original error.
+                failure ??= error;
+                return;
+            }
         }
     };
 
     await Promise.all(Array.from({length: workerCount}, () => runWorker()));
-    return results;
+    if (failure)
+        throw failure;
+    // Return a dense result array: stopped/unassigned work is explicitly undefined.
+    return Array.from(results);
 }
