@@ -73,6 +73,12 @@ export function connectSettingsSignals(indicator, constants) {
         const refreshToken = async () => {
             const generation = ++tokenRefreshGeneration;
             indicator._tokenLoading = true;
+            if (indicator._polling) {
+                // Stop requests under the previous credential/host promptly.
+                // The restart flag prevents cancellation from becoming a network-error banner.
+                indicator._restartPollRequested = true;
+                indicator._pollCancellable?.cancel();
+            }
             try {
                 const credential = await loadGithubToken(indicator._settings);
                 if (indicator._destroyed || generation !== tokenRefreshGeneration)

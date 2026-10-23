@@ -31,3 +31,8 @@ test('repository setting changes queue a fresh poll when the current cycle has s
     assert.match(source, /changed::watched-repos'[\s\S]*?pollAfterRepositorySettingsChange\(\)/);
     assert.match(source, /changed::muted-repos'[\s\S]*?pollAfterRepositorySettingsChange\(\)/);
 });
+
+
+test('credential refresh cancels an in-flight poll without treating it as a network failure', () => {
+    assert.match(source, /indicator\._tokenLoading = true;\s*if \(indicator\._polling\) \{\s*indicator\._restartPollRequested = true;\s*indicator\._pollCancellable\?\.cancel\(\);/);
+});
