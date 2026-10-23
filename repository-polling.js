@@ -4,7 +4,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         state.repos[repo] ||= {};
         const repoState = state.repos[repo];
 
-        const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=open&sort=created&direction=desc&per_page=20`);
+        const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=all&sort=created&direction=desc&per_page=20`);
         const items = [];
         let maxId = repoState.lastIssueNumber || 0;
         const seenAnyBefore = !!repoState.lastIssueNumber;
@@ -27,7 +27,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
 
         if (seenAnyBefore && items.length === 20) {
             try {
-                const data2 = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=open&sort=created&direction=desc&per_page=20&page=2`);
+                const data2 = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}/issues?state=all&sort=created&direction=desc&per_page=20&page=2`);
                 for (const issue of data2) {
                     if (issue.number > maxId)
                         maxId = issue.number;
@@ -56,7 +56,7 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
         }
 
         if (!seenAnyBefore) {
-            baselineNotes.push(`${repo}: now tracking issues/PRs (${data.length} currently open)`);
+            baselineNotes.push(`${repo}: now tracking issues/PRs (${data.length} recent items checked)`);
         }
 
         repoState.lastIssueNumber = maxId;

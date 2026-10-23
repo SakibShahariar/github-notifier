@@ -19,7 +19,7 @@ function indicatorWithResponses(responses) {
 test('pollRepoIssues reports only issue numbers newer than the saved baseline', async () => {
     const repo = 'owner/repo';
     const indicator = indicatorWithResponses({
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': [
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
             {number: 12, title: 'New issue', html_url: 'https://github.com/owner/repo/issues/12', created_at: '2026-10-23T00:00:00Z'},
             {number: 9, title: 'Old issue', html_url: 'https://github.com/owner/repo/issues/9', created_at: '2026-10-20T00:00:00Z'},
         ],
@@ -37,7 +37,7 @@ test('pollRepoIssues reports only issue numbers newer than the saved baseline', 
 test('pollRepoIssues records the initial baseline without creating false alerts', async () => {
     const repo = 'owner/repo';
     const indicator = indicatorWithResponses({
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': [
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
             {number: 4, title: 'Existing PR', pull_request: {}, html_url: 'https://github.com/owner/repo/pull/4', created_at: '2026-10-20T00:00:00Z'},
         ],
     });
@@ -45,7 +45,7 @@ test('pollRepoIssues records the initial baseline without creating false alerts'
     const notes = [];
     assert.deepEqual(await pollRepoIssues(indicator, repo, state, notes), []);
     assert.equal(state.repos[repo].lastIssueNumber, 4);
-    assert.deepEqual(notes, ['owner/repo: now tracking issues/PRs (1 currently open)']);
+    assert.deepEqual(notes, ['owner/repo: now tracking issues/PRs (1 recent items checked)']);
 });
 
 test('pollRepoIssues emits a direct-link summary when a second page has more new items', async () => {
@@ -57,8 +57,8 @@ test('pollRepoIssues emits a direct-link summary when a second page has more new
         created_at: '2026-10-23T00:00:00Z',
     }));
     const indicator = indicatorWithResponses({
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': firstPage,
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20&page=2': [
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': firstPage,
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20&page=2': [
             {number: 100, title: 'Older issue', html_url: 'https://github.com/owner/repo/issues/100', created_at: '2026-10-20T00:00:00Z'},
         ],
     });
@@ -94,7 +94,7 @@ test('pollRepoStars reports gains and establishes a silent first baseline', asyn
 test('pollRepoIssues classifies newly opened pull requests distinctly', async () => {
     const repo = 'owner/repo';
     const indicator = indicatorWithResponses({
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': [
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
             {number: 18, title: 'New pull request', pull_request: {}, html_url: 'https://github.com/owner/repo/pull/18', created_at: '2026-10-23T00:00:00Z'},
         ],
     });
@@ -115,10 +115,28 @@ test('pollRepoIssues preserves an overflow notice when the follow-up page fails'
         created_at: '2026-10-23T00:00:00Z',
     }));
     const indicator = indicatorWithResponses({
-        '/repos/owner/repo/issues?state=open&sort=created&direction=desc&per_page=20': firstPage,
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': firstPage,
     });
     const items = await pollRepoIssues(indicator, repo, {repos: {[repo]: {lastIssueNumber: 199}}}, []);
     assert.equal(items.length, 21);
     assert.equal(items.at(-1).title, 'More new issues/PRs than shown — check the repo directly');
     assert.equal(items.at(-1).url, 'https://github.com/owner/repo/issues');
+});
+
+
+test('detects a newly created issue even if it was closed before the next poll', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [
+            {number: 31, title: 'Created and closed between polls', state: 'closed', html_url: 'https://github.com/owner/repo/issues/31', created_at: '2026-10-23T00:00:00Z', closed_at: '2026-10-23T00:01:00Z'},
+            {number: 30, title: 'Older issue', state: 'closed', html_url: 'https://github.com/owner/repo/issues/30', created_at: '2026-10-22T00:00:00Z'},
+        ],
+    });
+    const state = {repos: {[repo]: {lastIssueNumber: 30}}};
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, 'owner/repo-31');
+    assert.equal(items[0].title, 'New issue: Created and closed between polls');
+    assert.equal(state.repos[repo].lastIssueNumber, 31);
+    assert.match(indicator.calls[0], /state=all/);
 });
