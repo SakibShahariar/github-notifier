@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -348,4 +348,18 @@ test('converts GitHub API subject URLs into browser-facing issue, PR, commit and
     assert.equal(getSubjectHtmlUrl({type: 'WorkflowRun', url: `${api}/repos/${repo}/actions/runs/2`}, repo, api, web), `${web}/${repo}/actions`);
     assert.equal(getSubjectHtmlUrl({type: 'Unknown', url: `${api}/repos/${repo}/x`}, repo, api, web), `${web}/${repo}`);
     assert.equal(getSubjectHtmlUrl({}, repo, api, web), `${web}/${repo}`);
+});
+
+
+test('maps status banners to at most one actionable follow-up', () => {
+    for (const message of [
+        'Add a GitHub token in Settings',
+        'GitHub token unavailable — check Secret Service and Settings',
+        'Invalid token — check Settings',
+        'GitHub access denied — check token permissions or organization SSO',
+    ]) assert.equal(getStatusAction(message), 'settings', message);
+    assert.equal(getStatusAction('Quiet hours — automatic polling paused'), 'refresh');
+    assert.equal(getStatusAction('Metered connection — automatic polling paused'), 'refresh');
+    for (const message of [null, '', 'GitHub rate limit reached', 'GitHub is unreachable'])
+        assert.equal(getStatusAction(message), null, String(message));
 });
