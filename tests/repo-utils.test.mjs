@@ -125,6 +125,7 @@ test('validates HTTPS and configured host/path before building CLI targets', () 
     assert.equal(getGitHubCliArguments({...item, url: 'http://github.com/owner/repo/issues/1'}, 'https://github.com'), null);
     assert.equal(getGitHubCliArguments({...item, url: 'https://evil.example/owner/repo/issues/1'}, 'https://github.com'), null);
     assert.equal(getGitHubCliArguments({...item, url: 'https://github.com/other/repo/issues/1'}, 'https://github.com'), null);
+    assert.deepEqual(getGitHubCliArguments({...item, subtitle: 'Owner/Repo', url: 'https://github.com/owner/repo/issues/1'}, 'https://github.com'), ['issue', 'view', '1', '--repo', 'Owner/Repo']);
     const enterprise = {...item, url: 'https://git.example.com/github/owner/repo/issues/8'};
     assert.deepEqual(getGitHubCliArguments(enterprise, 'https://git.example.com/github'), ['issue', 'view', '8', '--repo', 'git.example.com/owner/repo']);
     assert.equal(getGitHubCliArguments({...enterprise, url: 'https://git.example.com/other/owner/repo/issues/8'}, 'https://git.example.com/github'), null);

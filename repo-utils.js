@@ -142,7 +142,7 @@ export function getGitHubCliArguments(item, configuredWebBase = null) {
     const resource = segments[segments.length - 2];
     const urlName = segments[segments.length - 3];
     const urlOwner = segments[segments.length - 4];
-    if (!/^\d+$/.test(number) || urlOwner !== owner || urlName !== name ||
+    if (!/^\d+$/.test(number) || urlOwner.toLowerCase() !== owner.toLowerCase() || urlName.toLowerCase() !== name.toLowerCase() ||
         !['issues', 'pull'].includes(resource.toLowerCase()))
         return null;
 
