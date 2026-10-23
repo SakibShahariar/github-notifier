@@ -228,8 +228,8 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                     if (login) {
                         testRow.subtitle = `Connected as ${login}${summary}${hostWarning}`;
                         const curUser = settings.get_string('github-username').trim();
-                        if (!curUser)
-                            settings.set_string('github-username', login);
+                        if (!curUser && !settings.set_string('github-username', login))
+                            testRow.subtitle += ' · connected, but the username could not be saved';
                     } else {
                         testRow.subtitle = `Connected${summary}${hostWarning}`;
                     }
@@ -601,7 +601,11 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             r.add_prefix(new Gtk.Image({icon_name: 'alarm-symbolic', pixel_size: 16}));
             const btn = new Gtk.Button({label: 'Apply', valign: Gtk.Align.CENTER});
             btn.add_css_class('pill');
-            btn.connect('clicked', () => settings.set_int('poll-interval', p.value));
+            btn.connect('clicked', () => {
+                r.subtitle = settings.set_int('poll-interval', p.value)
+                    ? 'Polling interval saved'
+                    : 'Could not save polling interval';
+            });
             r.add_suffix(btn);
             r.set_activatable_widget(btn);
             presetGroup.add(r);
