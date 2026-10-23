@@ -49,7 +49,7 @@ UUID="github-notifier@SakibShahariar"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 
 mkdir -p "$DEST/schemas" "$DEST/icons"
-cp extension.js prefs.js metadata.json stylesheet.css "$DEST/"
+cp ./*.js metadata.json stylesheet.css "$DEST/"
 cp icons/* "$DEST/icons/"
 cp schemas/*.xml "$DEST/schemas/"
 glib-compile-schemas "$DEST/schemas/"
