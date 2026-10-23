@@ -27,7 +27,7 @@ test('account changes reload state under the current host/token scope and clear 
 
 
 test('repository setting changes queue a fresh poll when the current cycle has stale watch state', () => {
-    assert.match(source, /const pollAfterRepositorySettingsChange = \(\) => \{[\s\S]*?if \(indicator\._polling\) \{\s*indicator\._restartPollRequested = true;\s*return;\s*\}[\s\S]*?indicator\._poll\(\);/);
+    assert.match(source, /const pollAfterRepositorySettingsChange = \(\) => \{[\s\S]*?if \(indicator\._polling\) \{\s*indicator\._restartPollRequested = true;\s*indicator\._pollCancellable\?\.cancel\(\);\s*return;\s*\}[\s\S]*?indicator\._poll\(\);/);
     assert.match(source, /changed::watched-repos'[\s\S]*?pollAfterRepositorySettingsChange\(\)/);
     assert.match(source, /changed::muted-repos'[\s\S]*?pollAfterRepositorySettingsChange\(\)/);
 });
