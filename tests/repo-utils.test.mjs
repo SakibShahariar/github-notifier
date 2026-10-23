@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -449,4 +449,25 @@ test('accepts only absolute HTTPS URLs without embedded credentials', () => {
         '',
         null,
     ]) assert.equal(isSafeHttpsUrl(url), false, String(url));
+});
+
+
+test('browser links stay within the configured GitHub or Enterprise web base', () => {
+    for (const value of [
+        'https://github.com/owner/repo/issues/1',
+        'https://github.com',
+    ]) assert.equal(isSafeWebUrl(value, 'https://github.com'), true, value);
+
+    assert.equal(isSafeWebUrl('https://git.example.com/enterprise/owner/repo/issues/1',
+        'https://git.example.com/enterprise'), true);
+    assert.equal(isSafeWebUrl('https://git.example.com/enterprise',
+        'https://git.example.com/enterprise'), true);
+    for (const [value, base] of [
+        ['https://evil.example/owner/repo/issues/1', 'https://github.com'],
+        ['https://git.example.com/enterprise-evil/owner/repo', 'https://git.example.com/enterprise'],
+        ['https://git.example.com/owner/repo', 'https://git.example.com/enterprise'],
+        ['http://github.com/owner/repo', 'https://github.com'],
+        ['https://user:pass@github.com/owner/repo', 'https://github.com'],
+        ['not a URL', 'https://github.com'],
+    ]) assert.equal(isSafeWebUrl(value, base), false, value);
 });
