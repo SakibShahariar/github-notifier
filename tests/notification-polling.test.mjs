@@ -79,12 +79,12 @@ test('subsequent inbox polls toast only unseen thread IDs and send If-Modified-S
     const state = {
         notificationBaselineEstablished: true,
         toastedNotificationIds: ['123'],
-        notificationsLastModified: 'previous-modified',
+        notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT',
     };
     const items = await pollNotifications(indicator, state);
 
     assert.deepEqual(items.map(item => item.isNewToast), [false, true]);
-    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 22 Oct 2026 00:00:00 GMT');
     assert.deepEqual(state.toastedNotificationIds, ['123', '456']);
 });
 
@@ -112,11 +112,11 @@ test('a 304 inbox response preserves the cached notifications without rebuilding
         [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
     });
     indicator._notificationItems = cached;
-    const result = await pollNotifications(indicator, {notificationsLastModified: 'previous-modified'});
+    const result = await pollNotifications(indicator, {notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT'});
 
     assert.deepEqual(result, cached);
     assert.notEqual(result, cached);
-    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 22 Oct 2026 00:00:00 GMT');
 });
 
 
@@ -129,14 +129,14 @@ test('a 304 response reconstructs a corrupt toast baseline from cached inbox IDs
     const state = {
         notificationBaselineEstablished: 'true',
         toastedNotificationIds: 'corrupt',
-        notificationsLastModified: 'previous-modified',
+        notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT',
     };
 
     const result = await pollNotifications(indicator, state);
     assert.deepEqual(result, cached);
     assert.equal(state.notificationBaselineEstablished, true);
     assert.deepEqual(state.toastedNotificationIds, ['123']);
-    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 22 Oct 2026 00:00:00 GMT');
 });
 
 test('a 304 with an established marker but no cached IDs resets the empty baseline safely', async () => {
@@ -147,7 +147,7 @@ test('a 304 with an established marker but no cached IDs resets the empty baseli
     const state = {
         notificationBaselineEstablished: true,
         toastedNotificationIds: [],
-        notificationsLastModified: 'previous-modified',
+        notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT',
     };
 
     assert.deepEqual(await pollNotifications(indicator, state), []);
@@ -163,11 +163,28 @@ test('a 304 response without cached inbox data clears stale conditional metadata
     const state = {
         notificationBaselineEstablished: 'true',
         toastedNotificationIds: 'corrupt',
-        notificationsLastModified: 'previous-modified',
+        notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT',
     };
 
     assert.deepEqual(await pollNotifications(indicator, state), []);
     assert.equal(state.notificationsLastModified, null);
     assert.equal(state.notificationBaselineEstablished, false);
     assert.deepEqual(state.toastedNotificationIds, []);
+});
+
+
+test('corrupt Last-Modified metadata is discarded instead of sent as a request header', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
+    });
+    indicator._notificationItems = [{id: 'notif-123', rawId: '123'}];
+    const state = {
+        notificationBaselineEstablished: true,
+        toastedNotificationIds: ['123'],
+        notificationsLastModified: 'not-a-valid-http-date',
+    };
+
+    assert.deepEqual(await pollNotifications(indicator, state), indicator._notificationItems);
+    assert.deepEqual(indicator.calls[0].options.headers, {});
+    assert.equal(state.notificationsLastModified, null);
 });
