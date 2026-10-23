@@ -42,6 +42,10 @@ test('icon-only controls have explicit accessible names, not just tooltips', () 
     ]) assert.ok(source.includes(line), `missing accessible name assignment: ${line}`);
 });
 
+test('pagination position is announced as a page number to assistive technology', () => {
+    assert.ok(source.includes('lab.accessible_name = `Page ${opts.page + 1} of ${opts.pageCount}`;'));
+});
+
 test('disabled pagination buttons are excluded from keyboard focus', () => {
     assert.ok(source.includes('prev.reactive = !previousDisabled;'));
     assert.ok(source.includes('prev.can_focus = !previousDisabled;'));
