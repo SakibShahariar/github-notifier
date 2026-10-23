@@ -30,11 +30,34 @@ test('does not assign more work after the stop condition is observed', async () 
     }, () => stopped);
 
     assert.deepEqual(assigned, [1, 2]);
-    assert.deepEqual(Array.from(results), [1, 2, undefined, undefined]);
+    assert.deepEqual(results, [1, 2, undefined, undefined]);
 });
 
 test('handles empty input without creating workers', async () => {
     let called = false;
     assert.deepEqual(await runBoundedWorkers([], 3, async () => { called = true; }), []);
     assert.equal(called, false);
+});
+
+
+test('propagates the first worker error and stops assigning subsequent work', async () => {
+    const assigned = [];
+    const failure = new Error('worker failed');
+    await assert.rejects(runBoundedWorkers([1, 2, 3, 4], 1, async item => {
+        assigned.push(item);
+        if (item === 2)
+            throw failure;
+        return item;
+    }), error => error === failure);
+    assert.deepEqual(assigned, [1, 2]);
+});
+
+test('normalizes non-positive concurrency to a single worker', async () => {
+    const assigned = [];
+    const results = await runBoundedWorkers([1, 2, 3], 0, async item => {
+        assigned.push(item);
+        return item * 2;
+    });
+    assert.deepEqual(assigned, [1, 2, 3]);
+    assert.deepEqual(results, [2, 4, 6]);
 });
