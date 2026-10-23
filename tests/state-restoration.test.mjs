@@ -18,7 +18,7 @@ test('restores cached records defensively and applies retention caps', () => {
         lastFetchedAt: '2026-10-23T08:30:00Z',
         notificationItems: [...Array.from({length: 155}, (_, i) => ({id: String(i)})), {id: 2}, null, {id: 3}],
         activityItems: [...Array.from({length: 45}, (_, i) => ({id: String(i)})), {title: 'missing id'}, null],
-        pendingReadItems: [{id: 'n1', rawId: 'r1'}, {id: 'bad'}, {id: 'n2', rawId: 'r2'}],
+        pendingReadItems: [{id: 'n1', rawId: '1001'}, {id: 'bad'}, {id: 'n2', rawId: '1002'}, {id: 'bad-path', rawId: '../../user'}],
         pendingMarkAllRead: {lastReadAt: '2026-10-23T00:00:00Z', notificationIds: ['n1'], activityIds: ['a1']},
     };
     const indicator = {
@@ -33,7 +33,7 @@ test('restores cached records defensively and applies retention caps', () => {
     assert.equal(indicator._activityItems.length, 40);
     assert.ok(indicator._notificationItems.every(item => typeof item.id === 'string'));
     assert.ok(indicator._activityItems.every(item => typeof item.id === 'string'));
-    assert.deepEqual(indicator._pendingReadItems, [{id: 'n1', rawId: 'r1'}, {id: 'n2', rawId: 'r2'}]);
+    assert.deepEqual(indicator._pendingReadItems, [{id: 'n1', rawId: '1001'}, {id: 'n2', rawId: '1002'}]);
     assert.equal(indicator._pendingMarkAllRead, state.pendingMarkAllRead);
     assert.equal(indicator._lastFetchedAt, '2026-10-23T08:30:00Z');
     assert.deepEqual(indicator._dailyStats['2026-10-23'], {notifications: 4, activity: 2});

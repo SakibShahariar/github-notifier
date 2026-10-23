@@ -23,3 +23,10 @@ test('notification summary publisher avoids redundant writes and preserves faile
 test('read and mark-all status timers only clear the status generation they created', () => {
     assert.ok((source.match(/statusGeneration === indicator\._actionStatusGeneration/g) || []).length >= 7);
 });
+
+
+test('mark-read requests and queued retries accept only numeric GitHub thread IDs', () => {
+    assert.ok(source.includes("const rawId = String(item.rawId || '');"));
+    assert.ok(source.includes('if (!/^\\d+$/.test(rawId))'));
+    assert.ok(source.includes('`/notifications/threads/${rawId}`'));
+});

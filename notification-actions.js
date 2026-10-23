@@ -4,7 +4,8 @@ import {createNotificationSummary} from './repo-utils.js';
 
 // Read/dismiss actions and their offline retry state are delegated while the indicator owns UI and persistence.
 export async function markThreadRead(indicator, item) {
-        if (!item.rawId)
+        const rawId = String(item.rawId || '');
+        if (!/^\d+$/.test(rawId))
             return;
         if (indicator._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             indicator._queuePendingReadItem(item);
@@ -17,7 +18,7 @@ export async function markThreadRead(indicator, item) {
         }
         indicator._setActionStatus('Marking notification read…');
         try {
-            await indicator._apiRequest('PATCH', `/notifications/threads/${item.rawId}`);
+            await indicator._apiRequest('PATCH', `/notifications/threads/${rawId}`);
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
             indicator._queuePendingReadItem(item);
@@ -28,7 +29,7 @@ export async function markThreadRead(indicator, item) {
             });
             return;
         }
-        indicator._pendingReadItems = indicator._pendingReadItems.filter(pending => pending.rawId !== String(item.rawId));
+        indicator._pendingReadItems = indicator._pendingReadItems.filter(pending => pending.rawId !== rawId);
         indicator._notificationItems = indicator._notificationItems.filter(i => i.id !== item.id);
         indicator._persistCurrentItems();
         indicator._setActionStatus('');
@@ -39,7 +40,7 @@ export async function markThreadRead(indicator, item) {
 
 export function queuePendingReadItem(indicator, item, maxNotificationPages) {
         const rawId = String(item.rawId || '');
-        if (!rawId)
+        if (!/^\d+$/.test(rawId))
             return;
         if (!indicator._pendingReadItems.some(pending => pending.rawId === rawId))
             indicator._pendingReadItems.push({id: String(item.id), rawId});
