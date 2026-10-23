@@ -29,8 +29,7 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
                 state.notificationBaselineEstablished = true;
             } else if (isInitialBaseline || toasted.size === 0) {
                 state.notificationsLastModified = null;
-                if (isInitialBaseline)
-                    state.notificationBaselineEstablished = false;
+                state.notificationBaselineEstablished = false;
             }
             return indicator._notificationItems.slice();
         }
