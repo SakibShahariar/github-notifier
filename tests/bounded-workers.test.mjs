@@ -61,3 +61,22 @@ test('normalizes non-positive concurrency to a single worker', async () => {
     assert.deepEqual(assigned, [1, 2, 3]);
     assert.deepEqual(results, [2, 4, 6]);
 });
+
+
+test('propagates even a falsy rejection reason and stops the pool', async () => {
+    const assigned = [];
+    let caught = false;
+    try {
+        await runBoundedWorkers([1, 2, 3], 1, async item => {
+            assigned.push(item);
+            if (item === 2)
+                throw null;
+            return item;
+        });
+    } catch (error) {
+        caught = true;
+        assert.equal(error, null);
+    }
+    assert.equal(caught, true);
+    assert.deepEqual(assigned, [1, 2]);
+});
