@@ -12,7 +12,7 @@ import {loadGithubToken} from './secret-store.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
-import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
+import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, setActionStatus, setStatusBanner, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
 import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
@@ -429,32 +429,15 @@ class Indicator extends PanelMenu.Button {
     }
 
     _updateDailyStatsItem() {
-        if (!this._statsItem)
-            return;
-        if (!this._settings.get_boolean('show-daily-stats')) {
-            this._statsItem.visible = false;
-            return;
-        }
-        this._dailyStats = updateDailyStats(this._dailyStats, this._localDateKey());
-        const totals = getDailyStatsTotals(this._dailyStats, this._localDateKey());
-        this._statsItem.label.text = `Today: ${totals.todayNotifications} notifications · ${totals.todayActivity} activity | 7 days: ${totals.weekNotifications} notifications · ${totals.weekActivity} activity`;
-        this._statsItem.visible = true;
+        updateDailyStatsItem(this);
     }
-
     _updateHero() {
         updateHero(this);
     }
 
     _setActionStatus(text) {
-        if (!this._actionStatusItem) return;
-        if (text) {
-            this._actionStatusItem.label.text = text;
-            this._actionStatusItem.visible = true;
-        } else {
-            this._actionStatusItem.visible = false;
-        }
+        setActionStatus(this, text);
     }
-
     /** Add a Shell tooltip and an accessible name to an interactive actor. */
     _setTooltip(actor, text) {
         this._tooltipController.setTooltip(actor, text);
