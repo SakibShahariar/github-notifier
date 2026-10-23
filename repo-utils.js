@@ -435,11 +435,11 @@ export function setRepositoryMembership(settings, settingKey, repository, should
 
 /** Resolve a GitHub Enterprise API host to its browser-facing base URL. */
 export function getWebBase(configuredHost = '') {
-    const host = String(configuredHost || '').trim() || 'api.github.com';
-    if (host === 'api.github.com')
+    let webHost = String(configuredHost || '').trim() || 'api.github.com';
+    webHost = webHost.replace(/\/+$/, '');
+    if (webHost.toLowerCase() === 'api.github.com')
         return 'https://github.com';
-    let webHost = host.replace(/\/+$/, '');
-    if (webHost.endsWith('/api/v3'))
+    if (webHost.toLowerCase().endsWith('/api/v3'))
         webHost = webHost.slice(0, -'/api/v3'.length);
     return `https://${webHost}`;
 }
