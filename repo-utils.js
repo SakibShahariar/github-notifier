@@ -550,3 +550,33 @@ export function truncateText(text, maxLength) {
         return text;
     return characters.slice(0, Math.max(0, maxLength - 1)).join('') + '…';
 }
+
+
+/** Describe an empty inbox without confusing initial loading, missing credentials, and a caught-up account. */
+export function getNotificationEmptyState({
+    watchEnabled = true,
+    tokenLoading = false,
+    hasToken = true,
+    tokenWarning = '',
+    statusIsError = false,
+    hasFetched = false,
+    hasCachedNotifications = false,
+} = {}) {
+    if (!watchEnabled)
+        return 'Inbox monitoring is disabled.';
+    if (tokenLoading)
+        return 'Checking GitHub…';
+    if (!hasToken)
+        return tokenWarning
+            ? 'GitHub token unavailable — check Settings.'
+            : 'Add a GitHub token in Settings to start.';
+    if (statusIsError)
+        return hasCachedNotifications
+            ? 'Could not refresh notifications. See the message above for details.'
+            : 'No notifications loaded. See the message above for details.';
+    if (hasCachedNotifications)
+        return 'No notifications match your filters or muted repositories.';
+    if (!hasFetched)
+        return 'Checking GitHub for notifications…';
+    return "You're all caught up.";
+}
