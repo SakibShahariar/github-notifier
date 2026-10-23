@@ -9,7 +9,7 @@ import Pango from 'gi://Pango';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
 import {loadGithubToken} from './secret-store.js';
-import {ApiError, apiRequest} from './api.js';
+import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
 import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, renderList, updateRateFooter, updateHero, setStatusBanner, updatePanel} from './ui-indicator.js';
@@ -593,6 +593,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _buildMessage(method, uri, token, body, headers = {}) {
+        return buildMessage(this, method, uri, token, body, headers);
+    }) {
         const msg = new Soup.Message({method, uri});
         msg.request_headers.append('Accept', 'application/vnd.github+json');
         msg.request_headers.append('X-GitHub-Api-Version', '2022-11-28');
@@ -608,7 +610,9 @@ class Indicator extends PanelMenu.Button {
         return msg;
     }
 
-    async _sendOnce(method, uri, token, body, headers = {}, cancellable = null) {
+    _sendOnce(method, uri, token, body, headers = {}, cancellable = null) {
+        return sendOnce(this, method, uri, token, body, headers, cancellable);
+    }, cancellable = null) {
         const msg = this._buildMessage(method, uri, token, body, headers);
         const bytes = await this._session.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, cancellable);
         return {bytes, msg};
