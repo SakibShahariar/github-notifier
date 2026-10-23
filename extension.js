@@ -18,7 +18,7 @@ import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIcon
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {dismissActivityItem, disarmMarkAll, markAllRead, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
 import {_createMessageTrayNotification, _createMessageTraySource, notify, notifyBaseline} from './notifications.js';
-import {buildMatugenCss, loadMatugenColors} from './ui-theme.js';
+import {applyMatugenThemeInternal, buildMatugenCss, loadMatugenColors, loadMatugenColorsIfChanged, removeMatugenTheme, setupMatugenMonitor} from './ui-theme.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -521,112 +521,19 @@ class Indicator extends PanelMenu.Button {
     }
 
     _loadMatugenColorsIfChanged(force = false) {
-        const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
-        try {
-            let mtime = -1;
-            try {
-                const file = Gio.File.new_for_path(path);
-                if (file.query_exists(null)) {
-                    const info = file.query_info('standard::modification-time', Gio.FileQueryInfoFlags.NONE, null);
-                    const dt = info.get_modification_time();
-                    mtime = (dt && typeof dt.to_unix === 'function') ? dt.to_unix() : (dt ? dt.to_unix_utc() : -1);
-                }
-            } catch (e) {
-                mtime = -1;
-            }
-            if (force || mtime !== this._matugenMtime || !this._matugenColors) {
-                this._matugenMtime = mtime;
-                this._matugenColors = loadMatugenColors();
-            }
-        } catch (e) {
-            logError(e, 'GitHubNotifier matugen load failed');
-            this._matugenColors = loadMatugenColors();
-        }
+        return loadMatugenColorsIfChanged(this, force);
     }
 
     _applyMatugenThemeInternal(colors) {
-        try {
-            const css = buildMatugenCss(colors);
-            // Fixed path — avoid creating a new file (and forced unload/load)
-            // on every call. Only touch St.Theme when content actually changed.
-            const cachePath = GLib.build_filenamev([GLib.get_user_cache_dir(), 'github-notifier-matugen.css']);
-            const cssChanged = css !== this._matugenCss;
-
-            if (cssChanged) {
-                // Robust stage lookup (Wayland/X11 differ) — mirrors update-checker@local
-                let theme = null;
-                try {
-                    const stage = global.stage ?? global.display?.get_stage?.() ?? Main.layoutManager?.dummyStage ?? null;
-                    if (stage) {
-                        const ctx = St.ThemeContext.get_for_stage(stage);
-                        theme = ctx?.get_theme() ?? null;
-                    }
-                } catch (e) {}
-                if (!theme) {
-                    try { theme = St.ThemeContext.get_for_stage(global.stage)?.get_theme() ?? null; } catch (e) {}
-                }
-                // Unload previous only when we are about to load a different one
-                if (theme && this._matugenThemeFile) {
-                    try { theme.unload_stylesheet(this._matugenThemeFile); } catch (e) {}
-                }
-                const ok = GLib.file_set_contents(cachePath, css);
-                if (!ok) throw new Error('file_set_contents failed');
-                const file = Gio.File.new_for_path(cachePath);
-                if (theme) {
-                    theme.load_stylesheet(file);
-                    this._matugenThemeFile = file;
-                    try { this.menu?.box?.queue_relayout(); } catch (e) {}
-                } else {
-                    this._matugenThemeFile = file;
-                }
-                this._matugenCss = css;
-                log(`GitHubNotifier matugen applied primary=${colors.primary} primary_container=${colors.primary_container} -> ${cachePath}`);
-            }
-
-            // Rebuild current list so banners/rows/footer pick up new stylesheet/inline immediately if popup is open
-            try {
-                if (this.menu?.isOpen) this._renderList();
-            } catch (e) {}
-        } catch (e) {
-            logError(e, 'GitHubNotifier matugen theme failed');
-        }
+        return applyMatugenThemeInternal(this, colors);
     }
 
     _setupMatugenMonitor() {
-        const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
-        const file = Gio.File.new_for_path(path);
-        try {
-            this._matugenMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
-            this._matugenMonitor.connect('changed', (monitor, file, otherFile, eventType) => {
-                if (eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT || eventType === Gio.FileMonitorEvent.CHANGED) {
-                    this._loadMatugenColorsIfChanged(true);
-                    if (this._matugenColors) {
-                        this._applyMatugenThemeInternal(this._matugenColors);
-                    }
-                }
-            });
-        } catch (e) {
-            logError(e, 'GitHubNotifier matugen monitor failed');
-        }
+        return setupMatugenMonitor(this);
     }
 
     _removeMatugenTheme() {
-        if (this._matugenThemeFile) {
-            try {
-                const theme = St.ThemeContext.get_for_stage(global.stage)?.get_theme();
-                if (theme) theme.unload_stylesheet(this._matugenThemeFile);
-            } catch (e) {}
-            this._matugenThemeFile = null;
-        }
-        this._matugenCss = null;
-        if (this._matugenDebounceId) {
-            GLib.source_remove(this._matugenDebounceId);
-            this._matugenDebounceId = null;
-        }
-        if (this._matugenMonitor) {
-            try { this._matugenMonitor.cancel(); } catch (e) {}
-            this._matugenMonitor = null;
-        }
+        return removeMatugenTheme(this);
     }
 
     _disarmMarkAll() {
