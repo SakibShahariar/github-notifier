@@ -225,3 +225,39 @@ test('follows the next-page link when a full inbox page is returned', async () =
     assert.equal(items[50].rawId, '51');
     assert.equal(items[50].isNewToast, true);
 });
+
+
+test('does not show an overflow row when the last fetched inbox page has no next link', async () => {
+    const data = Array.from({length: 50}, (_, index) => ({
+        id: index + 1, reason: 'mention', subject: {type: 'Issue', title: `Item ${index + 1}`},
+        repository: {full_name: 'owner/repo'}, updated_at: '2026-10-23T00:00:00Z',
+    }));
+    const indicator = makeIndicator({
+        [inboxPath]: {data, linkHeader: null, lastModified: 'Fri, 23 Oct 2026 00:00:00 GMT', notModified: false},
+    });
+    const state = {notificationBaselineEstablished: true, toastedNotificationIds: data.map(item => String(item.id))};
+    const items = await pollNotifications(indicator, state, 1);
+    assert.equal(items.length, 50);
+    assert.ok(items.every(item => !item.id.startsWith('notif-more-')));
+});
+
+test('shows an overflow row when the page limit is reached and a next link remains', async () => {
+    const data = Array.from({length: 50}, (_, index) => ({
+        id: index + 1, reason: 'mention', subject: {type: 'Issue', title: `Item ${index + 1}`},
+        repository: {full_name: 'owner/repo'}, updated_at: '2026-10-23T00:00:00Z',
+    }));
+    const indicator = makeIndicator({
+        [inboxPath]: {
+            data,
+            linkHeader: '<https://api.github.com/notifications?per_page=50&participating=false&page=2>; rel="next"',
+            lastModified: 'Fri, 23 Oct 2026 00:00:00 GMT',
+            notModified: false,
+        },
+    });
+    const state = {notificationBaselineEstablished: true, toastedNotificationIds: data.map(item => String(item.id))};
+    const items = await pollNotifications(indicator, state, 1);
+    assert.equal(items.length, 51);
+    assert.match(items[50].id, /^notif-more-/);
+    assert.equal(items[50].isNewToast, false);
+    assert.equal(items[50].url, 'https://github.com/notifications');
+});
