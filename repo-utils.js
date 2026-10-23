@@ -424,10 +424,29 @@ export function setRepositoryMembership(settings, settingKey, repository, should
         return false;
 
     const normalized = repository.trim().toLowerCase();
-    const repositories = parseRepositoryList(settings.get_string(settingKey));
-    const next = shouldContain
-        ? Array.from(new Set([...repositories, normalized]))
-        : repositories.filter(value => value !== normalized);
+    const next = [];
+    const seen = new Set();
+    // Preserve malformed entries so polling can report them; changing one valid
+    // repository's membership must not silently erase unrelated user input.
+    for (const entry of String(settings.get_string(settingKey) || '').split(',')) {
+        const value = entry.trim();
+        if (!value)
+            continue;
+        const key = value.toLowerCase();
+        if (key === normalized) {
+            if (shouldContain && !seen.has(normalized)) {
+                next.push(normalized);
+                seen.add(normalized);
+            }
+            continue;
+        }
+        if (seen.has(key))
+            continue;
+        seen.add(key);
+        next.push(isValidRepository(value) ? key : value);
+    }
+    if (shouldContain && !seen.has(normalized))
+        next.push(normalized);
     const serialized = next.join(', ');
     if (settings.get_string(settingKey) !== serialized && !settings.set_string(settingKey, serialized))
         return false;
