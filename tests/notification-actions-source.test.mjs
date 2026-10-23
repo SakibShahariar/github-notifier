@@ -27,6 +27,6 @@ test('read and mark-all status timers only clear the status generation they crea
 
 test('mark-read requests and queued retries accept only numeric GitHub thread IDs', () => {
     assert.ok(source.includes("const rawId = String(item.rawId || '');"));
-    assert.ok(source.includes('if (!/^\\d+$/.test(rawId))'));
+    assert.ok(source.includes('if (!/^\\d{1,20}$/.test(rawId))'));
     assert.ok(source.includes('`/notifications/threads/${rawId}`'));
 });

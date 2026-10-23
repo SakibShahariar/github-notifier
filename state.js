@@ -77,7 +77,7 @@ export function restoreCachedState(indicator) {
         : []; // accumulated issue/PR/star events, restored across shell restarts
     indicator._pendingReadItems = Array.isArray(persistedState.pendingReadItems)
         ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' &&
-            typeof item.rawId === 'string' && /^\d+$/.test(item.rawId))
+            typeof item.rawId === 'string' && /^\d{1,20}$/.test(item.rawId))
             .slice(0, MAX_NOTIFICATION_PAGES * 50)
         : [];
     indicator._pendingMarkAllRead = indicator._isValidPendingMarkAll(persistedState.pendingMarkAllRead)

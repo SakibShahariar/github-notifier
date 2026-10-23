@@ -39,5 +39,5 @@ test('credential refresh cancels an in-flight poll without treating it as a netw
 
 
 test('account-scope restoration rejects malformed notification thread IDs too', () => {
-    assert.match(source, /state\.pendingReadItems\.filter\(item => item && typeof item\.id === 'string' && typeof item\.rawId === 'string' && \/\^\\d\+\$\/\.test\(item\.rawId\)\)/);
+    assert.match(source, /state\.pendingReadItems\.filter\(item => item && typeof item\.id === 'string' && typeof item\.rawId === 'string' && \/\^\\d\{1,20\}\$\/\.test\(item\.rawId\)\)/);
 });

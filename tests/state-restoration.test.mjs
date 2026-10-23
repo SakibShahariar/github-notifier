@@ -18,7 +18,7 @@ test('restores cached records defensively and applies retention caps', () => {
         lastFetchedAt: '2026-10-23T08:30:00Z',
         notificationItems: [...Array.from({length: 155}, (_, i) => ({id: String(i)})), {id: 2}, null, {id: 3}],
         activityItems: [...Array.from({length: 45}, (_, i) => ({id: String(i)})), {title: 'missing id'}, null],
-        pendingReadItems: [{id: 'n1', rawId: '1001'}, {id: 'bad'}, {id: 'n2', rawId: '1002'}, {id: 'bad-path', rawId: '../../user'}],
+        pendingReadItems: [{id: 'n1', rawId: '1001'}, {id: 'bad'}, {id: 'n2', rawId: '1002'}, {id: 'bad-path', rawId: '../../user'}, {id: 'oversized', rawId: '1'.repeat(21)}],
         pendingMarkAllRead: {lastReadAt: '2026-10-23T00:00:00Z', notificationIds: ['n1'], activityIds: ['a1']},
     };
     const indicator = {

@@ -5,7 +5,7 @@ import {createNotificationSummary} from './repo-utils.js';
 // Read/dismiss actions and their offline retry state are delegated while the indicator owns UI and persistence.
 export async function markThreadRead(indicator, item) {
         const rawId = String(item.rawId || '');
-        if (!/^\d+$/.test(rawId))
+        if (!/^\d{1,20}$/.test(rawId))
             return;
         if (indicator._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             indicator._queuePendingReadItem(item);
@@ -40,7 +40,7 @@ export async function markThreadRead(indicator, item) {
 
 export function queuePendingReadItem(indicator, item, maxNotificationPages) {
         const rawId = String(item.rawId || '');
-        if (!/^\d+$/.test(rawId))
+        if (!/^\d{1,20}$/.test(rawId))
             return;
         if (!indicator._pendingReadItems.some(pending => pending.rawId === rawId))
             indicator._pendingReadItems.push({id: String(item.id), rawId});

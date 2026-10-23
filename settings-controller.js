@@ -56,7 +56,7 @@ export function connectSettingsSignals(indicator, constants) {
                 ? state.activityItems.filter(item => item && typeof item.id === 'string').slice(0, constants.maxRecent)
                 : [];
             indicator._pendingReadItems = Array.isArray(state.pendingReadItems)
-                ? state.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string' && /^\d+$/.test(item.rawId))
+                ? state.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string' && /^\d{1,20}$/.test(item.rawId))
                     .slice(0, constants.maxNotificationPages * 50)
                 : [];
             indicator._pendingMarkAllRead = indicator._isValidPendingMarkAll(state.pendingMarkAllRead)
