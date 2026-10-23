@@ -72,6 +72,23 @@ export function isSafeHttpsUrl(value) {
     }
 }
 
+/** Accept browser links only from the configured GitHub/GHES web base. */
+export function isSafeWebUrl(value, configuredWebBase) {
+    if (!isSafeHttpsUrl(value) || !isSafeHttpsUrl(configuredWebBase))
+        return false;
+    try {
+        const url = new URL(value);
+        const base = new URL(configuredWebBase);
+        if (url.origin !== base.origin)
+            return false;
+        const basePath = base.pathname.replace(/\\/+$/, '');
+        return !basePath || basePath === '/' || url.pathname === basePath ||
+            url.pathname.startsWith(basePath + '/');
+    } catch (_error) {
+        return false;
+    }
+}
+
 export function isValidRepository(value) {
     return typeof value === 'string' && REPO_RE.test(value);
 }
