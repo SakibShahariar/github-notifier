@@ -190,3 +190,13 @@ export function disarmMarkAll(indicator) {
     }
     indicator._renderList();
 }
+
+/** Route an opened row to mark-read or local activity dismissal. */
+export function handleOpenedItem(indicator, item) {
+    if (item.kind === 'notification' && item.rawId) {
+        if (indicator._settings.get_boolean('mark-read-on-open'))
+            return indicator._markThreadRead(item);
+    } else {
+        return indicator._dismissActivityItem(item);
+    }
+}
