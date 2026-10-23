@@ -180,3 +180,12 @@ export async function clearGithubToken(host, apiOverride = null) {
     const api = await resolveApi(apiOverride);
     return api.clear(host);
 }
+
+
+/** Whether a remaining legacy plaintext token belongs to another API host. */
+export function hasLegacyTokenForDifferentHost(settings, host) {
+    const token = settings.get_string('github-token');
+    const legacyHost = settings.get_string('legacy-token-host').trim();
+    return Boolean(token && legacyHost &&
+        normalizeSecretHost(legacyHost) !== normalizeSecretHost(host));
+}
