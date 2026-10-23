@@ -391,3 +391,42 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
         if (toNotify.length > 0)
             indicator._notify(toNotify);
 }
+
+
+/** Promise-based cancellable sleep used between transient API retries. */
+export function sleepIndicator(indicator, ms) {
+    return new Promise(resolve => {
+        let sourceId = 0;
+        const finish = () => {
+            if (sourceId) {
+                GLib.source_remove(sourceId);
+                indicator._sleepTimerIds.delete(sourceId);
+                sourceId = 0;
+            }
+            indicator._pendingSleepResolvers.delete(finish);
+            resolve();
+        };
+        sourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
+            indicator._sleepTimerIds.delete(sourceId);
+            sourceId = 0;
+            indicator._pendingSleepResolvers.delete(finish);
+            resolve();
+            return GLib.SOURCE_REMOVE;
+        });
+        indicator._sleepTimerIds.add(sourceId);
+        indicator._pendingSleepResolvers.add(finish);
+    });
+}
+
+/** Track short-lived UI timers so destroy() can cancel them safely. */
+export function addTransientTimeout(indicator, seconds, callback) {
+    let sourceId = 0;
+    sourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, seconds, () => {
+        indicator._transientTimeouts.delete(sourceId);
+        if (indicator._destroyed)
+            return GLib.SOURCE_REMOVE;
+        return callback();
+    });
+    indicator._transientTimeouts.add(sourceId);
+    return sourceId;
+}
