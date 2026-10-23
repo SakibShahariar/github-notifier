@@ -6,7 +6,7 @@ const modules = [
     'extension.js', 'prefs.js', 'repo-utils.js', 'secret-store.js', 'api.js', 'state.js',
     'ui-utils.js', 'ui-theme.js', 'notifications.js', 'ui-indicator.js', 'ui-animations.js',
     'repository-polling.js', 'notification-actions.js', 'poll-controller.js', 'link-actions.js',
-    'settings-controller.js', 'indicator-lifecycle.js',
+    'settings-controller.js', 'indicator-lifecycle.js', 'bounded-workers.js',
 ];
 const sources = new Map(await Promise.all(modules.map(async path => [
     path, await readFile(new URL(`../${path}`, import.meta.url), 'utf8'),
