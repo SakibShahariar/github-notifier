@@ -10,7 +10,7 @@ import {clearGithubToken, clearLegacyTokenSetting, hasLegacyTokenForDifferentHos
 
 function signalTokenChanged(settings) {
     const current = settings.get_int('token-generation');
-    settings.set_int('token-generation', current >= 2147483647 ? 0 : current + 1);
+    return settings.set_int('token-generation', current >= 2147483647 ? 0 : current + 1);
 }
 
 export default class GithubNotifierPreferences extends ExtensionPreferences {
@@ -47,16 +47,19 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const legacyHost = settings.get_string('legacy-token-host').trim();
                 const legacyHostDiffers = hasLegacyTokenForDifferentHost(settings, host);
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
-                signalTokenChanged(settings);
+                const refreshSignaled = signalTokenChanged(settings);
                 tokenRow.set_text('');
                 const legacyHostUnknown = Boolean(settings.get_string('github-token')) && !legacyHost;
-                testRow.subtitle = legacyHostDiffers
+                const saveMessage = legacyHostDiffers
                     ? `Token saved for this host; legacy token for ${legacyHost} was retained`
                     : legacyHostUnknown
                         ? 'Token saved; an unscoped legacy token was retained because its original host is unknown'
                         : legacyCleared
                             ? 'Token saved in Secret Service'
                             : 'Token saved, but the legacy plaintext setting could not be cleared';
+                testRow.subtitle = refreshSignaled
+                    ? saveMessage
+                    : `${saveMessage}; reload GitHub Notifier to apply the token change`;
             } catch (error) {
                 testRow.subtitle = 'Could not save token: ' + error.message;
             } finally {
@@ -127,16 +130,19 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                 const legacyHost = settings.get_string('legacy-token-host').trim();
                 const legacyHostDiffers = hasLegacyTokenForDifferentHost(settings, host);
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
-                signalTokenChanged(settings);
+                const refreshSignaled = signalTokenChanged(settings);
                 tokenRow.set_text('');
                 const legacyHostUnknown = Boolean(settings.get_string('github-token')) && !legacyHost;
-                testRow.subtitle = legacyHostDiffers
+                const removeMessage = legacyHostDiffers
                     ? `Saved token removed for this host; legacy token for ${legacyHost} was retained`
                     : legacyHostUnknown
                         ? 'Saved token removed; an unscoped legacy token was retained because its original host is unknown'
                         : legacyCleared
                             ? 'Saved token removed for this API host'
                             : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
+                testRow.subtitle = refreshSignaled
+                    ? removeMessage
+                    : `${removeMessage}; reload GitHub Notifier to apply the token change`;
             } catch (error) {
                 testRow.subtitle = 'Could not remove token: ' + error.message;
             } finally {
