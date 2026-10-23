@@ -73,6 +73,23 @@ test('pollRepoIssues detects the first issue created after an empty baseline', a
     assert.equal(state.repos[repo].lastIssueNumber, 1);
 });
 
+test('pollRepoIssues preserves legacy zero-valued baselines after upgrade', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [{
+            number: 1,
+            title: 'First issue after upgrade',
+            html_url: 'https://github.com/owner/repo/issues/1',
+            created_at: '2026-10-23T00:00:00Z',
+        }],
+    });
+    const state = {repos: {[repo]: {lastIssueNumber: 0}}};
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, 'New issue: First issue after upgrade');
+    assert.equal(state.repos[repo].issuesBaselineEstablished, true);
+});
+
 test('pollRepoIssues emits a direct-link summary when a second page has more new items', async () => {
     const repo = 'owner/repo';
     const firstPage = Array.from({length: 20}, (_, i) => ({
