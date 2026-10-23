@@ -4,8 +4,7 @@ import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {getDailyStatsTotals, getStatusAction, updateDailyStats} from './repo-utils.js';
-import {isValidRepository} from './repo-utils.js';
+import {getDailyStatsTotals, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
 export function addSectionHeader(section, title, count) {
@@ -158,16 +157,15 @@ export function renderList(indicator, constants) {
         const notifCount = visibleNotificationItems.length;
         indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount);
         if (notifCount === 0) {
-            let emptyMessage;
-            if (indicator._statusIsError) {
-                emptyMessage = 'No notifications loaded.';
-            } else if (!indicator._settings.get_boolean('watch-mentions')) {
-                emptyMessage = 'Inbox monitoring is disabled.';
-            } else if (indicator._notificationItems.length > 0) {
-                emptyMessage = 'No notifications match your filters or muted repositories.';
-            } else {
-                emptyMessage = "You're all caught up.";
-            }
+            const emptyMessage = getNotificationEmptyState({
+                watchEnabled: indicator._settings.get_boolean('watch-mentions'),
+                tokenLoading: indicator._tokenLoading,
+                hasToken: Boolean(indicator._token),
+                tokenWarning: indicator._tokenWarning,
+                statusIsError: indicator._statusIsError,
+                hasFetched: Boolean(indicator._lastFetchedAt),
+                hasCachedNotifications: indicator._notificationItems.length > 0,
+            });
             indicator._addEmpty(indicator._notifSection, emptyMessage);
         } else {
             const pageCount = Math.max(1, Math.ceil(notifCount / constants.notifPageSize));
