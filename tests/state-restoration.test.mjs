@@ -16,7 +16,7 @@ test('restores cached records defensively and applies retention caps', () => {
     const state = {
         dailyStats: {'2026-10-23': {notifications: 4, activity: 2}},
         lastFetchedAt: '2026-10-23T08:30:00Z',
-        notificationItems: [{id: 'bad-raw-id', rawId: '../../settings'}, ...Array.from({length: 155}, (_, i) => ({id: String(i)})), {id: 2}, null, {id: 3}],
+        notificationItems: [{id: 'bad-raw-id', rawId: '../../settings'}, {id: 'valid-raw-id', rawId: '12345'}, ...Array.from({length: 155}, (_, i) => ({id: String(i)})), {id: 2}, null, {id: 3}],
         activityItems: [...Array.from({length: 45}, (_, i) => ({id: String(i)})), {title: 'missing id'}, null],
         pendingReadItems: [{id: 'n1', rawId: '1001'}, {id: 'bad'}, {id: 'n2', rawId: '1002'}, {id: 'bad-path', rawId: '../../user'}, {id: 'oversized', rawId: '1'.repeat(21)}],
         pendingMarkAllRead: {lastReadAt: '2026-10-23T00:00:00Z', notificationIds: ['n1'], activityIds: ['a1']},
@@ -33,6 +33,7 @@ test('restores cached records defensively and applies retention caps', () => {
     assert.equal(indicator._activityItems.length, 40);
     assert.ok(indicator._notificationItems.every(item => typeof item.id === 'string'));
     assert.ok(!indicator._notificationItems.some(item => item.id === 'bad-raw-id'));
+    assert.ok(indicator._notificationItems.some(item => item.id === 'valid-raw-id' && item.rawId === '12345'));
     assert.ok(indicator._activityItems.every(item => typeof item.id === 'string'));
     assert.deepEqual(indicator._pendingReadItems, [{id: 'n1', rawId: '1001'}, {id: 'n2', rawId: '1002'}]);
     assert.equal(indicator._pendingMarkAllRead, state.pendingMarkAllRead);
