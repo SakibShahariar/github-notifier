@@ -5,11 +5,11 @@ import Soup from 'gi://Soup';
 import Pango from 'gi://Pango';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} from './repo-utils.js';
+import {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, isRepositoryMuted, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {ApiError, apiRequest, buildMessage, sendOnce} from './api.js';
-import {isValidPendingMarkAll, loadState, persistCurrentItems, saveState, stateScope} from './state.js';
+import {isValidPendingMarkAll, loadState, persistCurrentItems, restoreCachedState, saveState, stateScope} from './state.js';
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, buildPanelButton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator} from './poll-controller.js';
@@ -59,21 +59,7 @@ class Indicator extends PanelMenu.Button {
         this._tokenLoading = true;
         this._tokenWarning = '';
         this._summaryPublished = false;
-        const persistedState = this._loadState();
-        this._dailyStats = updateDailyStats(persistedState.dailyStats, this._localDateKey());
-        this._notificationItems = Array.isArray(persistedState.notificationItems)
-            ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)
-            : []; // cached inbox, restored when GitHub is temporarily unavailable
-        this._activityItems = Array.isArray(persistedState.activityItems)
-            ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
-            : []; // accumulated issue/PR/star events, restored across shell restarts
-        this._pendingReadItems = Array.isArray(persistedState.pendingReadItems)
-            ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' && typeof item.rawId === 'string')
-                .slice(0, MAX_NOTIFICATION_PAGES * 50)
-            : [];
-        this._pendingMarkAllRead = this._isValidPendingMarkAll(persistedState.pendingMarkAllRead)
-            ? persistedState.pendingMarkAllRead
-            : null;
+        restoreCachedState(this);
         this._retryingPendingReadItems = false;
         this._timeoutId = null;
         this._networkDebounceId = null;
