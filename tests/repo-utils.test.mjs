@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -362,4 +362,32 @@ test('maps status banners to at most one actionable follow-up', () => {
     assert.equal(getStatusAction('Metered connection — automatic polling paused'), 'refresh');
     for (const message of [null, '', 'GitHub rate limit reached', 'GitHub is unreachable'])
         assert.equal(getStatusAction(message), null, String(message));
+});
+
+
+test('filters notifications by category and muted repositories without mutating cached items', () => {
+    const items = [
+        {id: '1', kind: 'notification', notificationReason: 'mention', subtitle: 'Owner/Repo'},
+        {id: '2', kind: 'notification', notificationReason: 'assign', subtitle: 'owner/other'},
+        {id: '3', kind: 'notification', notificationReason: 'comment', subtitle: 'owner/other'},
+        {id: '4', kind: 'notification', notificationReason: 'review_requested', subtitle: 'owner/third'},
+        null,
+    ];
+    const enabled = new Set(['mentions', 'reviews']);
+    const muted = new Set(['owner/repo']);
+    assert.deepEqual(filterVisibleNotificationItems(items, enabled, muted).map(item => item.id), ['4']);
+    assert.equal(items.length, 5);
+    assert.deepEqual(filterVisibleNotificationItems(items, new Set(), muted), []);
+    assert.deepEqual(filterVisibleNotificationItems(null, enabled, muted), []);
+});
+
+test('filters activity rows by muted repositories and safely handles malformed collections', () => {
+    const items = [
+        {id: '1', subtitle: 'Owner/Repo'},
+        {id: '2', subtitle: 'owner/other'},
+        {id: '3'},
+        null,
+    ];
+    assert.deepEqual(filterVisibleActivityItems(items, new Set(['owner/repo'])).map(item => item.id), ['2', '3']);
+    assert.deepEqual(filterVisibleActivityItems(null, new Set()), []);
 });
