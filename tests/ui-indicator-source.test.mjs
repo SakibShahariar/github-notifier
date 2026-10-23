@@ -52,3 +52,14 @@ test('disabled pagination buttons are excluded from keyboard focus', () => {
     assert.ok(source.includes('next.reactive = !nextDisabled;'));
     assert.ok(source.includes('next.can_focus = !nextDisabled;'));
 });
+
+
+test('empty-state rendering supplies credential, fetch, error, and cache context', () => {
+    assert.match(source, /getNotificationEmptyState\(\{/);
+    assert.match(source, /tokenLoading: indicator\._tokenLoading/);
+    assert.match(source, /hasToken: Boolean\(indicator\._token\)/);
+    assert.match(source, /tokenWarning: indicator\._tokenWarning/);
+    assert.match(source, /statusIsError: indicator\._statusIsError/);
+    assert.match(source, /hasFetched: Boolean\(indicator\._lastFetchedAt\)/);
+    assert.match(source, /hasCachedNotifications: indicator\._notificationItems\.length > 0/);
+});
