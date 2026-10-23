@@ -8,8 +8,11 @@ export async function markThreadRead(indicator, item) {
             return;
         if (indicator._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             indicator._queuePendingReadItem(item);
-            indicator._setActionStatus('Offline — queued to mark read when reconnected');
-            indicator._addTransientTimeout(4, () => { indicator._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            const statusGeneration = indicator._setActionStatus('Offline — queued to mark read when reconnected');
+            indicator._addTransientTimeout(4, () => {
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
             return;
         }
         indicator._setActionStatus('Marking notification read…');

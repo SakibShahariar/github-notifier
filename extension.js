@@ -209,7 +209,7 @@ class Indicator extends PanelMenu.Button {
     }
 
     _setActionStatus(text) {
-        setActionStatus(this, text);
+        return setActionStatus(this, text);
     }
     /** Add a Shell tooltip and an accessible name to an interactive actor. */
     _setTooltip(actor, text) {

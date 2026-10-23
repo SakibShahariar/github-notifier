@@ -55,9 +55,9 @@ export function openWithGitHubCli(indicator, item) {
             return true;
         } catch (e) {
             logError(e, 'github-notifier: failed to launch GitHub CLI');
-            indicator._setActionStatus(`Could not launch GitHub CLI: ${e.message}`);
+            const statusGeneration = indicator._setActionStatus(`Could not launch GitHub CLI: ${e.message}`);
             indicator._addTransientTimeout(4, () => {
-                indicator._setActionStatus('');
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
             return false;

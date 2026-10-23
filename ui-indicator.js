@@ -465,7 +465,8 @@ export function buildMenuSkeleton(indicator) {
         indicator._statsItem.visible = false;
 
         indicator._repositoryActionStatusGeneration = 0;
-        indicator._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
+    indicator._actionStatusGeneration = 0;
+    indicator._actionStatusItem = new PopupMenu.PopupMenuItem('', {reactive: false});
         indicator._actionStatusItem.style_class = 'github-notifier-action-status';
         indicator._actionStatusItem.visible = false;
         indicator.menu.addMenuItem(indicator._actionStatusItem);
@@ -677,19 +678,22 @@ export function updateDailyStatsItem(indicator) {
 }
 
 export function setActionStatus(indicator, text) {
-    if (!indicator._actionStatusItem) return;
+    const generation = (indicator._actionStatusGeneration || 0) + 1;
+    indicator._actionStatusGeneration = generation;
+    if (!indicator._actionStatusItem) return generation;
     if (text) {
         indicator._actionStatusItem.label.text = text;
         indicator._actionStatusItem.visible = true;
     } else {
         indicator._actionStatusItem.visible = false;
     }
+    return generation;
 }
 
 
 export function showRepositoryActionStatus(indicator, message, undoMuteRepository = null) {
     const generation = ++indicator._repositoryActionStatusGeneration;
-    setActionStatus(indicator, message);
+    const statusGeneration = setActionStatus(indicator, message);
     indicator._pendingMuteUndoRepository = undoMuteRepository;
     if (indicator._repositoryUndoItem) {
         indicator._repositoryUndoItem.label.text = undoMuteRepository
@@ -700,7 +704,8 @@ export function showRepositoryActionStatus(indicator, message, undoMuteRepositor
     indicator._addTransientTimeout(3, () => {
         if (generation !== indicator._repositoryActionStatusGeneration)
             return GLib.SOURCE_REMOVE;
-        setActionStatus(indicator, '');
+        if (statusGeneration === indicator._actionStatusGeneration)
+            setActionStatus(indicator, '');
         indicator._pendingMuteUndoRepository = null;
         if (indicator._repositoryUndoItem)
             indicator._repositoryUndoItem.visible = false;

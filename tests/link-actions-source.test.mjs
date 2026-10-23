@@ -12,3 +12,8 @@ test('GitHub CLI launch config receives the item in its declared argument positi
 test('GitHub CLI launch failure remains actionable when no valid command or terminal exists', () => {
     assert.match(source, /if \(!config\)\s*\{\s*indicator\._setActionStatus\('GitHub CLI or a supported terminal is unavailable'\)/);
 });
+
+
+test('link and CLI error timers cannot clear a newer action status', () => {
+    assert.ok((source.match(/statusGeneration === indicator\._actionStatusGeneration/g) || []).length >= 3);
+});

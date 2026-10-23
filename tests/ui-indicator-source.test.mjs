@@ -23,3 +23,9 @@ test('panel and status actions expose stable accessible names and keyboard activ
     assert.match(source, /indicator\._statusActionItem\.connect\('activate'/);
     assert.match(source, /indicator\._statusActionItem\.visible = indicator\._statusAction !== null/);
 });
+
+
+test('action status generation prevents stale transient timers from hiding newer messages', () => {
+    assert.match(source, /indicator\._actionStatusGeneration = generation/);
+    assert.match(source, /statusGeneration === indicator\._actionStatusGeneration/);
+});

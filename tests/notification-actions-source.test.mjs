@@ -18,3 +18,8 @@ test('notification summary publisher avoids redundant writes and preserves faile
     assert.match(source, /previousText !== serialized && !indicator\._settings\.set_string\('notification-summary', serialized\)/);
     assert.match(source, /indicator\._summaryPublished = true/);
 });
+
+
+test('read and mark-all status timers only clear the status generation they created', () => {
+    assert.ok((source.match(/statusGeneration === indicator\._actionStatusGeneration/g) || []).length >= 7);
+});
