@@ -21,3 +21,10 @@ test('username, muted-repository, and watched-repository saves report write fail
     assert.match(source, /if \(!settings\.set_string\('muted-repos', values\.join\(', '\)\)\)\s*\{\s*mutedError\.set_title\('Could not save muted repositories'\)/);
     assert.match(source, /const saved = settings\.set_string\('watched-repos', values\.join\(', '\)\);\s*syncing = false;\s*saveErrorBanner\.set_revealed\(!saved\);/);
 });
+
+
+test('token save and removal report when the extension refresh signal cannot be written', () => {
+    assert.match(source, /function signalTokenChanged\(settings\)\s*\{[\s\S]*?return settings\.set_int\('token-generation'/);
+    assert.equal((source.match(/const refreshSignaled = signalTokenChanged\(settings\)/g) || []).length, 2);
+    assert.equal((source.match(/reload GitHub Notifier to apply the token change/g) || []).length, 2);
+});
