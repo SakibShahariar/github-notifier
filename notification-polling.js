@@ -87,7 +87,7 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
 
     state.toastedNotificationIds = Array.from(toasted).slice(-500);
     state.notificationBaselineEstablished = true;
-    if (pagesFetched === maxPages && items.length === maxPages * 50) {
+    if (pagesFetched === maxPages && path && items.length === maxPages * 50) {
         const inboxUrl = `${indicator._webBase()}/notifications`;
         items.push({
             id: `notif-more-${Date.now()}`,
