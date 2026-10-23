@@ -10,9 +10,9 @@ export function openUri(indicator, uri) {
             logError(e, 'github-notifier: failed to open link');
         }
 
-        indicator._setActionStatus('Could not open link — check your default browser');
+        const statusGeneration = indicator._setActionStatus('Could not open link — check your default browser');
         indicator._addTransientTimeout(4, () => {
-            indicator._setActionStatus('');
+            if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
             return GLib.SOURCE_REMOVE;
         });
         return false;
@@ -41,9 +41,9 @@ export function githubCliLaunchConfig(indicator, item) {
 export function openWithGitHubCli(indicator, item) {
         const config = githubCliLaunchConfig(indicator, item);
         if (!config) {
-            indicator._setActionStatus('GitHub CLI or a supported terminal is unavailable');
+            const statusGeneration = indicator._setActionStatus('GitHub CLI or a supported terminal is unavailable');
             indicator._addTransientTimeout(4, () => {
-                indicator._setActionStatus('');
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
             return false;

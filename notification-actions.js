@@ -21,8 +21,11 @@ export async function markThreadRead(indicator, item) {
         } catch (e) {
             logError(e, 'github-notifier: failed to mark thread read on GitHub');
             indicator._queuePendingReadItem(item);
-            indicator._setActionStatus('Could not mark read — queued for retry');
-            indicator._addTransientTimeout(3, () => { indicator._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            const statusGeneration = indicator._setActionStatus('Could not mark read — queued for retry');
+            indicator._addTransientTimeout(3, () => {
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
             return;
         }
         indicator._pendingReadItems = indicator._pendingReadItems.filter(pending => pending.rawId !== String(item.rawId));
@@ -109,12 +112,12 @@ export function markAllRead(indicator) {
             if (indicator._notificationItems.length === 0 && indicator._activityItems.length === 0)
                 return;
             indicator._markAllArmed = true;
-            indicator._setActionStatus('Confirm mark all read? Click again.');
+            const statusGeneration = indicator._setActionStatus('Confirm mark all read? Click again.');
             indicator._renderList();
             if (indicator._markAllTimer) GLib.source_remove(indicator._markAllTimer);
             indicator._markAllTimer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
                 indicator._disarmMarkAll();
-                indicator._setActionStatus('');
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
             return;
@@ -128,8 +131,11 @@ export function markAllRead(indicator) {
             return;
         }
         if (indicator._pendingMarkAllRead) {
-            indicator._setActionStatus('Mark all read is already queued for retry');
-            indicator._addTransientTimeout(4, () => { indicator._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            const statusGeneration = indicator._setActionStatus('Mark all read is already queued for retry');
+            indicator._addTransientTimeout(4, () => {
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
             return;
         }
 
@@ -144,8 +150,11 @@ export function markAllRead(indicator) {
         if (indicator._networkMonitor.get_connectivity() !== Gio.NetworkConnectivity.FULL) {
             indicator._pendingMarkAllRead = pendingMarkAll;
             indicator._persistCurrentItems();
-            indicator._setActionStatus('Offline — mark all read queued until reconnected');
-            indicator._addTransientTimeout(4, () => { indicator._setActionStatus(''); return GLib.SOURCE_REMOVE; });
+            const statusGeneration = indicator._setActionStatus('Offline — mark all read queued until reconnected');
+            indicator._addTransientTimeout(4, () => {
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
+                return GLib.SOURCE_REMOVE;
+            });
             return;
         }
         indicator._markingAllRead = true;
@@ -165,9 +174,9 @@ export function markAllRead(indicator) {
             indicator._renderList();
             indicator._updatePanel();
             indicator._updateHero();
-            indicator._setActionStatus('All marked read');
+            const statusGeneration = indicator._setActionStatus('All marked read');
             indicator._addTransientTimeout(2, () => {
-                indicator._setActionStatus('');
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
         }).catch(e => {
@@ -177,9 +186,9 @@ export function markAllRead(indicator) {
             logError(e, 'github-notifier: failed to mark all read on GitHub');
             indicator._pendingMarkAllRead = pendingMarkAll;
             indicator._persistCurrentItems();
-            indicator._setActionStatus('Could not mark all read — queued for retry; items were kept');
+            const statusGeneration = indicator._setActionStatus('Could not mark all read — queued for retry; items were kept');
             indicator._addTransientTimeout(3, () => {
-                indicator._setActionStatus('');
+                if (statusGeneration === indicator._actionStatusGeneration) indicator._setActionStatus('');
                 return GLib.SOURCE_REMOVE;
             });
         });
