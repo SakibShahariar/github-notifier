@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {getDailyStatsTotals, updateDailyStats} from './repo-utils.js';
+import {getDailyStatsTotals, getStatusAction, updateDailyStats} from './repo-utils.js';
 import {isValidRepository} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
@@ -564,16 +564,10 @@ export function updateHero(indicator) {
 export function setStatusBanner(indicator, text, kind = 'info') {
         if (!indicator._statusItem) return;
         if (indicator._statusActionItem) {
-            const message = typeof text === 'string' ? text : '';
-            if (/add a github token|token unavailable|invalid token|check settings|check token permissions|secret service/i.test(message)) {
-                indicator._statusAction = 'settings';
-                indicator._statusActionItem.label.text = 'Open Settings';
-            } else if (/quiet hours|metered connection/i.test(message)) {
-                indicator._statusAction = 'refresh';
-                indicator._statusActionItem.label.text = 'Refresh once';
-            } else {
-                indicator._statusAction = null;
-            }
+            indicator._statusAction = getStatusAction(text);
+            indicator._statusActionItem.label.text = indicator._statusAction === 'settings'
+                ? 'Open Settings'
+                : 'Refresh once';
             indicator._statusActionItem.visible = indicator._statusAction !== null;
         }
         indicator._statusItem.remove_style_class_name('github-notifier-banner-error');
