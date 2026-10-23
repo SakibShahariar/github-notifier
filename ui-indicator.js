@@ -691,3 +691,25 @@ export function setActionStatus(indicator, text) {
         indicator._actionStatusItem.visible = false;
     }
 }
+
+
+export function showRepositoryActionStatus(indicator, message, undoMuteRepository = null) {
+    const generation = ++indicator._repositoryActionStatusGeneration;
+    setActionStatus(indicator, message);
+    indicator._pendingMuteUndoRepository = undoMuteRepository;
+    if (indicator._repositoryUndoItem) {
+        indicator._repositoryUndoItem.label.text = undoMuteRepository
+            ? `Undo mute for ${undoMuteRepository}`
+            : 'Undo mute';
+        indicator._repositoryUndoItem.visible = Boolean(undoMuteRepository);
+    }
+    indicator._addTransientTimeout(3, () => {
+        if (generation !== indicator._repositoryActionStatusGeneration)
+            return GLib.SOURCE_REMOVE;
+        setActionStatus(indicator, '');
+        indicator._pendingMuteUndoRepository = null;
+        if (indicator._repositoryUndoItem)
+            indicator._repositoryUndoItem.visible = false;
+        return GLib.SOURCE_REMOVE;
+    });
+}
