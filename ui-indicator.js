@@ -752,6 +752,6 @@ export function buildPanelButton(indicator) {
             box.add_child(indicator._label);
             indicator.add_child(box);
             indicator._label.hide();
-            indicator._setTooltip(this, 'GitHub Notifier');
+            indicator._setTooltip(indicator, 'GitHub Notifier');
             
 }
