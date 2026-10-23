@@ -139,6 +139,22 @@ test('a 304 response reconstructs a corrupt toast baseline from cached inbox IDs
     assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
 });
 
+test('a 304 with an established marker but no cached IDs resets the empty baseline safely', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
+    });
+    indicator._notificationItems = [];
+    const state = {
+        notificationBaselineEstablished: true,
+        toastedNotificationIds: [],
+        notificationsLastModified: 'previous-modified',
+    };
+
+    assert.deepEqual(await pollNotifications(indicator, state), []);
+    assert.equal(state.notificationsLastModified, null);
+    assert.equal(state.notificationBaselineEstablished, false);
+});
+
 test('a 304 response without cached inbox data clears stale conditional metadata for a full baseline fetch', async () => {
     const indicator = makeIndicator({
         [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
