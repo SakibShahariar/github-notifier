@@ -86,10 +86,6 @@ class Indicator extends PanelMenu.Button {
         this._markAllArmed = false;
         this._markAllTimer = null;
         this._markingAllRead = false; // true while PUT /notifications is in flight
-        this._lastFetchedAt = typeof persistedState.lastFetchedAt === 'string'
-            ? persistedState.lastFetchedAt
-            : null;
-
         buildPanelButton(this);
 
         // Scope menu styling to this extension to match update-checker

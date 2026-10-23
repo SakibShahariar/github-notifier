@@ -59,6 +59,9 @@ export function persistCurrentItems(indicator, state = null) {
 // Restore only structurally valid cached records before the first network poll.
 export function restoreCachedState(indicator) {
     const persistedState = indicator._loadState();
+    indicator._lastFetchedAt = typeof persistedState.lastFetchedAt === 'string'
+        ? persistedState.lastFetchedAt
+        : null;
     indicator._dailyStats = updateDailyStats(persistedState.dailyStats, indicator._localDateKey());
     indicator._notificationItems = Array.isArray(persistedState.notificationItems)
         ? persistedState.notificationItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_NOTIFICATION_PAGES * 50)

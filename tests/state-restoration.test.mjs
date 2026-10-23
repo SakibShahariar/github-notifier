@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const utilsSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const stateSource = await readFile(new URL('../state.js', import.meta.url), 'utf8');
+const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 const utilsUrl = `data:text/javascript;base64,${Buffer.from(utilsSource).toString('base64')}`;
 const executableStateSource = stateSource
     .replace("import GLib from 'gi://GLib';", 'const GLib = {};')
@@ -14,6 +15,7 @@ const {restoreCachedState} = await import(stateUrl);
 test('restores cached records defensively and applies retention caps', () => {
     const state = {
         dailyStats: {'2026-10-23': {notifications: 4, activity: 2}},
+        lastFetchedAt: '2026-10-23T08:30:00Z',
         notificationItems: [...Array.from({length: 155}, (_, i) => ({id: String(i)})), {id: 2}, null, {id: 3}],
         activityItems: [...Array.from({length: 45}, (_, i) => ({id: String(i)})), {title: 'missing id'}, null],
         pendingReadItems: [{id: 'n1', rawId: 'r1'}, {id: 'bad'}, {id: 'n2', rawId: 'r2'}],
@@ -33,6 +35,7 @@ test('restores cached records defensively and applies retention caps', () => {
     assert.ok(indicator._activityItems.every(item => typeof item.id === 'string'));
     assert.deepEqual(indicator._pendingReadItems, [{id: 'n1', rawId: 'r1'}, {id: 'n2', rawId: 'r2'}]);
     assert.equal(indicator._pendingMarkAllRead, state.pendingMarkAllRead);
+    assert.equal(indicator._lastFetchedAt, '2026-10-23T08:30:00Z');
     assert.deepEqual(indicator._dailyStats['2026-10-23'], {notifications: 4, activity: 2});
 });
 
@@ -49,4 +52,8 @@ test('drops malformed pending mark-all state during restoration', () => {
     assert.deepEqual(indicator._notificationItems, []);
     assert.deepEqual(indicator._activityItems, []);
     assert.deepEqual(indicator._pendingReadItems, []);
+});
+
+test('extension initialization does not reference state restoration locals', () => {
+    assert.doesNotMatch(extensionSource, /\bpersistedState\b/);
 });
