@@ -118,3 +118,40 @@ test('a 304 inbox response preserves the cached notifications without rebuilding
     assert.notEqual(result, cached);
     assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
 });
+
+
+test('a 304 response reconstructs a corrupt toast baseline from cached inbox IDs', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
+    });
+    const cached = [{id: 'notif-123', rawId: '123'}];
+    indicator._notificationItems = cached;
+    const state = {
+        notificationBaselineEstablished: 'true',
+        toastedNotificationIds: 'corrupt',
+        notificationsLastModified: 'previous-modified',
+    };
+
+    const result = await pollNotifications(indicator, state);
+    assert.deepEqual(result, cached);
+    assert.equal(state.notificationBaselineEstablished, true);
+    assert.deepEqual(state.toastedNotificationIds, ['123']);
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'previous-modified');
+});
+
+test('a 304 response without cached inbox data clears stale conditional metadata for a full baseline fetch', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
+    });
+    indicator._notificationItems = [];
+    const state = {
+        notificationBaselineEstablished: 'true',
+        toastedNotificationIds: 'corrupt',
+        notificationsLastModified: 'previous-modified',
+    };
+
+    assert.deepEqual(await pollNotifications(indicator, state), []);
+    assert.equal(state.notificationsLastModified, null);
+    assert.equal(state.notificationBaselineEstablished, false);
+    assert.deepEqual(state.toastedNotificationIds, []);
+});
