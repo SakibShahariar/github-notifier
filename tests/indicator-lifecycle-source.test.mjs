@@ -19,3 +19,8 @@ test('extension disable delegates all resource cleanup to the indicator lifecycl
     assert.match(method, /this\._indicator = null/);
     assert.doesNotMatch(method, /GLib\.source_remove|layoutManager\.disconnect/);
 });
+
+test('network recovery imports Gio before creating the default network monitor', () => {
+    assert.match(source, /^import Gio from 'gi:\/\/Gio';/m);
+    assert.match(source, /Gio\.NetworkMonitor\.get_default\(\)/);
+});
