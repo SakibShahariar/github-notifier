@@ -84,7 +84,9 @@ export async function pollRepoStars(indicator, repo, state, baselineNotes) {
         const data = await indicator._apiGet(`/repos/${indicator._encodeRepo(repo)}`);
         const count = data.stargazers_count;
         const items = [];
-        const hadBaseline = typeof repoState.stars === 'number';
+        // Persisted state can be malformed or stale; only a valid GitHub star
+        // count is a usable baseline, otherwise establish one silently.
+        const hadBaseline = Number.isSafeInteger(repoState.stars) && repoState.stars >= 0;
 
         if (hadBaseline && count > repoState.stars) {
             const gained = count - repoState.stars;
