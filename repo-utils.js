@@ -605,7 +605,7 @@ export function getNextPageUrl(linkHeader) {
     if (typeof linkHeader !== 'string' || !linkHeader)
         return null;
     for (const part of linkHeader.split(',')) {
-        const match = part.match(/<([^>]+)>;\\s*rel="next"/);
+        const match = part.match(/<([^>]+)>;\s*rel="next"/);
         if (match)
             return match[1];
     }
