@@ -127,6 +127,10 @@ export function markAllRead(indicator) {
         // operation; otherwise a network failure would permanently discard
         // local-only activity and temporarily hide still-unread notifications.
         indicator._disarmMarkAll();
+        // A second click can arrive before the first request settles. Do not
+        // issue overlapping PUTs or let their completions race while clearing state.
+        if (indicator._markingAllRead)
+            return;
         if (indicator._tokenLoading || !indicator._token) {
             indicator._setActionStatus('Add or unlock a GitHub token in Settings');
             return;
