@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiBase, getApiPathFromAbsoluteUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {getApiBase, getApiPathFromAbsoluteUrl, getNextPageUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {apiRequest, buildMessage, sendOnce} from './api.js';
@@ -344,16 +344,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _nextPageUrl(linkHeader) {
-        if (!linkHeader)
-            return null;
-        for (const part of linkHeader.split(',')) {
-            const match = part.match(/<([^>]+)>;\s*rel="next"/);
-            if (match)
-                return match[1];
-        }
-        return null;
+        return getNextPageUrl(linkHeader);
     }
-
     /** Turn an absolute GitHub Link URL into a path for _apiRequest(). */
     _pathFromAbsoluteUrl(absoluteUrl) {
         const path = getApiPathFromAbsoluteUrl(this._apiBase(), absoluteUrl);
