@@ -12,9 +12,12 @@ test('mark-all-read ignores repeat clicks while the GitHub request is in flight'
     const implementation = actionsSource.slice(start, end);
 
     const inFlightGuard = implementation.indexOf('if (indicator._markingAllRead)');
+    const confirmationBranch = implementation.indexOf('if (!indicator._markAllArmed)');
     const requestStart = implementation.indexOf("indicator._apiRequest('PUT', '/notifications'");
     assert.notEqual(inFlightGuard, -1, 'an in-flight guard exists');
+    assert.notEqual(confirmationBranch, -1, 'the confirmation branch exists');
     assert.notEqual(requestStart, -1, 'the mark-all request exists');
+    assert.ok(inFlightGuard < confirmationBranch, 'the guard runs before a click can arm another confirmation');
     assert.ok(inFlightGuard < requestStart, 'the in-flight guard runs before a request can be sent');
     assert.match(implementation, /indicator\._markingAllRead = true;/);
     assert.match(implementation, /indicator\._markingAllRead = false;/);
