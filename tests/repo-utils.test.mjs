@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -504,4 +504,12 @@ test('repository membership changes preserve unrelated invalid entries for user-
     assert.equal(values.get('watched-repos'), 'owner/repo, invalid path, other/project, bad//repo, owner/new');
     assert.equal(setRepositoryMembership(settings, 'watched-repos', 'OWNER/REPO', false), true);
     assert.equal(values.get('watched-repos'), 'invalid path, other/project, bad//repo, owner/new');
+});
+
+test('extracts only an explicit next-page URL from Link headers', () => {
+    assert.equal(getNextPageUrl(null), null);
+    assert.equal(getNextPageUrl(''), null);
+    assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="first", <https://api.github.com/notifications?page=2>; rel="next", <https://api.github.com/notifications?page=4>; rel="last"'), 'https://api.github.com/notifications?page=2');
+    assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="prev"'), null);
+    assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="first", <https://api.github.com/notifications?page=2>; rel="last"'), null);
 });
