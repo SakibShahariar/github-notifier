@@ -221,3 +221,25 @@ test('repairs malformed root and per-repository cache containers before polling'
     assert.equal(starState.repos[repo].stars, 8);
     assert.deepEqual(baselineNotes, ['owner/repo: now tracking stars (currently 8)']);
 });
+
+
+test('pollRepoStars silently re-baselines malformed saved star counts', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({'/repos/owner/repo': {stargazers_count: 8}});
+    for (const invalidBaseline of [NaN, Infinity, -1, 1.5, '5', null]) {
+        const state = {repos: {[repo]: {stars: invalidBaseline}}};
+        const notes = [];
+        assert.deepEqual(await pollRepoStars(indicator, repo, state, notes), [], String(invalidBaseline));
+        assert.equal(state.repos[repo].stars, 8);
+        assert.deepEqual(notes, ['owner/repo: now tracking stars (currently 8)']);
+    }
+});
+
+test('pollRepoStars accepts a zero-valued saved baseline', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({'/repos/owner/repo': {stargazers_count: 2}});
+    const state = {repos: {[repo]: {stars: 0}}};
+    const items = await pollRepoStars(indicator, repo, state, []);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, '+2 new stars (2 total)');
+});
