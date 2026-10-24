@@ -105,6 +105,8 @@ export function addFooter(indicator, section, opts, activityExpanded) {
                 can_focus: true,
                 child: refreshBox,
             });
+            refreshBtn.accessible_name = 'Refresh GitHub notifications';
+            indicator._setTooltip(refreshBtn, refreshBtn.accessible_name);
             refreshBtn.connect('clicked', opts.onRefresh);
             box.add_child(refreshBtn);
             if (indicator.hasMotion())
