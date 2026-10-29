@@ -86,3 +86,9 @@ test('cached notification search is accessible, resets pagination, and provides 
     assert.match(source, /No cached notifications match your search\./);
     assert.match(source, /notificationSearchQuery: indicator\._notificationSearchQuery/);
 });
+
+
+test('render cache invalidates when an existing item changes its visible details or destination', () => {
+    assert.match(source, /notifications: indicator\._notificationItems\.map\(i => \[i\.id, i\.title, i\.subtitle, i\.ts, i\.url, i\.kind, i\.rawId\]\)/);
+    assert.match(source, /activity: indicator\._activityItems\.map\(i => \[i\.id, i\.title, i\.subtitle, i\.ts, i\.url, i\.kind\]\)/);
+});

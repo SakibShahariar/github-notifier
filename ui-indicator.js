@@ -121,8 +121,8 @@ export function addFooter(indicator, section, opts, activityExpanded) {
 export function renderList(indicator, constants) {
         // Skip render if data hasn't changed
         const newHash = JSON.stringify({
-            notifications: indicator._notificationItems.map(i => i.id).join(','),
-            activity: indicator._activityItems.map(i => i.id).join(','),
+            notifications: indicator._notificationItems.map(i => [i.id, i.title, i.subtitle, i.ts, i.url, i.kind, i.rawId]),
+            activity: indicator._activityItems.map(i => [i.id, i.title, i.subtitle, i.ts, i.url, i.kind]),
             notificationsPage: indicator._notificationsPage,
             notificationSearchQuery: indicator._notificationSearchQuery,
             issuesExpanded: indicator._issuesExpanded,
