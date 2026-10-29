@@ -300,7 +300,17 @@ test('formats relative ages at boundaries and handles invalid or future timestam
 
 test('composes compact secondary detail text for each item kind', () => {
     assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', reasonLabel: 'Mention'}, '5m ago'), 'owner/repo · Mention · 5m ago');
-    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo'}, '1h ago'), 'owner/repo · notification · 1h ago');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo'}, '1h ago'), 'owner/repo · Notification · 1h ago');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', notificationReason: 'review_requested'}, ''),
+        'owner/repo · Review requested');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', notificationReason: 'assign'}, ''),
+        'owner/repo · Assigned');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', notificationReason: 'comment'}, ''),
+        'owner/repo · New comment');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', notificationReason: 'team_mention'}, ''),
+        'owner/repo · Team mention');
+    assert.equal(getItemDetail({kind: 'notification', subtitle: 'owner/repo', notificationReason: 'unknown_reason'}, ''),
+        'owner/repo · Notification');
     assert.equal(getItemDetail({kind: 'pr', subtitle: 'owner/repo'}, '2d ago'), 'owner/repo · PR · 2d ago');
     assert.equal(getItemDetail({kind: 'issue', subtitle: 'owner/repo'}, 'just now'), 'owner/repo · issue · just now');
     assert.equal(getItemDetail({kind: 'star', subtitle: 'owner/repo'}, '3d ago'), 'owner/repo · star · 3d ago');

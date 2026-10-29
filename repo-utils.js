@@ -374,7 +374,7 @@ export function getItemDetail(item, relativeTime = '') {
     if (repository)
         parts.push(repository);
     if (item?.kind === 'notification')
-        parts.push(item.reasonLabel || 'notification');
+        parts.push(item.reasonLabel || getNotificationReasonLabel(item.notificationReason, item.subjectType));
     else if (item?.kind === 'pr')
         parts.push('PR');
     else if (item?.kind === 'issue')
