@@ -209,7 +209,7 @@ export function renderList(indicator, constants) {
                 onToggle: () => { indicator._issuesExpanded = !indicator._issuesExpanded; indicator._renderList(); },
                 showOpen: new Set(issuePrItems.map(item => item.subtitle)).size === 1,
                 openLabel: 'Open repo',
-                openUrl: `${indicator._webBase()}/${issuePrItems[0].subtitle}/issues`,
+                openUrl: `${indicator._webBase()}/${issuePrItems[0].subtitle}/${new Set(issuePrItems.map(item => item.kind)).size === 1 && issuePrItems[0].kind === 'pr' ? 'pulls' : new Set(issuePrItems.map(item => item.kind)).size === 1 && issuePrItems[0].kind === 'issue' ? 'issues' : ''}`,
             });
         }
 

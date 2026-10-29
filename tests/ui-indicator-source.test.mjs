@@ -5,6 +5,12 @@ import test from 'node:test';
 const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'utf8');
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 
+test('repository activity footer opens the correct tab for issue-only and PR-only sections', () => {
+    assert.match(source, /issuePrItems\[0\]\.kind === 'pr' \? 'pulls'/);
+    assert.match(source, /issuePrItems\[0\]\.kind === 'issue' \? 'issues'/);
+    assert.match(source, /issuePrItems\.map\(item => item\.kind\)\)\.size === 1/);
+});
+
 test('panel tooltip updates target the indicator actor, not module this', () => {
     assert.match(source, /indicator\._setTooltip\(indicator, 'GitHub Notifier — attention needed'\)/);
     assert.match(source, /indicator\._setTooltip\(indicator,.*unread/);
