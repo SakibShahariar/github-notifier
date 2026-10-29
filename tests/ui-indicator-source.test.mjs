@@ -92,3 +92,14 @@ test('render cache invalidates when an existing item changes its visible details
     assert.match(source, /notifications: indicator\._notificationItems\.map\(i => \[i\.id, i\.title, i\.subtitle, i\.ts, i\.url, i\.kind, i\.rawId\]\)/);
     assert.match(source, /activity: indicator\._activityItems\.map\(i => \[i\.id, i\.title, i\.subtitle, i\.ts, i\.url, i\.kind\]\)/);
 });
+
+
+test('render cache invalidates when empty-state credential or fetch context changes', () => {
+    for (const field of [
+        "watchEnabled: indicator._settings.get_boolean('watch-mentions')",
+        'tokenLoading: indicator._tokenLoading',
+        'hasToken: Boolean(indicator._token)',
+        'tokenWarning: indicator._tokenWarning',
+        'hasFetched: Boolean(indicator._lastFetchedAt)',
+    ]) assert.ok(source.includes(field), `missing empty-state render-cache input: ${field}`);
+});

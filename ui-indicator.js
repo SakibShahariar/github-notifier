@@ -131,6 +131,11 @@ export function renderList(indicator, constants) {
             paused: indicator._paused,
             statusIsError: indicator._statusIsError,
             statusText: indicator._statusItem?.label?.text || '',
+            watchEnabled: indicator._settings.get_boolean('watch-mentions'),
+            tokenLoading: indicator._tokenLoading,
+            hasToken: Boolean(indicator._token),
+            tokenWarning: indicator._tokenWarning,
+            hasFetched: Boolean(indicator._lastFetchedAt),
             rateLimitReset: indicator._rateLimitResetEpoch,
         });
         if (newHash === indicator._lastRenderHash) {
