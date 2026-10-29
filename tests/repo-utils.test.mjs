@@ -290,7 +290,8 @@ test('formats relative ages at boundaries and handles invalid or future timestam
     for (const [seconds, expected] of [
         [0, 'just now'], [59, 'just now'], [60, '1m ago'], [3599, '59m ago'],
         [3600, '1h ago'], [86399, '23h ago'], [86400, '1d ago'],
-        [2591999, '29d ago'], [2592000, '1mo ago'],
+        [2591999, '29d ago'], [2592000, '1mo ago'], [31535999, '12mo ago'],
+        [31536000, '1y ago'], [63072000, '2y ago'],
     ]) assert.equal(formatRelativeTime(ago(seconds), now), expected, String(seconds));
     assert.equal(formatRelativeTime('not a timestamp', now), '');
     assert.equal(formatRelativeTime('', now), '');
