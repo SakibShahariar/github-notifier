@@ -46,3 +46,8 @@ test('account-scope restoration rejects malformed notification thread IDs too', 
 test('account-scope restoration rejects invalid last-fetch timestamps', () => {
     assert.match(source, /indicator\._lastFetchedAt = typeof state\.lastFetchedAt === 'string' && Number\.isFinite\(Date\.parse\(state\.lastFetchedAt\)\) \? state\.lastFetchedAt : null/);
 });
+
+
+test('clears server-directed inbox polling interval when inbox monitoring is disabled', () => {
+    assert.match(source, /changed::watch-mentions'[\s\S]*?if \(!indicator\._settings\.get_boolean\('watch-mentions'\)\)[\s\S]*?indicator\._serverPollIntervalSeconds = 0;[\s\S]*?indicator\._restartTimer\(\)/);
+});

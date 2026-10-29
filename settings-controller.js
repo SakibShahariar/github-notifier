@@ -119,6 +119,16 @@ export function connectSettingsSignals(indicator, constants) {
             pollAfterRepositorySettingsChange();
         });
         indicator._hostChangedId = indicator._settings.connect('changed::github-host', refreshToken);
+        indicator._inboxMonitoringChangedId = indicator._settings.connect('changed::watch-mentions', () => {
+            if (indicator._destroyed)
+                return;
+            if (!indicator._settings.get_boolean('watch-mentions')) {
+                // X-Poll-Interval only governs inbox polling. Do not retain a
+                // server interval while inbox monitoring is disabled.
+                indicator._serverPollIntervalSeconds = 0;
+                indicator._restartTimer();
+            }
+        });
         // Secret Service access is asynchronous so it cannot block GNOME Shell.
         refreshToken();
 

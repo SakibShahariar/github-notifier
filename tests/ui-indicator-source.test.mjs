@@ -69,3 +69,10 @@ test('empty-state rendering supplies credential, fetch, error, and cache context
     assert.match(source, /hasFetched: Boolean\(indicator\._lastFetchedAt\)/);
     assert.match(source, /hasCachedNotifications: indicator\._notificationItems\.length > 0/);
 });
+
+
+test('notification and activity rows expose concise descriptive accessible names', () => {
+    assert.match(source, /const rowKind = \(\{[\s\S]*?notification: 'Notification'[\s\S]*?issue: 'Issue'[\s\S]*?pr: 'Pull request'[\s\S]*?star: 'New star'/);
+    assert.match(source, /menuItem\.accessible_name = indicator\._truncate\(\[\.\.\.new Set\(rowParts\)\]\.join\(', '\), 180\)/);
+    assert.match(source, /indicator\._detailForItem\(item\)/);
+});

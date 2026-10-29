@@ -359,8 +359,14 @@ export function restartPollTimer(indicator) {
 }
 
 export function refreshPollNow(indicator) {
-        if (indicator._destroyed || indicator._paused)
+        if (indicator._destroyed)
             return;
+        if (indicator._paused) {
+            indicator._setStatusBanner('Polling is paused — resume polling to refresh GitHub', 'info');
+            indicator._updateHero();
+            indicator._updatePanel();
+            return;
+        }
         // An explicit user request may bypass automatic backoff and metered-network pausing.
         indicator._manualRefreshPending = true;
         indicator._networkFailureCount = 0;

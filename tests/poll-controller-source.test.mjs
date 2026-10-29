@@ -43,3 +43,8 @@ test('poll results filter in-flight activity and baseline notices against curren
     assert.match(source, /indicator\._notifyBaseline\(visibleBaselineNotes\)/);
     assert.doesNotMatch(source, /indicator\._notifyBaseline\(baselineNotes\)/);
 });
+
+
+test('manual refresh while paused reports why no refresh starts', () => {
+    assert.match(source, /if \(indicator\._paused\) \{\s*indicator\._setStatusBanner\('Polling is paused — resume polling to refresh GitHub', 'info'\);\s*indicator\._updateHero\(\);\s*indicator\._updatePanel\(\);\s*return;/);
+});

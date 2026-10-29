@@ -261,6 +261,16 @@ export function renderList(indicator, constants) {
 export function addRow(indicator, section, item) {
         const secondaryColor = indicator._matugenColors?.secondary || '#aaaaaa';
         const menuItem = new PopupMenu.PopupBaseMenuItem({style_class: 'github-notifier-row'});
+        const rowKind = ({
+            notification: 'Notification',
+            issue: 'Issue',
+            pr: 'Pull request',
+            star: 'New star',
+        })[item.kind] || 'Activity';
+        const rowParts = [rowKind, item.title, item.subtitle, indicator._detailForItem(item)]
+            .filter(value => typeof value === 'string' && value.trim())
+            .map(value => value.trim());
+        menuItem.accessible_name = indicator._truncate([...new Set(rowParts)].join(', '), 180);
         menuItem.connect('activate', () => {
             if (!indicator._openUri(item.url))
                 return;
