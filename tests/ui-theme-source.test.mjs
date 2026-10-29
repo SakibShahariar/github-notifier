@@ -16,6 +16,6 @@ test('Matugen file changes clear stale overrides and monitor creation when the p
     assert.match(source, /function clearMatugenStylesheet\(indicator\)/);
     assert.match(source, /configDirectory\.monitor_directory/);
     assert.match(source, /directory\.monitor_directory/);
-    assert.match(source, /Watch ~/.config so creation of ~/.config/matugen is observed too/);
+    assert.ok(source.includes('Watch ~/.config so creation of ~/.config/matugen is observed too'));
     assert.match(source, /export function removeMatugenTheme\(indicator\) \{\s*clearMatugenStylesheet\(indicator\);/);
 });
