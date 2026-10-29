@@ -548,6 +548,24 @@ export function filterVisibleNotificationItems(items, enabledCategories, mutedRe
         !isRepositoryMuted(item.subtitle, mutedRepositories));
 }
 
+/** Filter cached inbox notifications by title, repository, reason, or detail text. */
+export function filterNotificationsByQuery(items, query) {
+    if (!Array.isArray(items))
+        return [];
+    const normalizedQuery = typeof query === 'string' ? query.trim().toLocaleLowerCase() : '';
+    if (!normalizedQuery)
+        return items.filter(Boolean);
+    return items.filter(item => {
+        if (!item || typeof item !== 'object')
+            return false;
+        const searchableText = [
+            item.title, item.subtitle, item.reasonLabel,
+            item.notificationReason, item.subjectType, item.detail,
+        ].filter(value => typeof value === 'string').join(' ').toLocaleLowerCase();
+        return searchableText.includes(normalizedQuery);
+    });
+}
+
 /** Filter cached activity rows using the same repository mute policy as notifications. */
 export function filterVisibleActivityItems(items, mutedRepositories) {
     if (!Array.isArray(items))

@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiBase, getApiPathFromAbsoluteUrl, getNextPageUrl, getNotificationCategory, getNotificationIconName, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {getApiBase, getApiPathFromAbsoluteUrl, getNextPageUrl, getNotificationCategory, getNotificationIconName, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {apiRequest, buildMessage, sendOnce} from './api.js';
@@ -81,6 +81,7 @@ class Indicator extends PanelMenu.Button {
         this._accountRefreshPending = false; // rerun after an in-flight poll when host/token changes
         this._statusIsError = false; // keeps the indicator visible while a problem is showing
         this._notificationsPage = 0;
+        this._notificationSearchQuery = '';
         this._issuesExpanded = false;
         this._starsExpanded = false;
         this._markAllArmed = false;
@@ -182,8 +183,9 @@ class Indicator extends PanelMenu.Button {
     _visibleNotificationItems() {
         const enabledCategories = new Set(NOTIFICATION_FILTER_CATEGORIES.filter(category =>
             this._settings.get_boolean(`filter-${category}`)));
-        return filterVisibleNotificationItems(
-            this._notificationItems, enabledCategories, this._mutedRepositories());
+        return filterNotificationsByQuery(
+            filterVisibleNotificationItems(this._notificationItems, enabledCategories, this._mutedRepositories()),
+            this._notificationSearchQuery);
     }
 
     _visibleActivityItems() {

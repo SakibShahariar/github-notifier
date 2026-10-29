@@ -124,6 +124,7 @@ export function renderList(indicator, constants) {
             notifications: indicator._notificationItems.map(i => i.id).join(','),
             activity: indicator._activityItems.map(i => i.id).join(','),
             notificationsPage: indicator._notificationsPage,
+            notificationSearchQuery: indicator._notificationSearchQuery,
             issuesExpanded: indicator._issuesExpanded,
             starsExpanded: indicator._starsExpanded,
             markAllArmed: indicator._markAllArmed,
@@ -160,6 +161,9 @@ export function renderList(indicator, constants) {
         const notifCount = visibleNotificationItems.length;
         indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount);
         if (notifCount === 0) {
+            if (indicator._notificationSearchQuery.trim()) {
+                indicator._addEmpty(indicator._notifSection, 'No cached notifications match your search.');
+            } else {
             const emptyMessage = getNotificationEmptyState({
                 watchEnabled: indicator._settings.get_boolean('watch-mentions'),
                 tokenLoading: indicator._tokenLoading,
@@ -170,6 +174,7 @@ export function renderList(indicator, constants) {
                 hasCachedNotifications: indicator._notificationItems.length > 0,
             });
             indicator._addEmpty(indicator._notifSection, emptyMessage);
+            }
         } else {
             const pageCount = Math.max(1, Math.ceil(notifCount / constants.notifPageSize));
             if (indicator._notificationsPage >= pageCount) indicator._notificationsPage = pageCount - 1;
@@ -514,6 +519,24 @@ export function buildMenuSkeleton(indicator) {
         });
         indicator._repositoryUndoItem.visible = false;
         indicator.menu.addMenuItem(indicator._repositoryUndoItem);
+
+        // Search cached inbox notifications without triggering extra API requests.
+        const searchItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        indicator._notificationSearchEntry = new St.Entry({
+            style_class: 'github-notifier-search',
+            hint_text: 'Search notifications…',
+            can_focus: true,
+            x_expand: true,
+        });
+        indicator._notificationSearchEntry.accessible_name = 'Search cached notifications';
+        indicator._notificationSearchEntry.clutter_text.connect('text-changed', () => {
+            indicator._notificationSearchQuery = indicator._notificationSearchEntry.get_text();
+            indicator._notificationsPage = 0;
+            indicator._lastRenderHash = '';
+            indicator._renderList();
+        });
+        searchItem.add_child(indicator._notificationSearchEntry);
+        indicator.menu.addMenuItem(searchItem);
 
         // sections
         indicator._notifSection = new PopupMenu.PopupMenuSection();

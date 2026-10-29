@@ -76,3 +76,13 @@ test('notification and activity rows expose concise descriptive accessible names
     assert.match(source, /menuItem\.accessible_name = indicator\._truncate\(\[\.\.\.new Set\(rowParts\)\]\.join\(', '\), 180\)/);
     assert.match(source, /indicator\._detailForItem\(item\)/);
 });
+
+
+test('cached notification search is accessible, resets pagination, and provides a no-match state', () => {
+    assert.match(source, /hint_text: 'Search notifications…'/);
+    assert.match(source, /accessible_name = 'Search cached notifications'/);
+    assert.match(source, /indicator\._notificationSearchQuery = indicator\._notificationSearchEntry\.get_text\(\)/);
+    assert.match(source, /indicator\._notificationsPage = 0/);
+    assert.match(source, /No cached notifications match your search\./);
+    assert.match(source, /notificationSearchQuery: indicator\._notificationSearchQuery/);
+});

@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -523,4 +523,19 @@ test('extracts only an explicit next-page URL from Link headers', () => {
     assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="first", <https://api.github.com/notifications?page=2>; rel="next", <https://api.github.com/notifications?page=4>; rel="last"'), 'https://api.github.com/notifications?page=2');
     assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="prev"'), null);
     assert.equal(getNextPageUrl('<https://api.github.com/notifications?page=1>; rel="first", <https://api.github.com/notifications?page=2>; rel="last"'), null);
+});
+
+
+test('searches cached notifications case-insensitively across title, repository, and reason', () => {
+    const items = [
+        {id: '1', title: 'Fix Login Timeout', subtitle: 'octo/app', notificationReason: 'review_requested'},
+        {id: '2', title: 'Release v2', subtitle: 'octo/cli', notificationReason: 'mention'},
+        {id: '3', title: 'Documentation', subtitle: 'other/project', reasonLabel: 'Review requested'},
+        null,
+    ];
+    assert.deepEqual(filterNotificationsByQuery(items, 'LOGIN').map(item => item.id), ['1']);
+    assert.deepEqual(filterNotificationsByQuery(items, 'OCTO/CLI').map(item => item.id), ['2']);
+    assert.deepEqual(filterNotificationsByQuery(items, 'review requested').map(item => item.id), ['3']);
+    assert.deepEqual(filterNotificationsByQuery(items, '').map(item => item.id), ['1', '2', '3']);
+    assert.deepEqual(filterNotificationsByQuery(null, 'anything'), []);
 });
