@@ -269,4 +269,8 @@ export function removeMatugenTheme(indicator) {
             try { indicator._matugenMonitor.cancel(); } catch (e) {}
             indicator._matugenMonitor = null;
         }
+        if (indicator._matugenDirectoryMonitor) {
+            try { indicator._matugenDirectoryMonitor.cancel(); } catch (e) {}
+            indicator._matugenDirectoryMonitor = null;
+        }
 }
