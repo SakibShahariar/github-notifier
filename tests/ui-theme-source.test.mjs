@@ -11,8 +11,11 @@ test('missing or invalid Matugen palettes remove overrides instead of applying d
     assert.match(source, /if \(!colors\) \{\s*clearMatugenStylesheet\(indicator\);\s*return;/);
 });
 
-test('Matugen file changes clear stale overrides while keeping the monitor active', () => {
+test('Matugen file changes clear stale overrides and monitor creation when the palette is absent', () => {
     assert.match(source, /if \(indicator\._matugenColors\) \{\s*indicator\._applyMatugenThemeInternal\(indicator\._matugenColors\);\s*\} else \{\s*clearMatugenStylesheet\(indicator\);\s*\}/);
     assert.match(source, /function clearMatugenStylesheet\(indicator\)/);
+    assert.match(source, /configDirectory\.monitor_directory/);
+    assert.match(source, /directory\.monitor_directory/);
+    assert.match(source, /Monitoring the palette file directly fails when Matugen has not generated it yet/);
     assert.match(source, /export function removeMatugenTheme\(indicator\) \{\s*clearMatugenStylesheet\(indicator\);/);
 });

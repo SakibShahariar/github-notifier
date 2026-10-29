@@ -186,25 +186,79 @@ export function applyMatugenThemeInternal(indicator, colors) {
     }
 
 export function setupMatugenMonitor(indicator) {
-        const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
-        const file = Gio.File.new_for_path(path);
-        try {
-            indicator._matugenMonitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
-            indicator._matugenMonitor.connect('changed', (monitor, file, otherFile, eventType) => {
-                if (eventType === Gio.FileMonitorEvent.CHANGES_DONE_HINT || eventType === Gio.FileMonitorEvent.CHANGED) {
-                    indicator._loadMatugenColorsIfChanged(true);
-                    if (indicator._matugenColors) {
-                        indicator._applyMatugenThemeInternal(indicator._matugenColors);
-                    } else {
+        const configPath = GLib.build_filenamev([GLib.get_home_dir(), '.config']);
+        const matugenDirPath = GLib.build_filenamev([configPath, 'matugen']);
+        const palettePath = GLib.build_filenamev([matugenDirPath, 'matugen-colors.css']);
+
+        const refreshPalette = () => {
+            indicator._loadMatugenColorsIfChanged(true);
+            if (indicator._matugenColors)
+                indicator._applyMatugenThemeInternal(indicator._matugenColors);
+            else
+                clearMatugenStylesheet(indicator);
+        };
+        const cancelMonitor = monitor => {
+            if (!monitor)
+                return;
+            try { monitor.cancel(); } catch (e) {}
+        };
+        const attachDirectoryMonitor = () => {
+            if (indicator._matugenDirectoryMonitor)
+                return;
+            try {
+                const directory = Gio.File.new_for_path(matugenDirPath);
+                if (!directory.query_exists(null))
+                    return;
+                indicator._matugenDirectoryMonitor = directory.monitor_directory(Gio.FileMonitorFlags.NONE, null);
+                indicator._matugenDirectoryMonitor.connect('changed', (_monitor, file, otherFile, eventType) => {
+                    const paths = [file, otherFile].filter(Boolean).map(item => item.get_path?.());
+                    if (!paths.includes(palettePath))
+                        return;
+                    if ([Gio.FileMonitorEvent.DELETED, Gio.FileMonitorEvent.MOVED_OUT].includes(eventType))
                         clearMatugenStylesheet(indicator);
+                    else
+                        refreshPalette();
+                });
+            } catch (e) {
+                logError(e, 'GitHubNotifier matugen directory monitor failed');
+            }
+        };
+
+        cancelMonitor(indicator._matugenMonitor);
+        cancelMonitor(indicator._matugenDirectoryMonitor);
+        indicator._matugenMonitor = null;
+        indicator._matugenDirectoryMonitor = null;
+        try {
+            // Watch ~/.config so creation of ~/.config/matugen is observed too.
+            // Monitoring the palette file directly fails when Matugen has not
+            // generated it yet, leaving the extension unable to notice its arrival.
+            const configDirectory = Gio.File.new_for_path(configPath);
+            indicator._matugenMonitor = configDirectory.monitor_directory(Gio.FileMonitorFlags.NONE, null);
+            indicator._matugenMonitor.connect('changed', (_monitor, file, otherFile, eventType) => {
+                const paths = [file, otherFile].filter(Boolean).map(item => item.get_path?.());
+                if (paths.includes(matugenDirPath)) {
+                    attachDirectoryMonitor();
+                    if ([Gio.FileMonitorEvent.DELETED, Gio.FileMonitorEvent.MOVED_OUT].includes(eventType)) {
+                        cancelMonitor(indicator._matugenDirectoryMonitor);
+                        indicator._matugenDirectoryMonitor = null;
+                        clearMatugenStylesheet(indicator);
+                    } else {
+                        refreshPalette();
                     }
+                    return;
+                }
+                if (paths.includes(palettePath)) {
+                    if ([Gio.FileMonitorEvent.DELETED, Gio.FileMonitorEvent.MOVED_OUT].includes(eventType))
+                        clearMatugenStylesheet(indicator);
+                    else
+                        refreshPalette();
                 }
             });
+            attachDirectoryMonitor();
         } catch (e) {
             logError(e, 'GitHubNotifier matugen monitor failed');
         }
-    }
-
+}
 export function removeMatugenTheme(indicator) {
         clearMatugenStylesheet(indicator);
         if (indicator._matugenDebounceId) {
