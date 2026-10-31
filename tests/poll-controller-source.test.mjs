@@ -21,7 +21,7 @@ test('pause toggle refreshes the menu and polls immediately when resumed', () =>
     assert.match(source, /export function togglePollingPause\(indicator\)/);
     assert.match(source, /indicator\._paused = !indicator\._paused/);
     assert.match(source, /indicator\._renderList\(\)/);
-    assert.match(source, /if \(!indicator\._paused\)\s*indicator\._poll\(\)/);
+    assert.match(source, /if \(!indicator\._paused\) \{\s*indicator\._idlePollCount = 0;\s*indicator\._poll\(\);\s*\}/);
 });
 
 test('watched repository polling uses a bounded three-worker pool', () => {
