@@ -11,11 +11,13 @@ function indicatorWithResponses(responses) {
             if (!(path in responses)) throw new Error(`Unexpected API path: ${path}`);
             return responses[path];
         },
-        _apiRequest: async (_method, path) => ({
-            data: await indicator._apiGet(path),
-            etag: null,
-            notModified: false,
-        }),
+        _apiRequest: async function (_method, path) {
+            return {
+                data: await this._apiGet(path),
+                etag: null,
+                notModified: false,
+            };
+        },
         _encodeRepo: repo => repo.split('/').map(encodeURIComponent).join('/'),
         _webBase: () => 'https://github.com',
     };
