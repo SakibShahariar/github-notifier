@@ -2,7 +2,7 @@
 function isValidEtag(value) {
     return typeof value === 'string' &&
         value.length <= 512 &&
-        /^(?:W\\/)?"[^"\\u0000-\\u001f\\u007f]*"$/.test(value);
+        /^(?:W\/)?"[^"\u0000-\u001f\u007f]*"$/.test(value);
 }
 
 async function requestRepositoryData(indicator, path, etag = null) {
