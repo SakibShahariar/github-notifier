@@ -471,6 +471,8 @@ export function addTransientTimeout(indicator, seconds, callback) {
 export function togglePollingPause(indicator) {
     indicator._paused = !indicator._paused;
     indicator._renderList();
-    if (!indicator._paused)
+    if (!indicator._paused) {
+        indicator._idlePollCount = 0;
         indicator._poll();
+    }
 }
