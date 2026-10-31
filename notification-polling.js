@@ -21,17 +21,27 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
 
     let path = '/notifications?per_page=50&participating=false';
     let pagesFetched = 0;
-    const conditionalLastModified = state.notificationsLastModified;\n    const conditionalEtag = state.notificationsEtag;
+    const conditionalLastModified = state.notificationsLastModified;
+    const conditionalEtag = state.notificationsEtag;
     const hasValidLastModified = isValidLastModified(conditionalLastModified);
+    const hasValidEtag = isValidEtag(conditionalEtag);
     if (conditionalLastModified && !hasValidLastModified)
         state.notificationsLastModified = null;
+    if (conditionalEtag && !hasValidEtag)
+        state.notificationsEtag = null;
 
     while (path && pagesFetched < maxPages) {
-        const headers = pagesFetched === 0 && hasValidLastModified
-            ? {'If-Modified-Since': conditionalLastModified}
-            : {};
+        const headers = {};
+        if (pagesFetched === 0) {
+            if (hasValidLastModified)
+                headers['If-Modified-Since'] = conditionalLastModified;
+            if (hasValidEtag)
+                headers['If-None-Match'] = conditionalEtag;
+        }
         const response = await indicator._apiRequest('GET', path, {headers});
         if (pagesFetched === 0 && response.notModified) {
+            if (isValidEtag(response.etag))
+                state.notificationsEtag = response.etag;
             // A 304 cannot repair a missing/corrupt toast baseline by itself.
             // Rebuild it from the cached inbox when possible; otherwise drop the
             // conditional validator so the next poll can establish a full baseline.
@@ -50,9 +60,11 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
             return indicator._notificationItems.slice();
         }
 
-        const {data, linkHeader, lastModified} = response;
-        if (pagesFetched === 0 && lastModified)
-            state.notificationsLastModified = lastModified;
+        const {data, linkHeader, lastModified, etag} = response;
+        if (pagesFetched === 0) {
+            state.notificationsLastModified = isValidLastModified(lastModified) ? lastModified : null;
+            state.notificationsEtag = isValidEtag(etag) ? etag : null;
+        }
         pagesFetched += 1;
 
         for (const notification of Array.isArray(data) ? data : []) {
