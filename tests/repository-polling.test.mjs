@@ -11,6 +11,11 @@ function indicatorWithResponses(responses) {
             if (!(path in responses)) throw new Error(`Unexpected API path: ${path}`);
             return responses[path];
         },
+        _apiRequest: async (_method, path) => ({
+            data: await indicator._apiGet(path),
+            etag: null,
+            notModified: false,
+        }),
         _encodeRepo: repo => repo.split('/').map(encodeURIComponent).join('/'),
         _webBase: () => 'https://github.com',
     };
@@ -242,4 +247,60 @@ test('pollRepoStars accepts a zero-valued saved baseline', async () => {
     const items = await pollRepoStars(indicator, repo, state, []);
     assert.equal(items.length, 1);
     assert.equal(items[0].title, '+2 new stars (2 total)');
+});
+
+
+test('repository polling stores ETags and skips unchanged issue and star payloads', async () => {
+    const repo = 'owner/repo';
+    const issuePath = '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20';
+    const indicator = indicatorWithResponses({
+        [issuePath]: [{number: 3, title: 'Existing', html_url: 'https://github.com/owner/repo/issues/3', created_at: '2026-10-30T00:00:00Z'}],
+        '/repos/owner/repo': {stargazers_count: 12},
+    });
+    const state = {repos: {[repo]: {lastIssueNumber: 3, stars: 12}}};
+    const issueRequest = indicator._apiRequest;
+    const requests = [];
+    indicator._apiRequest = async (method, path, options = {}) => {
+        requests.push({path, headers: options.headers || {}});
+        if (path === issuePath)
+            return {data: [{number: 3, title: 'Existing', html_url: 'https://github.com/owner/repo/issues/3', created_at: '2026-10-30T00:00:00Z'}], etag: 'W/"issues-v1"', notModified: false};
+        if (path === '/repos/owner/repo')
+            return {data: {stargazers_count: 12}, etag: '"repo-v1"', notModified: false};
+        throw new Error('Unexpected request');
+    };
+    await pollRepoIssues(indicator, repo, state, []);
+    await pollRepoStars(indicator, repo, state, []);
+    assert.equal(state.repos[repo].issuesEtag, 'W/"issues-v1"');
+    assert.equal(state.repos[repo].starsEtag, '"repo-v1"');
+
+    indicator._apiRequest = async (_method, path, options = {}) => {
+        requests.push({path, headers: options.headers || {}});
+        return {data: null, etag: null, notModified: true};
+    };
+    assert.deepEqual(await pollRepoIssues(indicator, repo, state, []), []);
+    assert.deepEqual(await pollRepoStars(indicator, repo, state, []), []);
+    assert.equal(requests[2].headers['If-None-Match'], 'W/"issues-v1"');
+    assert.equal(requests[3].headers['If-None-Match'], '"repo-v1"');
+    void issueRequest;
+});
+
+test('repository polling discards corrupt validators and recovers missing baselines after 304', async () => {
+    const repo = 'owner/repo';
+    const issuePath = '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20';
+    const indicator = indicatorWithResponses({
+        [issuePath]: [{number: 7, title: 'Recovered', html_url: 'https://github.com/owner/repo/issues/7', created_at: '2026-10-30T00:00:00Z'}],
+    });
+    const state = {repos: {[repo]: {lastIssueNumber: -1, issuesEtag: 'bad\\nheader'}}};
+    const seen = [];
+    indicator._apiRequest = async (_method, path, options = {}) => {
+        seen.push(options.headers || {});
+        if (seen.length === 1)
+            return {data: null, etag: null, notModified: true};
+        return {data: await indicator._apiGet(path), etag: 'W/"recovered"', notModified: false};
+    };
+    const items = await pollRepoIssues(indicator, repo, state, []);
+    assert.equal(items.length, 0);
+    assert.equal(state.repos[repo].lastIssueNumber, 7);
+    assert.equal(state.repos[repo].issuesEtag, 'W/"recovered"');
+    assert.deepEqual(seen, [{}, {}]);
 });
