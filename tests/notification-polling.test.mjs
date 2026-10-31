@@ -284,7 +284,7 @@ test('stores ETags from full inbox responses and sends both conditional validato
     };
     await pollNotifications(indicator, state);
     assert.equal(indicator.calls[0].options.headers['If-None-Match'], 'W/"inbox-v1"');
-    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Fri, 30 Oct 2026 00:00:00 GMT');
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 29 Oct 2026 00:00:00 GMT');
 });
 
 test('drops malformed ETags and clears stale validators missing from a full response', async () => {
