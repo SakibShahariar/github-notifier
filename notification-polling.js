@@ -46,7 +46,8 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
             // Rebuild it from the cached inbox when possible; otherwise drop the
             // conditional validator so the next poll can establish a full baseline.
             if (isValidEtag(response.etag))
-                state.notificationsEtag = response.etag;\n            for (const item of indicator._notificationItems) {
+                state.notificationsEtag = response.etag;
+            for (const item of indicator._notificationItems) {
                 const cachedId = String(item?.rawId ?? '');
                 if (/^\d{1,20}$/.test(cachedId))
                     toasted.add(cachedId);
