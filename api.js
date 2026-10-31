@@ -63,7 +63,7 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         }
 
         if (status === 304)
-            return {data: null, linkHeader: msg.response_headers.get_one('Link'), lastModified: msg.response_headers.get_one('Last-Modified'), notModified: true};
+            return {data: null, linkHeader: msg.response_headers.get_one('Link'), lastModified: msg.response_headers.get_one('Last-Modified'), etag: msg.response_headers.get_one('ETag'), notModified: true};
         if (status === 401)
             throw new ApiError('Invalid or expired token', 401);
         if ((status === 403 && remaining === '0') || status === 429)
@@ -78,7 +78,7 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         const data = bytes.get_size() > 0
             ? JSON.parse(new TextDecoder('utf-8').decode(bytes.get_data()))
             : null;
-        return {data, linkHeader, lastModified, notModified: false};
+        return {data, linkHeader, lastModified, etag: msg.response_headers.get_one('ETag'), notModified: false};
 }
 
 

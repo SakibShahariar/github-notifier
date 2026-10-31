@@ -1,3 +1,9 @@
+function isValidEtag(value) {
+    return typeof value === 'string' &&
+        value.length <= 512 &&
+        /^(?:W\/)?"[^"\u0000-\u001f\u007f]*"$/.test(value);
+}
+
 function isValidLastModified(value) {
     return typeof value === 'string' &&
         Number.isFinite(Date.parse(value)) &&
@@ -15,7 +21,7 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
 
     let path = '/notifications?per_page=50&participating=false';
     let pagesFetched = 0;
-    const conditionalLastModified = state.notificationsLastModified;
+    const conditionalLastModified = state.notificationsLastModified;\n    const conditionalEtag = state.notificationsEtag;
     const hasValidLastModified = isValidLastModified(conditionalLastModified);
     if (conditionalLastModified && !hasValidLastModified)
         state.notificationsLastModified = null;
@@ -29,7 +35,7 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
             // A 304 cannot repair a missing/corrupt toast baseline by itself.
             // Rebuild it from the cached inbox when possible; otherwise drop the
             // conditional validator so the next poll can establish a full baseline.
-            for (const item of indicator._notificationItems) {
+            if (isValidEtag(response.etag))\n                state.notificationsEtag = response.etag;\n            for (const item of indicator._notificationItems) {
                 const cachedId = String(item?.rawId ?? '');
                 if (/^\d{1,20}$/.test(cachedId))
                     toasted.add(cachedId);

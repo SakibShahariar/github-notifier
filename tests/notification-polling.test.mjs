@@ -261,3 +261,38 @@ test('shows an overflow row when the page limit is reached and a next link remai
     assert.equal(items[50].isNewToast, false);
     assert.equal(items[50].url, 'https://github.com/notifications');
 });
+
+
+test('stores ETags from full inbox responses and sends both conditional validators', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {
+            data: [{id: 789, reason: 'mention', subject: {type: 'Issue', title: 'ETag'}, repository: {full_name: 'owner/repo'}, updated_at: '2026-10-30T00:00:00Z'}],
+            linkHeader: null,
+            lastModified: 'Fri, 30 Oct 2026 00:00:00 GMT',
+            etag: 'W/"inbox-v1"',
+            notModified: false,
+        },
+    });
+    const state = {notificationBaselineEstablished: true, toastedNotificationIds: ['123'], notificationsLastModified: 'Thu, 29 Oct 2026 00:00:00 GMT'};
+    await pollNotifications(indicator, state);
+    assert.equal(state.notificationsEtag, 'W/"inbox-v1"');
+
+    indicator.calls.length = 0;
+    indicator._apiRequest = async (method, path, options) => {
+        indicator.calls.push({method, path, options});
+        return {data: null, linkHeader: null, lastModified: null, etag: 'W/"inbox-v1"', notModified: true};
+    };
+    await pollNotifications(indicator, state);
+    assert.equal(indicator.calls[0].options.headers['If-None-Match'], 'W/"inbox-v1"');
+    assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 29 Oct 2026 00:00:00 GMT');
+});
+
+test('drops malformed ETags and clears stale validators missing from a full response', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {data: [], linkHeader: null, lastModified: null, etag: null, notModified: false},
+    });
+    const state = {notificationBaselineEstablished: true, toastedNotificationIds: [], notificationsEtag: 'bad\nheader'};
+    await pollNotifications(indicator, state);
+    assert.deepEqual(indicator.calls[0].options.headers, {});
+    assert.equal(state.notificationsEtag, null);
+});
