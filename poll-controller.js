@@ -328,8 +328,7 @@ export async function pollIndicator(indicator) {
             indicator._polling = false;
             if (!pollSucceeded)
                 indicator._idlePollCount = 0;
-            if (indicator._serverPollIntervalSeconds > 0 || indicator._networkRetryAfterEpoch > 0)
-                indicator._restartTimer();
+            indicator._restartTimer();
             indicator._updateHero();
             indicator._stopRefreshSpin();
             if (pollSucceeded && (indicator._pendingReadItems.length > 0 || indicator._pendingMarkAllRead)) {
