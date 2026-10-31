@@ -48,3 +48,18 @@ test('poll results filter in-flight activity and baseline notices against curren
 test('manual refresh while paused reports why no refresh starts', () => {
     assert.match(source, /if \(indicator\._paused\) \{\s*indicator\._setStatusBanner\('Polling is paused — resume polling to refresh GitHub', 'info'\);\s*indicator\._updateHero\(\);\s*indicator\._updatePanel\(\);\s*return;/);
 });
+
+
+test('idle polling backs off after three unchanged successes and remains capped', () => {
+    assert.match(source, /indicator\._idlePollCount = hasNewInboxItems \|\| activityItems\.length > 0\s*\? 0\s*:\s*Math\.min\(5, indicator\._idlePollCount \+ 1\)/);
+    assert.match(source, /const idleMultiplier = indicator\._idlePollCount < 3\s*\? 1\s*:\s*Math\.min\(8, 2 \*\* \(indicator\._idlePollCount - 2\)\)/);
+    assert.match(source, /const idleInterval = Math\.min\(1800, configuredInterval \* idleMultiplier\)/);
+    assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds\)/);
+});
+
+test('manual refresh, resume, and failed polls reset idle backoff', () => {
+    assert.match(source, /if \(manualRefresh\)\s*indicator\._idlePollCount = 0/);
+    assert.match(source, /indicator\._manualRefreshPending = true;\s*indicator\._idlePollCount = 0/);
+    assert.match(source, /if \(!pollSucceeded\)\s*indicator\._idlePollCount = 0/);
+    assert.match(source, /if \(!indicator\._paused\) \{\s*indicator\._idlePollCount = 0;\s*indicator\._poll\(\)/);
+});

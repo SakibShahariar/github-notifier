@@ -11,6 +11,8 @@ export async function pollIndicator(indicator) {
 
         const manualRefresh = indicator._manualRefreshPending;
         indicator._manualRefreshPending = false;
+        if (manualRefresh)
+            indicator._idlePollCount = 0;
 
         if (indicator._shouldPauseForQuietHours() && !manualRefresh) {
             indicator._setStatusBanner('Quiet hours — automatic polling paused', 'info');
@@ -214,6 +216,12 @@ export async function pollIndicator(indicator) {
             indicator._afterPoll(notificationItems, activityItems, {updateFetchedAt: errors.length === 0 && !notificationPollFailed});
             indicator._persistCurrentItems(state);
             pollSucceeded = errors.length === 0 && !notificationPollFailed;
+            if (pollSucceeded) {
+                const hasNewInboxItems = notificationItems.some(item => item.isNewToast);
+                indicator._idlePollCount = hasNewInboxItems || activityItems.length > 0
+                    ? 0
+                    : Math.min(5, indicator._idlePollCount + 1);
+            }
 
             const currentWatchedRepositories = new Set(
                 deduplicateRepositoryEntries(indicator._settings.get_string('watched-repos'))
@@ -318,6 +326,8 @@ export async function pollIndicator(indicator) {
             if (indicator._pollCancellable === pollCancellable)
                 indicator._pollCancellable = null;
             indicator._polling = false;
+            if (!pollSucceeded)
+                indicator._idlePollCount = 0;
             if (indicator._serverPollIntervalSeconds > 0 || indicator._networkRetryAfterEpoch > 0)
                 indicator._restartTimer();
             indicator._updateHero();
@@ -351,7 +361,11 @@ export function restartPollTimer(indicator) {
         const nowEpoch = Math.floor(Date.now() / 1000);
         const backoffSeconds = Math.max(0, indicator._networkRetryAfterEpoch - nowEpoch);
         const retryAfterSeconds = Math.max(0, indicator._retryAfterEpoch - nowEpoch);
-        const interval = Math.max(configuredInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
+        const idleMultiplier = indicator._idlePollCount < 3
+            ? 1
+            : Math.min(8, 2 ** (indicator._idlePollCount - 2));
+        const idleInterval = Math.min(1800, configuredInterval * idleMultiplier);
+        const interval = Math.max(idleInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
         indicator._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             indicator._poll();
             return GLib.SOURCE_CONTINUE;
@@ -369,6 +383,7 @@ export function refreshPollNow(indicator) {
         }
         // An explicit user request may bypass automatic backoff and metered-network pausing.
         indicator._manualRefreshPending = true;
+        indicator._idlePollCount = 0;
         indicator._networkFailureCount = 0;
         indicator._networkRetryAfterEpoch = 0;
         if (indicator._polling) {

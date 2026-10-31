@@ -77,6 +77,7 @@ class Indicator extends PanelMenu.Button {
         this._restartPollRequested = false;
         this._manualRefreshPending = false;
         this._serverPollIntervalSeconds = 0; // X-Poll-Interval from /notifications
+        this._idlePollCount = 0; // consecutive successful polls without new visible activity
         this._polling = false; // prevents overlapping poll cycles
         this._accountRefreshPending = false; // rerun after an in-flight poll when host/token changes
         this._statusIsError = false; // keeps the indicator visible while a problem is showing

@@ -3,7 +3,10 @@ import {updateDailyStats} from './repo-utils.js';
 
 // Connect setting changes and refresh account-scoped state without growing the entry-point class.
 export function connectSettingsSignals(indicator, constants) {
-        indicator._settingsChangedId = indicator._settings.connect('changed::poll-interval', () => indicator._restartTimer());
+        indicator._settingsChangedId = indicator._settings.connect('changed::poll-interval', () => {
+            indicator._idlePollCount = 0;
+            indicator._restartTimer();
+        });
         indicator._hideEmptyChangedId = indicator._settings.connect('changed::hide-when-empty', () => indicator._updatePanel());
         indicator._unlitChangedId = indicator._settings.connect('changed::icon-always-unlit', () => indicator._updatePanel());
         indicator._statsChangedId = indicator._settings.connect('changed::show-daily-stats', () => indicator._updateDailyStatsItem());
@@ -23,6 +26,7 @@ export function connectSettingsSignals(indicator, constants) {
                 return;
             // The current cycle captured the old watch/mute set. Queue one fresh
             // cycle so changes made mid-request are applied immediately.
+            indicator._idlePollCount = 0;
             if (indicator._polling) {
                 indicator._restartPollRequested = true;
                 indicator._pollCancellable?.cancel();
@@ -45,6 +49,7 @@ export function connectSettingsSignals(indicator, constants) {
                 indicator._accountRefreshPending = true;
             // Rate-limit headers are host/account-specific; do not carry the old
             // account's API backoff into the newly selected account.
+            indicator._idlePollCount = 0;
             indicator._rateLimitResetEpoch = 0;
             indicator._retryAfterEpoch = 0;
             indicator._serverPollIntervalSeconds = 0;
