@@ -126,7 +126,7 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             removeTokenBtn.set_sensitive(false);
             try {
                 const host = settings.get_string('github-host').trim() || 'api.github.com';
-                await clearGithubToken(host);
+                const secretRemoved = await clearGithubToken(host);
                 const legacyHost = settings.get_string('legacy-token-host').trim();
                 const legacyHostDiffers = hasLegacyTokenForDifferentHost(settings, host);
                 const legacyCleared = clearLegacyTokenSetting(settings, host);
@@ -137,9 +137,13 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                     ? `Saved token removed for this host; legacy token for ${legacyHost} was retained`
                     : legacyHostUnknown
                         ? 'Saved token removed; an unscoped legacy token was retained because its original host is unknown'
-                        : legacyCleared
+                        : secretRemoved && legacyCleared
                             ? 'Saved token removed for this API host'
-                            : 'Secret Service token removed, but the legacy plaintext setting could not be cleared';
+                            : secretRemoved
+                                ? 'Secret Service token removed, but the legacy plaintext setting could not be cleared'
+                                : legacyCleared
+                                    ? 'Legacy token removed; no Secret Service token was found for this API host'
+                                    : 'No Secret Service token was found, and the legacy plaintext setting could not be cleared';
                 testRow.subtitle = refreshSignaled
                     ? removeMessage
                     : `${removeMessage}; reload GitHub Notifier to apply the token change`;
