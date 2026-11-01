@@ -40,8 +40,6 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
         }
         const response = await indicator._apiRequest('GET', path, {headers});
         if (pagesFetched === 0 && response.notModified) {
-            if (isValidEtag(response.etag))
-                state.notificationsEtag = response.etag;
             // A 304 cannot repair a missing/corrupt toast baseline by itself.
             // Rebuild it from the cached inbox when possible; otherwise drop the
             // conditional validator so the next poll can establish a full baseline.
