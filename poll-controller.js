@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
-import {deduplicateRepositoryEntries, filterVisibleActivityItems, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {deduplicateRepositoryEntries, filterVisibleActivityItems, getIdlePollInterval, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
 import {runBoundedWorkers} from './bounded-workers.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
@@ -360,10 +360,7 @@ export function restartPollTimer(indicator) {
         const nowEpoch = Math.floor(Date.now() / 1000);
         const backoffSeconds = Math.max(0, indicator._networkRetryAfterEpoch - nowEpoch);
         const retryAfterSeconds = Math.max(0, indicator._retryAfterEpoch - nowEpoch);
-        const idleMultiplier = indicator._idlePollCount < 3
-            ? 1
-            : Math.min(8, 2 ** (indicator._idlePollCount - 2));
-        const idleInterval = Math.max(configuredInterval, Math.min(1800, configuredInterval * idleMultiplier));
+        const idleInterval = getIdlePollInterval(configuredInterval, indicator._idlePollCount);
         const interval = Math.max(idleInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
         indicator._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             indicator._poll();
