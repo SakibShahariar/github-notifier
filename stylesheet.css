@@ -48,12 +48,6 @@
     transition-duration: 150ms;
 }
 .github-notifier-hero-gear:hover,
-.github-notifier-hero-gear:focus {
-
-}
-.github-notifier-hero-gear:active {
-
-}
 
 /* --- banners --- */
 .github-notifier-banner {
@@ -128,7 +122,7 @@
     icon-size: 16px;
 }
 .github-notifier-glyph.dim { opacity: 1; }
-.github-notifier-glyph.urgent { opacity: 1; } 
+.github-notifier-glyph.urgent { opacity: 1; }
 
 .github-notifier-row-title {
     font-size: 0.95em;
@@ -157,14 +151,8 @@
     transition-duration: 150ms;
 }
 .github-notifier-read-button:hover,
-.github-notifier-read-button:focus {
 
-}
-.github-notifier-read-button:active {
-
-}
-
-/* footer controls — explicit hover (St.Button is not a popup-menu-item) */
+/* footer controls */
 .github-notifier-footer {
     spacing: 4px;
     padding: 8px 12px 6px 12px;
@@ -179,29 +167,16 @@
     transition-duration: 150ms;
 }
 .github-notifier-footer-button:hover,
-.github-notifier-footer-button:focus {
 
-}
-.github-notifier-footer-button:active {
-
-}
 .github-notifier-footer-button:insensitive {
     opacity: 0.45;
 }
-.github-notifier-footer-button.urgent {
 
-}
-.github-notifier-footer-button.urgent:hover {
-
-}
 .github-notifier-footer-icon-button {
     padding: 6px;
     border-radius: 8px;
 }
 .github-notifier-footer-icon-button:hover,
-.github-notifier-footer-icon-button:focus {
-
-}
 
 .github-notifier-empty {
 
