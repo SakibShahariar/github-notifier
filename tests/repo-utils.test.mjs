@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -548,4 +548,11 @@ test('idle polling interval backs off after unchanged polls without shrinking co
     assert.equal(getIdlePollInterval(3600, 5), 3600);
     assert.equal(getIdlePollInterval(120, -1), 120);
     assert.equal(getIdlePollInterval(120, 2.5), 120);
+});
+
+test('parses rate-limit reset headers as complete positive safe Unix timestamps', () => {
+    assert.equal(parseRateLimitResetEpoch('1793500000'), 1793500000);
+    assert.equal(parseRateLimitResetEpoch(' 1793500000 '), 1793500000);
+    for (const value of [null, undefined, 0, '', '0', '-1', '1793500000junk', '1.5', '1e9', '9007199254740992', 'NaN'])
+        assert.equal(parseRateLimitResetEpoch(value), null, String(value));
 });

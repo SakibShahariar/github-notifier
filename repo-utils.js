@@ -7,6 +7,17 @@ const REPO_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?\/[A-Za-z0-9._-]+$/;
  * Accept a bare hostname (GitHub.com or Enterprise) and optional deployment
  * path, but never credentials, a scheme, query, or fragment.
  */
+/** Parse GitHub's Unix-epoch rate-limit reset header without accepting partial numbers. */
+export function parseRateLimitResetEpoch(value) {
+    if (typeof value !== 'string')
+        return null;
+    const normalized = value.trim();
+    if (!/^\\d+$/.test(normalized))
+        return null;
+    const epoch = Number(normalized);
+    return Number.isSafeInteger(epoch) && epoch > 0 ? epoch : null;
+}
+
 export function getApiBase(host) {
     if (typeof host !== 'string')
         throw new TypeError('API host must be a hostname, optionally followed by an Enterprise API path');

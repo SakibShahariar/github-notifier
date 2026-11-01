@@ -1,5 +1,6 @@
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
+import {parseRateLimitResetEpoch} from './repo-utils.js';
 
 // HTTP request and GitHub rate-limit handling shared by the indicator.
 export class ApiError extends Error {
@@ -40,6 +41,8 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         const reset = msg.response_headers.get_one('X-RateLimit-Reset');
         const retryAfter = msg.response_headers.get_one('Retry-After');
         const pollInterval = msg.response_headers.get_one('X-Poll-Interval');
+        const rateLimitResetEpoch = parseRateLimitResetEpoch(reset);
+        const nowEpoch = Math.floor(Date.now() / 1000);
         if (requestScopeIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
             const parsedInterval = Number.parseInt(pollInterval, 10);
             if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
@@ -53,10 +56,11 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
             if (Number.isFinite(retryDate))
                 indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, Math.ceil(retryDate));
         }
-        if (requestScopeIsCurrent && remaining === '0' && reset)
-            indicator._rateLimitResetEpoch = parseInt(reset, 10);
-        if (requestScopeIsCurrent && (status === 403 || status === 429) && !retryAfter && !(remaining === '0' && reset))
-            indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, Math.floor(Date.now() / 1000) + 60);
+        if (requestScopeIsCurrent && remaining === '0' && rateLimitResetEpoch !== null)
+            indicator._rateLimitResetEpoch = rateLimitResetEpoch;
+        const hasFutureRateLimitReset = remaining === '0' && rateLimitResetEpoch !== null && rateLimitResetEpoch > nowEpoch;
+        if (requestScopeIsCurrent && (status === 403 || status === 429) && !retryAfter && !hasFutureRateLimitReset)
+            indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, nowEpoch + 60);
         if (requestScopeIsCurrent && status >= 200 && status < 300) {
             indicator._rateLimitResetEpoch = 0;
             indicator._retryAfterEpoch = 0;
