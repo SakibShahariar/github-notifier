@@ -25,7 +25,7 @@ export function parseRetryAfterEpoch(value, nowMs = Date.now()) {
     const normalized = value.trim();
     if (!normalized)
         return null;
-    if (/^\\d+$/.test(normalized)) {
+    if (/^\d+$/.test(normalized)) {
         const seconds = Number(normalized);
         const epoch = Math.ceil(nowMs / 1000) + seconds;
         return Number.isSafeInteger(seconds) && Number.isSafeInteger(epoch) ? epoch : null;
@@ -39,7 +39,7 @@ export function parseRetryAfterEpoch(value, nowMs = Date.now()) {
 
 /** Accept only complete integer X-Poll-Interval values at GitHub's 60-second minimum. */
 export function parseGitHubPollInterval(value) {
-    if (typeof value !== 'string' || !/^\\d+$/.test(value.trim()))
+    if (typeof value !== 'string' || !/^\d+$/.test(value.trim()))
         return null;
     const seconds = Number(value.trim());
     return Number.isSafeInteger(seconds) && seconds >= 60 ? seconds : null;
