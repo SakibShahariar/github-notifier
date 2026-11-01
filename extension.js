@@ -68,6 +68,8 @@ class Indicator extends PanelMenu.Button {
         this._source = null; // MessageTray.Source, created lazily
         this._destroyed = false;
         this._paused = false;
+        this._apiRequestSequence = 0; // orders concurrent responses before applying shared API metadata
+        this._apiMetadataSequence = 0;
         this._rateLimitResetEpoch = 0; // unix seconds; 0 = not rate-limited
         this._retryAfterEpoch = 0; // server-directed retry delay (Retry-After)
         this._networkFailureCount = 0;
