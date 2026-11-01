@@ -12,6 +12,8 @@ export class ApiError extends Error {
 
 /** Execute one GitHub API request, including a single transient network retry. */
 export async function apiRequest(indicator, method, path, {body = null, headers = {}} = {}) {
+        const requestSequence = (indicator._apiRequestSequence ?? 0) + 1;
+        indicator._apiRequestSequence = requestSequence;
         const requestScope = indicator._stateScope();
         const cancellable = indicator._polling ? indicator._pollCancellable : null;
         const token = indicator._token;
@@ -37,28 +39,33 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         // Ignore throttling metadata from a request that completed after the
         // user switched accounts or API hosts.
         const requestScopeIsCurrent = requestScope === indicator._stateScope();
+        const responseMetadataIsCurrent = requestScopeIsCurrent &&
+            requestSequence >= (indicator._apiMetadataSequence ?? 0);
+        if (responseMetadataIsCurrent)
+            indicator._apiMetadataSequence = requestSequence;
         const remaining = msg.response_headers.get_one('X-RateLimit-Remaining');
         const reset = msg.response_headers.get_one('X-RateLimit-Reset');
         const retryAfter = msg.response_headers.get_one('Retry-After');
         const pollInterval = msg.response_headers.get_one('X-Poll-Interval');
         const rateLimitResetEpoch = parseRateLimitResetEpoch(reset);
         const nowEpoch = Math.floor(Date.now() / 1000);
-        if (requestScopeIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
+        if (responseMetadataIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
             const parsedInterval = parseGitHubPollInterval(pollInterval);
             if (parsedInterval !== null)
                 indicator._serverPollIntervalSeconds = parsedInterval;
         }
-        if (requestScopeIsCurrent && retryAfter) {
+        if (responseMetadataIsCurrent && retryAfter) {
             const retryEpoch = parseRetryAfterEpoch(retryAfter);
             if (retryEpoch !== null)
                 indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, retryEpoch);
         }
-        if (requestScopeIsCurrent && remaining === '0' && rateLimitResetEpoch !== null)
+        if (responseMetadataIsCurrent && remaining === '0' && rateLimitResetEpoch !== null)
             indicator._rateLimitResetEpoch = rateLimitResetEpoch;
         const hasFutureRateLimitReset = remaining === '0' && rateLimitResetEpoch !== null && rateLimitResetEpoch > nowEpoch;
-        if (requestScopeIsCurrent && (status === 403 || status === 429) && !retryAfter && !hasFutureRateLimitReset)
+        if (responseMetadataIsCurrent && (status === 403 || status === 429) && !retryAfter && !hasFutureRateLimitReset)
             indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, nowEpoch + 60);
-        if (requestScopeIsCurrent && status >= 200 && status < 300) {
+        const hasRemainingQuota = typeof remaining === 'string' && /^\\d+$/.test(remaining.trim()) && Number(remaining) > 0;
+        if (responseMetadataIsCurrent && status >= 200 && status < 300 && hasRemainingQuota) {
             indicator._rateLimitResetEpoch = 0;
             indicator._retryAfterEpoch = 0;
         }
