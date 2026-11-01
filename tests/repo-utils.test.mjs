@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -555,4 +555,21 @@ test('parses rate-limit reset headers as complete positive safe Unix timestamps'
     assert.equal(parseRateLimitResetEpoch(' 1793500000 '), 1793500000);
     for (const value of [null, undefined, 0, '', '0', '-1', '1793500000junk', '1.5', '1e9', '9007199254740992', 'NaN'])
         assert.equal(parseRateLimitResetEpoch(value), null, String(value));
+});
+
+test('parses Retry-After delta-seconds and HTTP dates without accepting malformed values', () => {
+    const now = Date.UTC(2026, 10, 1, 0, 0, 0);
+    assert.equal(parseRetryAfterEpoch('120', now), Math.floor(now / 1000) + 120);
+    assert.equal(parseRetryAfterEpoch(' 0 ', now), Math.floor(now / 1000));
+    assert.equal(parseRetryAfterEpoch('Sun, 01 Nov 2026 00:02:00 GMT', now), Math.floor(now / 1000) + 120);
+    for (const value of [null, undefined, '', '-1', '+10', '1.5', '10junk', '9007199254740992', 'not-a-date'])
+        assert.equal(parseRetryAfterEpoch(value, now), null, String(value));
+});
+
+test('accepts only complete safe GitHub polling interval values', () => {
+    assert.equal(parseGitHubPollInterval('60'), 60);
+    assert.equal(parseGitHubPollInterval(' 120 '), 120);
+    assert.equal(parseGitHubPollInterval('3600'), 3600);
+    for (const value of [null, undefined, '', '59', '-1', '+60', '60junk', '1.5', '9007199254740992'])
+        assert.equal(parseGitHubPollInterval(value), null, String(value));
 });
