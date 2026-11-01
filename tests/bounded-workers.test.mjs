@@ -80,3 +80,19 @@ test('propagates even a falsy rejection reason and stops the pool', async () => 
     assert.equal(caught, true);
     assert.deepEqual(assigned, [1, 2]);
 });
+
+test('floors fractional concurrency and falls back safely for non-finite values', async () => {
+    for (const [concurrency, expectedMaximum] of [[2.8, 2], [Number.NaN, 1], [Number.POSITIVE_INFINITY, 1]]) {
+        let active = 0;
+        let maximumActive = 0;
+        const results = await runBoundedWorkers([1, 2, 3, 4], concurrency, async item => {
+            active++;
+            maximumActive = Math.max(maximumActive, active);
+            await new Promise(resolve => setTimeout(resolve, 1));
+            active--;
+            return item;
+        });
+        assert.equal(maximumActive, expectedMaximum);
+        assert.deepEqual(results, [1, 2, 3, 4]);
+    }
+});
