@@ -152,7 +152,7 @@ GitHub Actions runs source-level validation on pushes to <code>main</code>, incl
 
 These checks do **not** replace testing in a real GNOME Shell session; runtime behavior and compatibility still need verification there.
 
-The extension uses bounded, non-overlapping polling (up to three watched repositories at a time). <code>extension.js</code> coordinates the Shell indicator and lifecycle, while focused modules handle API access, polling, settings, credentials, UI, and testable repository helpers.
+Polling is non-overlapping, with up to three watched repositories checked concurrently. Inbox and watched-repository requests use conditional validators where supported, and repeated unchanged successful polls gradually back off (without shortening the configured interval or GitHub's retry guidance). <code>extension.js</code> coordinates the Shell indicator and lifecycle, while focused modules handle API access, polling, settings, credentials, UI, and testable repository helpers.
 
 ## Uninstall
 
