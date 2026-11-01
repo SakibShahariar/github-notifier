@@ -37,3 +37,11 @@ test('automatic username and polling-preset writes report failure instead of sil
     assert.ok(source.includes("'Polling interval saved'"));
     assert.ok(source.includes("'Could not save polling interval'"));
 });
+
+
+test('token removal distinguishes an absent Secret Service item from a successful deletion', () => {
+    assert.ok(source.includes('const secretRemoved = await clearGithubToken(host);'));
+    assert.ok(source.includes('secretRemoved && legacyCleared'));
+    assert.ok(source.includes('Legacy token removed; no Secret Service token was found'));
+    assert.ok(source.includes('No Secret Service token was found, and the legacy plaintext setting could not be cleared'));
+});
