@@ -4,7 +4,7 @@ import test from 'node:test';
 import {runBoundedWorkers} from '../bounded-workers.js';
 
 test('bounds active workers and preserves input-order results', async () => {
-    const items = Array.from({length: 12}, (_, index) => index);
+    const items = Array.from({length: 30}, (_, index) => index);
     let active = 0;
     let maximumActive = 0;
     const results = await runBoundedWorkers(items, 3, async (item) => {
@@ -95,4 +95,24 @@ test('floors fractional concurrency and falls back safely for non-finite values'
         assert.equal(maximumActive, expectedMaximum);
         assert.deepEqual(results, [1, 2, 3, 4]);
     }
+});
+
+test('a worker failure stops new scheduling while already-started workers settle', async () => {
+    const assigned = [];
+    const failure = new Error('fatal worker failure');
+    let releaseSlowWorkers;
+    const slowWorkers = new Promise(resolve => { releaseSlowWorkers = resolve; });
+    const pending = runBoundedWorkers([1, 2, 3, 4, 5, 6], 3, async item => {
+        assigned.push(item);
+        if (item === 1)
+            throw failure;
+        await slowWorkers;
+        return item;
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(assigned, [1, 2, 3]);
+    releaseSlowWorkers();
+    await assert.rejects(pending, error => error === failure);
+    assert.deepEqual(assigned, [1, 2, 3]);
 });
