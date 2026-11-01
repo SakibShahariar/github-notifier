@@ -12,7 +12,7 @@ export function parseRateLimitResetEpoch(value) {
     if (typeof value !== 'string')
         return null;
     const normalized = value.trim();
-    if (!/^\\d+$/.test(normalized))
+    if (!/^\d+$/.test(normalized))
         return null;
     const epoch = Number(normalized);
     return Number.isSafeInteger(epoch) && epoch > 0 ? epoch : null;
