@@ -53,7 +53,7 @@ test('manual refresh while paused reports why no refresh starts', () => {
 test('idle polling backs off after three unchanged successes and remains capped', () => {
     assert.match(source, /indicator\._idlePollCount = hasNewInboxItems \|\| activityItems\.length > 0\s*\? 0\s*:\s*Math\.min\(5, indicator\._idlePollCount \+ 1\)/);
     assert.match(source, /const idleMultiplier = indicator\._idlePollCount < 3\s*\? 1\s*:\s*Math\.min\(8, 2 \*\* \(indicator\._idlePollCount - 2\)\)/);
-    assert.match(source, /const idleInterval = Math\\.max\\(configuredInterval, Math\\.min\\(1800, configuredInterval \\* idleMultiplier\\)\\)/);
+    assert.match(source, /const idleInterval = Math\.max\(configuredInterval, Math\.min\(1800, configuredInterval \* idleMultiplier\)\)/);
     assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds\)/);
 });
 
