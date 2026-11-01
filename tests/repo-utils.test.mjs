@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -538,4 +538,14 @@ test('searches cached notifications case-insensitively across title, repository,
     assert.deepEqual(filterNotificationsByQuery(items, 'review requested').map(item => item.id), ['3']);
     assert.deepEqual(filterNotificationsByQuery(items, '').map(item => item.id), ['1', '2', '3']);
     assert.deepEqual(filterNotificationsByQuery(null, 'anything'), []);
+});
+
+
+test('idle polling interval backs off after unchanged polls without shrinking configured cadence', () => {
+    assert.deepEqual([0, 1, 2, 3, 4, 5, 6].map(count => getIdlePollInterval(120, count)),
+        [120, 120, 120, 240, 480, 960, 960]);
+    assert.equal(getIdlePollInterval(300, 5), 1800);
+    assert.equal(getIdlePollInterval(3600, 5), 3600);
+    assert.equal(getIdlePollInterval(120, -1), 120);
+    assert.equal(getIdlePollInterval(120, 2.5), 120);
 });
