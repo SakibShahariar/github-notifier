@@ -64,7 +64,7 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         const hasFutureRateLimitReset = remaining === '0' && rateLimitResetEpoch !== null && rateLimitResetEpoch > nowEpoch;
         if (responseMetadataIsCurrent && (status === 403 || status === 429) && !retryAfter && !hasFutureRateLimitReset)
             indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, nowEpoch + 60);
-        const hasRemainingQuota = typeof remaining === 'string' && /^\\d+$/.test(remaining.trim()) && Number(remaining) > 0;
+        const hasRemainingQuota = typeof remaining === 'string' && /^\d+$/.test(remaining.trim()) && Number(remaining) > 0;
         if (responseMetadataIsCurrent && status >= 200 && status < 300 && hasRemainingQuota) {
             indicator._rateLimitResetEpoch = 0;
             indicator._retryAfterEpoch = 0;
