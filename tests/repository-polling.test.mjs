@@ -306,3 +306,44 @@ test('repository polling discards corrupt validators and recovers missing baseli
     assert.equal(state.repos[repo].issuesEtag, 'W/"recovered"');
     assert.deepEqual(seen, [{}, {}]);
 });
+
+
+test('star polling retries unconditionally after a 304 without a valid baseline', async () => {
+    const repo = 'owner/repo';
+    const requests = [];
+    const state = {repos: {[repo]: {stars: -1, starsEtag: '"stale-v1"'}}};
+    const indicator = {
+        _encodeRepo: value => value,
+        _webBase: () => 'https://github.com',
+        async _apiRequest(_method, path, options = {}) {
+            requests.push({path, headers: options.headers || {}});
+            if (requests.length === 1)
+                return {data: null, etag: null, notModified: true};
+            return {data: {stargazers_count: 14}, etag: 'W/"fresh-v2"', notModified: false};
+        },
+    };
+    const notes = [];
+    assert.deepEqual(await pollRepoStars(indicator, repo, state, notes), []);
+    assert.equal(state.repos[repo].stars, 14);
+    assert.equal(state.repos[repo].starsEtag, 'W/"fresh-v2"');
+    assert.deepEqual(requests.map(request => request.headers), [
+        {'If-None-Match': '"stale-v1"'},
+        {},
+    ]);
+    assert.deepEqual(notes, ['owner/repo: now tracking stars (currently 14)']);
+});
+
+test('star polling drops malformed ETags from full responses', async () => {
+    const repo = 'owner/repo';
+    const state = {repos: {[repo]: {stars: 4, starsEtag: '"old-v1"'}}};
+    const indicator = {
+        _encodeRepo: value => value,
+        _webBase: () => 'https://github.com',
+        async _apiRequest(_method, _path, options = {}) {
+            assert.equal(options.headers['If-None-Match'], '"old-v1"');
+            return {data: {stargazers_count: 4}, etag: 'bad\\r\\nheader', notModified: false};
+        },
+    };
+    assert.deepEqual(await pollRepoStars(indicator, repo, state, []), []);
+    assert.equal(state.repos[repo].starsEtag, null);
+});
