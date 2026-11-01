@@ -275,6 +275,14 @@ export function createNotificationSummary(unreadNotifications, activityItems, en
     };
 }
 
+/** Calculate the idle polling interval without shortening the configured cadence. */
+export function getIdlePollInterval(configuredInterval, idlePollCount) {
+    const baseInterval = Math.max(60, Number.isFinite(configuredInterval) ? configuredInterval : 60);
+    const count = Number.isInteger(idlePollCount) ? Math.max(0, idlePollCount) : 0;
+    const multiplier = count < 3 ? 1 : Math.min(8, 2 ** (count - 2));
+    return Math.max(baseInterval, Math.min(1800, baseInterval * multiplier));
+}
+
 export function isValidClockTime(value) {
     return clockTimeToMinutes(value) !== null;
 }
