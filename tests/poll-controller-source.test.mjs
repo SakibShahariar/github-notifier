@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 
 const source = await readFile(new URL('../poll-controller.js', import.meta.url), 'utf8');
+const repoUtilsSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 
 test('poll controller imports every repository predicate it invokes', () => {
     const repoUtilsImport = source.match(/import\s*\{([^}]+)\}\s*from\s*['"]\.\/repo-utils\.js['"]/s);
@@ -52,8 +53,9 @@ test('manual refresh while paused reports why no refresh starts', () => {
 
 test('idle polling backs off after three unchanged successes and remains capped', () => {
     assert.match(source, /indicator\._idlePollCount = hasNewInboxItems \|\| activityItems\.length > 0\s*\? 0\s*:\s*Math\.min\(5, indicator\._idlePollCount \+ 1\)/);
-    assert.match(source, /const idleMultiplier = indicator\._idlePollCount < 3\s*\? 1\s*:\s*Math\.min\(8, 2 \*\* \(indicator\._idlePollCount - 2\)\)/);
-    assert.match(source, /const idleInterval = Math\.max\(configuredInterval, Math\.min\(1800, configuredInterval \* idleMultiplier\)\)/);
+    assert.match(source, /getIdlePollInterval\(configuredInterval, indicator\._idlePollCount\)/);
+    assert.match(repoUtilsSource, /const multiplier = count < 3\s*\? 1\s*:\s*Math\.min\(8, 2 \*\* \(count - 2\)\)/);
+    assert.match(repoUtilsSource, /Math\.max\(baseInterval, Math\.min\(1800, baseInterval \* multiplier\)\)/);
     assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds\)/);
 });
 
