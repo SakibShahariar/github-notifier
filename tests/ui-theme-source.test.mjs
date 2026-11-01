@@ -8,7 +8,7 @@ test('missing or invalid Matugen palettes remove overrides instead of applying d
     assert.match(source, /if \(!file\.query_exists\(null\)\)\s*return null/);
     assert.match(source, /if \(!ok \|\| !contents\?\.length\)\s*return null/);
     assert.match(source, /function isHexColor\(value\)/);
-    assert.match(source, /\^#\(\?:\[0-9a-fA-F\]\{3\}\|\[0-9a-fA-F\]\{6\}\)\$/);
+    assert.ok(source.includes("return typeof value === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);"));
     assert.match(source, /if \(!required\.every\(key => isHexColor\(map\[key\]\)\)\)\s*return null/);
     assert.match(source, /if \(!colors\) \{\s*clearMatugenStylesheet\(indicator\);\s*return;/);
 });
