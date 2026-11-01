@@ -18,6 +18,33 @@ export function parseRateLimitResetEpoch(value) {
     return Number.isSafeInteger(epoch) && epoch > 0 ? epoch : null;
 }
 
+/** Parse Retry-After delta-seconds or an HTTP date into a Unix epoch. */
+export function parseRetryAfterEpoch(value, nowMs = Date.now()) {
+    if (typeof value !== 'string')
+        return null;
+    const normalized = value.trim();
+    if (!normalized)
+        return null;
+    if (/^\\d+$/.test(normalized)) {
+        const seconds = Number(normalized);
+        const epoch = Math.ceil(nowMs / 1000) + seconds;
+        return Number.isSafeInteger(seconds) && Number.isSafeInteger(epoch) ? epoch : null;
+    }
+    const timestamp = Date.parse(normalized);
+    if (!Number.isFinite(timestamp))
+        return null;
+    const epoch = Math.ceil(timestamp / 1000);
+    return Number.isSafeInteger(epoch) ? epoch : null;
+}
+
+/** Accept only complete integer X-Poll-Interval values at GitHub's 60-second minimum. */
+export function parseGitHubPollInterval(value) {
+    if (typeof value !== 'string' || !/^\\d+$/.test(value.trim()))
+        return null;
+    const seconds = Number(value.trim());
+    return Number.isSafeInteger(seconds) && seconds >= 60 ? seconds : null;
+}
+
 export function getApiBase(host) {
     if (typeof host !== 'string')
         throw new TypeError('API host must be a hostname, optionally followed by an Enterprise API path');
