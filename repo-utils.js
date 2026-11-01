@@ -31,7 +31,7 @@ export function parseRetryAfterEpoch(value, nowMs = Date.now()) {
         return Number.isSafeInteger(seconds) && Number.isSafeInteger(epoch) ? epoch : null;
     }
     const timestamp = Date.parse(normalized);
-    if (!Number.isFinite(timestamp))
+    if (!Number.isFinite(timestamp) || new Date(timestamp).toUTCString() !== normalized)
         return null;
     const epoch = Math.ceil(timestamp / 1000);
     return Number.isSafeInteger(epoch) ? epoch : null;
