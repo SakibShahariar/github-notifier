@@ -25,8 +25,8 @@ test('Matugen file changes clear stale overrides and monitor creation when the p
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
 test('base stylesheet inherits GNOME Shell colors when Matugen is unavailable', () => {
-    assert.doesNotMatch(stylesheet, /\\bcolor\\s*:\\s*(?:#[0-9a-fA-F]{3,8}\\b|rgba?\\()/);
-    assert.doesNotMatch(stylesheet, /\\bbackground-color\\s*:\\s*(?:#[0-9a-fA-F]{3,8}\\b|rgba?\\()/);
-    assert.match(stylesheet, /\\.github-notifier-banner-error\\s*\\{[^}]*font-weight:\\s*600/);
-    assert.match(stylesheet, /\\.github-notifier-glyph\\.urgent/);
+    assert.doesNotMatch(stylesheet, /\bcolor\s*:\s*(?:#[0-9a-fA-F]{3,8}\b|rgba?\()/);
+    assert.doesNotMatch(stylesheet, /\bbackground-color\s*:\s*(?:#[0-9a-fA-F]{3,8}\b|rgba?\()/);
+    assert.match(stylesheet, /\.github-notifier-banner-error\s*\{[^}]*font-weight:\s*600/);
+    assert.match(stylesheet, /\.github-notifier-glyph\.urgent/);
 });
