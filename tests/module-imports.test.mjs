@@ -83,3 +83,19 @@ test('every referenced GNOME GI namespace is imported or locally declared', () =
     }
     assert.deepEqual(missing, []);
 });
+
+test('extracted modules only call methods implemented by the Indicator entry point', () => {
+    const indicatorSource = sources.get('extension.js');
+    const indicatorMethods = new Set(
+        [...indicatorSource.matchAll(/^\\s{4}(?:async\\s+)?(_[A-Za-z_$][\\w$]*)\\s*\\(/gm)]
+            .map(match => match[1])
+    );
+    const missing = [];
+    for (const [sourcePath, source] of sources) {
+        for (const match of source.matchAll(/\\bindicator\\.(_[A-Za-z_$][\\w$]*)\\s*\\(/g)) {
+            if (!indicatorMethods.has(match[1]))
+                missing.push(sourcePath + ': calls missing Indicator method ' + match[1] + '()');
+        }
+    }
+    assert.deepEqual(missing, []);
+});
