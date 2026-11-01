@@ -363,7 +363,7 @@ export function restartPollTimer(indicator) {
         const idleMultiplier = indicator._idlePollCount < 3
             ? 1
             : Math.min(8, 2 ** (indicator._idlePollCount - 2));
-        const idleInterval = Math.min(1800, configuredInterval * idleMultiplier);
+        const idleInterval = Math.max(configuredInterval, Math.min(1800, configuredInterval * idleMultiplier));
         const interval = Math.max(idleInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
         indicator._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             indicator._poll();
