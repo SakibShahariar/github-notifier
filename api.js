@@ -1,6 +1,6 @@
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup';
-import {parseRateLimitResetEpoch} from './repo-utils.js';
+import {parseGitHubPollInterval, parseRateLimitResetEpoch, parseRetryAfterEpoch} from './repo-utils.js';
 
 // HTTP request and GitHub rate-limit handling shared by the indicator.
 export class ApiError extends Error {
@@ -44,17 +44,14 @@ export async function apiRequest(indicator, method, path, {body = null, headers 
         const rateLimitResetEpoch = parseRateLimitResetEpoch(reset);
         const nowEpoch = Math.floor(Date.now() / 1000);
         if (requestScopeIsCurrent && method === 'GET' && path.startsWith('/notifications') && pollInterval) {
-            const parsedInterval = Number.parseInt(pollInterval, 10);
-            if (Number.isFinite(parsedInterval) && parsedInterval >= 60)
+            const parsedInterval = parseGitHubPollInterval(pollInterval);
+            if (parsedInterval !== null)
                 indicator._serverPollIntervalSeconds = parsedInterval;
         }
         if (requestScopeIsCurrent && retryAfter) {
-            const seconds = Number.parseInt(retryAfter, 10);
-            const retryDate = Number.isFinite(seconds) && String(seconds) === retryAfter.trim()
-                ? Date.now() / 1000 + Math.max(0, seconds)
-                : Date.parse(retryAfter) / 1000;
-            if (Number.isFinite(retryDate))
-                indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, Math.ceil(retryDate));
+            const retryEpoch = parseRetryAfterEpoch(retryAfter);
+            if (retryEpoch !== null)
+                indicator._retryAfterEpoch = Math.max(indicator._retryAfterEpoch, retryEpoch);
         }
         if (requestScopeIsCurrent && remaining === '0' && rateLimitResetEpoch !== null)
             indicator._rateLimitResetEpoch = rateLimitResetEpoch;
