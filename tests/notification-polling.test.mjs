@@ -109,13 +109,15 @@ test('malformed persisted toast baselines are normalized without breaking inbox 
 test('a 304 inbox response preserves the cached notifications without rebuilding them', async () => {
     const cached = [{id: 'notif-123', rawId: '123'}];
     const indicator = makeIndicator({
-        [inboxPath]: {data: null, linkHeader: null, lastModified: null, notModified: true},
+        [inboxPath]: {data: null, linkHeader: null, lastModified: null, etag: 'W/"inbox-v2"', notModified: true},
     });
     indicator._notificationItems = cached;
-    const result = await pollNotifications(indicator, {notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT'});
+    const state = {notificationsLastModified: 'Thu, 22 Oct 2026 00:00:00 GMT'};
+    const result = await pollNotifications(indicator, state);
 
     assert.deepEqual(result, cached);
     assert.notEqual(result, cached);
+    assert.equal(state.notificationsEtag, 'W/"inbox-v2"');
     assert.equal(indicator.calls[0].options.headers['If-Modified-Since'], 'Thu, 22 Oct 2026 00:00:00 GMT');
 });
 
