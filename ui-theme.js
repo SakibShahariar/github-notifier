@@ -24,6 +24,10 @@ export function lightenHex(hex, amount = 0x14) {
     return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
 }
 
+function isHexColor(value) {
+    return typeof value === 'string' && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);
+}
+
 export function loadMatugenColors() {
 
     const path = GLib.build_filenamev([GLib.get_home_dir(), '.config', 'matugen', 'matugen-colors.css']);
@@ -49,7 +53,7 @@ export function loadMatugenColors() {
             'secondary', 'secondary_container', 'surface', 'surface_container',
             'surface_container_high', 'tertiary', 'tertiary_container',
         ];
-        if (!required.every(key => map[key]))
+        if (!required.every(key => isHexColor(map[key])))
             return null;
         return Object.fromEntries(required.map(key => [key, map[key]]));
     } catch (e) {
