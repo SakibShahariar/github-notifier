@@ -8,6 +8,22 @@ GitHub Notifier brings your unread inbox, watched-repository activity, and star-
 
 ![GitHub Notifier panel menu](screenshots/panel-menu.png)
 
+## Contents
+
+- [What it does](#what-it-does)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Configure](#configure)
+- [Token permissions and storage](#token-permissions-and-storage)
+- [Advanced features](#advanced-features)
+- [Troubleshooting](#troubleshooting)
+- [Development and checks](#development-and-checks)
+- [Uninstall](#uninstall)
+- [License and feedback](#license-and-feedback)
+
+> **Quick start:** Install the extension, enable it, then open **Preferences → Account** and add a GitHub **classic personal access token** with the `notifications` scope. Add any repositories you want to monitor under **Watching**. You can use the inbox without configuring repository watching.
+
+
 ## What it does
 
 - **Inbox at a glance** — unread GitHub notifications, including mentions, review requests, assignments, conversations, and CI activity.
