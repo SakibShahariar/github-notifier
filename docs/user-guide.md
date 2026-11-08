@@ -1,5 +1,24 @@
 # User guide
 
+## Install from source
+
+Requires GNOME Shell 45–51.
+
+```bash
+git clone https://github.com/SakibShahariar/github-notifier.git
+cd github-notifier
+UUID="github-notifier@SakibShahariar"
+DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
+mkdir -p "$DEST/schemas" "$DEST/icons"
+cp ./*.js metadata.json stylesheet.css "$DEST/"
+cp icons/* "$DEST/icons/"
+cp schemas/*.xml "$DEST/schemas/"
+glib-compile-schemas "$DEST/schemas"
+gnome-extensions enable "$UUID"
+```
+
+Open Preferences from the panel menu, or run `gnome-extensions prefs github-notifier@SakibShahariar`.
+
 This guide covers setup, permissions, settings, optional integrations, and common problems. For a quick overview and installation steps, see the [README](../README.md).
 
 ## Requirements and installation notes
