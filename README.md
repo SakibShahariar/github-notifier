@@ -27,8 +27,10 @@ git clone https://github.com/SakibShahariar/github-notifier.git
 cd github-notifier
 UUID="github-notifier@SakibShahariar"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
-mkdir -p "$DEST"
-cp -r ./*.js metadata.json stylesheet.css icons schemas "$DEST"/
+mkdir -p "$DEST/schemas" "$DEST/icons"
+cp ./*.js metadata.json stylesheet.css "$DEST/"
+cp icons/* "$DEST/icons/"
+cp schemas/*.xml "$DEST/schemas/"
 glib-compile-schemas "$DEST/schemas"
 gnome-extensions enable "$UUID"
 ```
