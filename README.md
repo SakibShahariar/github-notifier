@@ -2,7 +2,7 @@
 
 **Your GitHub activity, right in the GNOME top bar.**
 
-[![GNOME Shell 45–51](https://img.shields.io/badge/GNOME_Shell-45%E2%80%9351-4A86CF?logo=gnome&logoColor=white)](https://extensions.gnome.org/)
+[![GNOME Shell 45–51](https://img.shields.io/badge/GNOME_Shell-45%E2%80%9351-4A86CF?logo=gnome&logoColor=white)](https://extensions.gnome.org/) [![License: GPL v3+](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
 GitHub Notifier brings your unread inbox, watched-repository activity, and star-count changes into GNOME Shell—so you can keep up without leaving your desktop.
 
@@ -26,13 +26,14 @@ GitHub Notifier brings your unread inbox, watched-repository activity, and star-
 
 ## What it does
 
-- **Inbox at a glance** — unread GitHub notifications, including mentions, review requests, assignments, conversations, and CI activity.
-- **Watch repositories** — detect new issues and pull requests, and track repository star-count changes.
-- **Useful desktop alerts** — open an item or mark it read from the notification; burst activity can be grouped into a summary.
-- **Stay in control** — pause polling, hide the panel icon when there is nothing to show, filter notification categories, or mute noisy repositories.
-- **Quiet hours and network awareness** — suppress alerts on a schedule, respect GNOME Do Not Disturb, and pause automatic checks on metered or limited connections.
-- **Optional extras** — daily local activity statistics and a GitHub CLI action for issue and pull-request rows.
-- **Companion support** — expose a small, versioned count summary for integrations without sharing credentials or starting another poller.
+| Area | What you get |
+|---|---|
+| **GitHub inbox** | Unread notifications for mentions, review requests, assignments, conversations, and CI activity. |
+| **Repository activity** | New issue and pull-request detection, plus repository star-count tracking. |
+| **Desktop notifications** | Actionable alerts, grouped summaries during bursts, quiet hours, and GNOME Do Not Disturb support. |
+| **Control and focus** | Pause polling, hide an idle panel icon, filter inbox categories, and mute noisy repositories. |
+| **Extra integrations** | Optional daily activity statistics, GitHub CLI actions, and a privacy-limited companion summary API. |
+| **Network-aware polling** | Avoid unnecessary requests on metered or limited connections; polling is non-overlapping and rate-limit aware. |
 
 Star tracking detects changes in counts; it does not identify individual new stargazers. Mark-all-as-read updates the local view only after GitHub confirms the request succeeded.
 
