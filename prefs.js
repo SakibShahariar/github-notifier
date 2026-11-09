@@ -159,7 +159,8 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
             if (testing)
                 return;
             let token = tokenRow.get_text().trim();
-            if (!token) {
+            const usesSavedToken = !token;
+            if (usesSavedToken) {
                 try {
                     token = (await loadGithubToken(settings)).token;
                 } catch (_error) {
@@ -237,6 +238,12 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
                     } else {
                         testRow.subtitle = `Connected${summary}${hostWarning}`;
                     }
+                    // A saved credential may have become available after the
+                    // background extension's earlier lookup failed. Ask it to
+                    // reload through Secret Service; never copy the token into
+                    // GSettings or signal for an unsaved entry-row value.
+                    if (usesSavedToken && !signalTokenChanged(settings))
+                        testRow.subtitle += ' · connected, but GitHub Notifier could not be signaled to refresh its token';
                 } catch (e) {
                     testRow.subtitle = `Network error: ${e.message}`;
                 }
