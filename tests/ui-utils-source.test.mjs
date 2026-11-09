@@ -20,6 +20,8 @@ test('tooltip controller disconnects its stage chrome and hides pending tooltips
 test('tooltip is raised above popup chrome and positioned from transformed actor bounds', () => {
     assert.match(source, /this\._label\.raise_top\(\)/);
     assert.match(source, /actor\.get_transformed_size\(\)/);
-    assert.match(source, /this\._label\.set_width\(Math\.min\(maxWidth, 360\)\)/);
+    assert.match(source, /const \[, naturalWidth\] = this\._label\.get_preferred_width\(-1\)/);
+    assert.match(source, /const tooltipWidth = Math\.min\(naturalWidth, maxWidth, 360\)/);
+    assert.match(source, /this\._label\.set_width\(tooltipWidth\)/);
     assert.match(source, /github-notifier-tooltip/);
 });

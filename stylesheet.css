@@ -14,7 +14,6 @@
 }
 .github-notifier-panel-icon {
     icon-size: 16px;
-    -st-icon-style: symbolic;
 }
 .github-notifier-icon-unlit {
     opacity: 0.55;
@@ -34,7 +33,6 @@
 }
 .github-notifier-hero-icon {
     icon-size: 24px;
-    -st-icon-style: symbolic;
 }
 .github-notifier-hero-title {
     font-weight: 600;
@@ -49,11 +47,14 @@
     transition-duration: 150ms;
 }
 .github-notifier-hero-gear:hover {
-    border-radius: 99px;
+    background-color: rgba(127, 127, 127, 0.16);
 }
 
 /* --- tooltips --- */
 .github-notifier-tooltip {
+    color: #ffffff;
+    background-color: rgba(32, 32, 32, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 8px;
     padding: 6px 10px;
     font-size: 0.9em;
@@ -148,7 +149,7 @@
     transition-duration: 150ms;
 }
 .github-notifier-read-button:hover {
-    border-radius: 9px;
+    background-color: rgba(127, 127, 127, 0.18);
 }
 
 /* --- footer controls --- */
@@ -165,7 +166,7 @@
     transition-duration: 150ms;
 }
 .github-notifier-footer-button:hover {
-    border-radius: 8px;
+    background-color: rgba(127, 127, 127, 0.18);
 }
 .github-notifier-footer-button:insensitive {
     opacity: 0.45;
@@ -175,7 +176,7 @@
     border-radius: 8px;
 }
 .github-notifier-footer-icon-button:hover {
-    border-radius: 8px;
+    background-color: rgba(127, 127, 127, 0.18);
 }
 .github-notifier-empty {
     font-size: 0.90em;

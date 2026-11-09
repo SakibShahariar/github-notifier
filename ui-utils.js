@@ -92,8 +92,9 @@ export class HoverTooltipController {
         this._label.clutter_text.ellipsize = 0;
         this._label.clutter_text.line_wrap = true;
         this._label.clutter_text.line_wrap_mode = 2;
-        this._label.set_width(Math.min(maxWidth, 360));
-        const [, tooltipWidth] = this._label.get_preferred_width(-1);
+        const [, naturalWidth] = this._label.get_preferred_width(-1);
+        const tooltipWidth = Math.min(naturalWidth, maxWidth, 360);
+        this._label.set_width(tooltipWidth);
         const [, tooltipHeight] = this._label.get_preferred_height(tooltipWidth);
 
         let x = actorX + (actorWidth - tooltipWidth) / 2;

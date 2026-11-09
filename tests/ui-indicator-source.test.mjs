@@ -113,7 +113,7 @@ test('bundled SVG icons use Gio.FileIcon for panel and menu rendering', () => {
 
 test('panel icon has an explicit size and a dedicated styling hook', () => {
     assert.match(source, /style_class: 'system-status-icon github-notifier-panel-icon'[\s\S]*?icon_size: 16/);
-    assert.match(stylesheet, /\.github-notifier-panel-icon\s*\{\s*icon-size:\s*16px;\s*-st-icon-style:\s*symbolic;/);
+    assert.match(stylesheet, /\.github-notifier-panel-icon\s*\{\s*icon-size:\s*16px;/);
 });
 
 test('notification menu is compact and row text cannot force excessive width', () => {
