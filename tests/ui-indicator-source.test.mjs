@@ -103,3 +103,8 @@ test('render cache invalidates when empty-state credential or fetch context chan
         'hasFetched: Boolean(indicator._lastFetchedAt)',
     ]) assert.ok(source.includes(field), `missing empty-state render-cache input: ${field}`);
 });
+
+test('bundled SVG icons use Gio.FileIcon for panel and menu rendering', () => {
+    assert.equal((source.match(/new Gio\\.FileIcon\\(\\{file: Gio\\.File\\.new_for_path\\(iconPath\\)\\}\\)/g) || []).length, 2);
+    assert.doesNotMatch(source, /Gio\\.icon_new_for_string\\(iconPath\\)/);
+});
