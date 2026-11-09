@@ -440,7 +440,7 @@ export function buildMenuSkeleton(indicator) {
         heroItem.style_class = 'github-notifier-hero-item';
         const heroBox = new St.BoxLayout({x_expand: true, style_class: 'github-notifier-hero'});
         const heroIcon = new St.Icon({
-            gicon: Gio.icon_new_for_string(iconPath),
+            gicon: new Gio.FileIcon({file: Gio.File.new_for_path(iconPath)}),
             style_class: 'system-status-icon github-notifier-hero-icon',
             icon_size: 24,
         });
@@ -795,7 +795,7 @@ export function buildPanelButton(indicator) {
             const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
             const iconPath = GLib.build_filenamev([indicator._ext.path, 'icons', 'github-symbolic.svg']);
             indicator._icon = new St.Icon({
-                gicon: Gio.icon_new_for_string(iconPath),
+                gicon: new Gio.FileIcon({file: Gio.File.new_for_path(iconPath)}),
                 style_class: 'system-status-icon',
             });
             indicator._label = new St.Label({
