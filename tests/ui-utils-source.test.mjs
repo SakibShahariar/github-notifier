@@ -15,3 +15,11 @@ test('tooltip controller disconnects its stage chrome and hides pending tooltips
     assert.match(source, /destroy\(\) \{\s*this\._hide\(\);\s*Main\.layoutManager\.removeChrome\(this\._label\);\s*this\._label\.destroy\(\);/);
     assert.match(source, /actor\.connect\('destroy', \(\) => \{\s*if \(this\._activeActor === actor \|\| this\._pendingActor === actor\)\s*this\._hide\(\);/);
 });
+
+
+test('tooltip is raised above popup chrome and positioned from transformed actor bounds', () => {
+    assert.match(source, /this\._label\.raise_top\(\)/);
+    assert.match(source, /actor\.get_transformed_size\(\)/);
+    assert.match(source, /this\._label\.set_width\(Math\.min\(maxWidth, 360\)\)/);
+    assert.match(source, /github-notifier-tooltip/);
+});

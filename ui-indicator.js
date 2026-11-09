@@ -429,7 +429,8 @@ export function addRow(indicator, section, item) {
             menuItem.translation_y = -4;
             menuItem.ease({ opacity: 255, translation_y: 0, delay: idx * 35, duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
-        if (indicator.hasMotion()) indicator._addButtonHoverScale(btn);
+        // Keep row actions stationary: scaling the rightmost control can extend
+        // its painted bounds beyond the popup edge on hover.
     }
 
 // Construct the menu's stable skeleton and keep it owned by the indicator.
@@ -796,7 +797,8 @@ export function buildPanelButton(indicator) {
             const iconPath = GLib.build_filenamev([indicator._ext.path, 'icons', 'github-symbolic.svg']);
             indicator._icon = new St.Icon({
                 gicon: new Gio.FileIcon({file: Gio.File.new_for_path(iconPath)}),
-                style_class: 'system-status-icon',
+                style_class: 'system-status-icon github-notifier-panel-icon',
+                icon_size: 16,
             });
             indicator._label = new St.Label({
                 text: '',

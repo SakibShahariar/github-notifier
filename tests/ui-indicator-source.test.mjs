@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'utf8');
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
+const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
 test('repository activity footer opens the correct tab for issue-only and PR-only sections', () => {
     assert.match(source, /issuePrItems\[0\]\.kind === 'pr' \? 'pulls'/);
@@ -105,6 +106,28 @@ test('render cache invalidates when empty-state credential or fetch context chan
 });
 
 test('bundled SVG icons use Gio.FileIcon for panel and menu rendering', () => {
-    assert.equal((source.match(/new Gio\\.FileIcon\\(\\{file: Gio\\.File\\.new_for_path\\(iconPath\\)\\}\\)/g) || []).length, 2);
-    assert.doesNotMatch(source, /Gio\\.icon_new_for_string\\(iconPath\\)/);
+    assert.equal((source.match(/new Gio\.FileIcon\(\{file: Gio\.File\.new_for_path\(iconPath\)\}\)/g) || []).length, 2);
+    assert.doesNotMatch(source, /Gio\.icon_new_for_string\(iconPath\)/);
+});
+
+
+test('panel icon has an explicit size and a dedicated styling hook', () => {
+    assert.match(source, /style_class: 'system-status-icon github-notifier-panel-icon'[\s\S]*?icon_size: 16/);
+    assert.match(stylesheet, /\.github-notifier-panel-icon\s*\{\s*icon-size:\s*16px;/);
+});
+
+test('notification menu is compact and row text cannot force excessive width', () => {
+    assert.match(stylesheet, /\.github-notifier-menu\s*\{\s*min-width:\s*360px;\s*max-width:\s*420px;/);
+    assert.doesNotMatch(stylesheet, /min-width:\s*440px/);
+    assert.match(stylesheet, /\.github-notifier-row-title\s*\{[^}]*max-width:\s*250px;/s);
+    assert.match(stylesheet, /\.github-notifier-row-detail\s*\{[^}]*max-width:\s*250px;/s);
+});
+
+test('row action strip sizes to its actions and keeps a right inset', () => {
+    assert.match(stylesheet, /\.github-notifier-read-strip\s*\{\s*spacing:\s*2px;\s*padding:\s*0 8px 0 4px;/);
+    assert.doesNotMatch(source, /if \(indicator\.hasMotion\(\)\) indicator\._addButtonHoverScale\(btn\);\s*\}\s*\n\s*\/\/ Construct the menu's stable skeleton/);
+});
+
+test('base stylesheet has no dangling hover selector commas', () => {
+    assert.doesNotMatch(stylesheet, /:\s*(?:hover|focus|selected|insensitive),\s*(?:\/\*|\n\s*\})/);
 });

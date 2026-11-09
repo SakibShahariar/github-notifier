@@ -9,7 +9,12 @@ export class HoverTooltipController {
         this._activeActor = null;
         this._pendingActor = null;
         this._timeoutId = 0;
-        this._label = new St.Label({style_class: 'tooltip', visible: false, reactive: false});
+        this._label = new St.Label({
+            style_class: 'tooltip github-notifier-tooltip',
+            visible: false,
+            reactive: false,
+            track_hover: false,
+        });
         Main.layoutManager.addTopChrome(this._label);
     }
 
@@ -75,13 +80,21 @@ export class HoverTooltipController {
         this._label.text = binding.text;
         this._label.show();
 
+        // Popup menus are added to chrome after the indicator is constructed.
+        // Raise the tooltip each time so it cannot remain underneath the popup.
+        this._label.raise_top();
+
         const [actorX, actorY] = actor.get_transformed_position();
-        const [, tooltipWidth] = this._label.get_preferred_width(-1);
-        const [, tooltipHeight] = this._label.get_preferred_height(tooltipWidth);
+        const [actorWidth, actorHeight] = actor.get_transformed_size();
         const stageWidth = global.stage.width;
         const stageHeight = global.stage.height;
-        const actorWidth = actor.width;
-        const actorHeight = actor.height;
+        const maxWidth = Math.max(1, stageWidth - 16);
+        this._label.clutter_text.ellipsize = 0;
+        this._label.clutter_text.line_wrap = true;
+        this._label.clutter_text.line_wrap_mode = 2;
+        this._label.set_width(Math.min(maxWidth, 360));
+        const [, tooltipWidth] = this._label.get_preferred_width(-1);
+        const [, tooltipHeight] = this._label.get_preferred_height(tooltipWidth);
 
         let x = actorX + (actorWidth - tooltipWidth) / 2;
         x = Math.max(4, Math.min(x, stageWidth - tooltipWidth - 4));
