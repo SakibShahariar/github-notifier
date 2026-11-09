@@ -52,49 +52,49 @@ export function getApiBase(host) {
     while (value.endsWith('/'))
         value = value.slice(0, -1);
     if (!value || value.includes('://') ||
-        [' ', '\t', '\n', '\r', '?', '#', '\\'].some(character => value.includes(character)) ||
-        value.split('/').some(part => {
-            // Reject encoded separators and repeatedly decoded dot segments.
-            // Some proxies and Enterprise installations decode paths more than once.
-            if (/%(?:2f|5c)/i.test(part))
-                return true;
-            try {
-                let decoded = part;
-                for (let i = 0; i < 4; i++) {
-                    const next = decodeURIComponent(decoded);
-                    if (next === '.' || next === '..' || next.includes('/') || next.includes('\\'))
-                        return true;
-                    if (next === decoded)
-                        return false;
-                    decoded = next;
-                }
-                // Avoid ambiguous over-encoded path segments.
-                return /%[0-9a-f]{2}/i.test(decoded);
-            } catch (_error) {
-                return true;
-            }
-        }))
+        [' ', '\\t', '\\n', '\\r', '?', '#', '\\\\'].some(character => value.includes(character)))
         throw new TypeError('Enter a hostname such as api.github.com or git.example.com/enterprise/api/v3');
 
-    let parsed;
-    try {
-        parsed = new URL('https://' + value);
-    } catch (_error) {
+    const slash = value.indexOf('/');
+    const authority = slash < 0 ? value : value.slice(0, slash);
+    let path = slash < 0 ? '' : value.slice(slash);
+    const authorityMatch = authority.match(/^([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(?::([0-9]{1,5}))?$/i);
+    if (!authorityMatch)
         throw new TypeError('Invalid API host; use a hostname with an optional Enterprise API path');
-    }
-    if (parsed.protocol !== 'https:' || !parsed.hostname ||
-        parsed.username || parsed.password || parsed.search || parsed.hash ||
-        parsed.pathname.split('/').some(part => part === '.' || part === '..'))
-        throw new TypeError('Invalid API host; credentials, query strings, fragments, and URL schemes are not allowed');
 
-    if (parsed.hostname.toLowerCase() === 'api.github.com' && parsed.pathname === '/')
+    const hostname = authorityMatch[1].toLowerCase();
+    const port = authorityMatch[2] || '';
+    const labels = hostname.split('.');
+    if (labels.some(label => !label || label.length > 63 ||
+        !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label)) ||
+        (port && (Number(port) < 1 || Number(port) > 65535)))
+        throw new TypeError('Invalid API host; use a hostname with an optional Enterprise API path');
+
+    if (path.split('/').some(part => {
+        if (/%(?:2f|5c)/i.test(part))
+            return true;
+        try {
+            let decoded = part;
+            for (let i = 0; i < 4; i++) {
+                const next = decodeURIComponent(decoded);
+                if (next === '.' || next === '..' || next.includes('/') || next.includes('\\\\'))
+                    return true;
+                if (next === decoded)
+                    return false;
+                decoded = next;
+            }
+            return /%[0-9a-f]{2}/i.test(decoded);
+        } catch (_error) {
+            return true;
+        }
+    }))
+        throw new TypeError('Invalid API host path; use a normal Enterprise API path');
+
+    if (hostname === 'api.github.com' || hostname === 'github.com')
         return 'https://api.github.com';
-    if (parsed.pathname === '/')
-        return 'https://' + parsed.host + '/api/v3';
-    let path = parsed.pathname;
-    while (path.endsWith('/'))
-        path = path.slice(0, -1);
-    return 'https://' + parsed.host + path;
+    if (!path)
+        path = '/api/v3';
+    return 'https://' + authority + path;
 }
 
 /** Accept only absolute HTTPS links without embedded credentials. */
