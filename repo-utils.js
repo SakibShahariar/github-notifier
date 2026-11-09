@@ -52,7 +52,7 @@ export function getApiBase(host) {
     while (value.endsWith('/'))
         value = value.slice(0, -1);
     if (!value || value.includes('://') ||
-        [' ', '\\t', '\\n', '\\r', '?', '#', '\\\\'].some(character => value.includes(character)))
+        /[\\s?#\\\\]/.test(value))
         throw new TypeError('Enter a hostname such as api.github.com or git.example.com/enterprise/api/v3');
 
     const slash = value.indexOf('/');
