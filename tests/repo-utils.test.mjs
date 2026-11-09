@@ -242,6 +242,7 @@ test('daily statistics discard invalid, future, and older-than-seven-day entries
 
 test('builds HTTPS API bases for GitHub.com and Enterprise deployments', () => {
     assert.equal(getApiBase('api.github.com'), 'https://api.github.com');
+    assert.equal(getApiBase('github.com'), 'https://api.github.com');
     assert.equal(getApiBase('git.example.com'), 'https://git.example.com/api/v3');
     assert.equal(getApiBase('git.example.com/enterprise/api/v3/'), 'https://git.example.com/enterprise/api/v3');
     assert.equal(getApiBase('git.example.com:8443/enterprise/api/v3'), 'https://git.example.com:8443/enterprise/api/v3');
