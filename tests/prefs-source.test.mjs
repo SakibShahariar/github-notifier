@@ -29,6 +29,15 @@ test('token save and removal report when the extension refresh signal cannot be 
     assert.equal((source.match(/reload GitHub Notifier to apply the token change/g) || []).length, 2);
 });
 
+test('successful connection tests refresh only credentials loaded from Secret Service', () => {
+    assert.match(source, /const usesSavedToken = !token;[\s\S]*?if \(usesSavedToken\) \{[\s\S]*?loadGithubToken\(settings\)/);
+    assert.match(source, /if \(usesSavedToken && !signalTokenChanged\(settings\)\)[\s\S]*?could not be signaled to refresh its token/);
+    assert.ok(source.indexOf('if (usesSavedToken && !signalTokenChanged(settings))') >
+        source.indexOf('if (status < 200 || status >= 300)'));
+    assert.ok(source.includes('never copy the token into'));
+
+});
+
 
 test('automatic username and polling-preset writes report failure instead of silently losing preferences', () => {
     assert.ok(source.includes("if (!curUser && !settings.set_string('github-username', login))"));
