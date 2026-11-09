@@ -52,7 +52,7 @@ export function getApiBase(host) {
     while (value.endsWith('/'))
         value = value.slice(0, -1);
     if (!value || value.includes('://') ||
-        /[\\s?#\\\\]/.test(value))
+        /[\s?#\\]/.test(value))
         throw new TypeError('Enter a hostname such as api.github.com or git.example.com/enterprise/api/v3');
 
     const slash = value.indexOf('/');
@@ -77,7 +77,7 @@ export function getApiBase(host) {
             let decoded = part;
             for (let i = 0; i < 4; i++) {
                 const next = decodeURIComponent(decoded);
-                if (next === '.' || next === '..' || next.includes('/') || next.includes('\\\\'))
+                    if (next === '.' || next === '..' || next.includes('/') || next.includes(String.fromCharCode(92)))
                     return true;
                 if (next === decoded)
                     return false;
