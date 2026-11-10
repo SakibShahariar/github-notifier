@@ -284,6 +284,14 @@ export default class GithubNotifierPreferences extends ExtensionPreferences {
         settings.bind('watch-stars', starsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
         watchGroup.add(starsRow);
 
+        const repositoryActionsRow = new Adw.SwitchRow({
+            title: 'Show repository actions in menu',
+            subtitle: 'Watch, mute, and GitHub CLI buttons beside rows',
+        });
+        repositoryActionsRow.add_prefix(new Gtk.Image({icon_name: 'view-more-symbolic', pixel_size: 16}));
+        settings.bind('show-repository-actions', repositoryActionsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+        watchGroup.add(repositoryActionsRow);
+
         const filterGroup = new Adw.PreferencesGroup({
             title: 'Notification filters',
             description: 'Choose which inbox categories appear in the list, badge, and desktop notifications.',

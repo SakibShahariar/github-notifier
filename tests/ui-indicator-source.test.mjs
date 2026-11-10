@@ -24,6 +24,17 @@ test('icon-only menu controls retain tooltip/accessibility labels', () => {
         assert.ok(source.includes(label), `missing accessible control label: ${label}`);
 });
 
+test('repository action icons are consistently sized and can be hidden from preferences', async () => {
+    const prefsSource = await readFile(new URL('../prefs.js', import.meta.url), 'utf8');
+    const schema = await readFile(new URL('../schemas/org.gnome.shell.extensions.github-notifier.gschema.xml', import.meta.url), 'utf8');
+    assert.equal((source.match(/icon_size: 16/g) || []).length >= 4, true);
+    assert.match(source, /showRepositoryActions && repository/);
+    assert.match(source, /showRepositoryActions && repositoryForMute/);
+    assert.match(source, /showRepositoryActions && githubCliConfig/);
+    assert.match(prefsSource, /settings\.bind\('show-repository-actions', repositoryActionsRow/);
+    assert.match(schema, /<key name="show-repository-actions" type="b">\s*<default>true<\/default>/);
+});
+
 test('panel and status actions expose stable accessible names and keyboard activation', () => {
     assert.match(extensionSource, /this\.accessible_name = 'GitHub Notifier'/);
     assert.match(source, /indicator\._setTooltip\(gearButton, 'Settings'\)/);

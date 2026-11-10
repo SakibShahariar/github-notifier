@@ -129,6 +129,7 @@ export function renderList(indicator, constants) {
             starsExpanded: indicator._starsExpanded,
             markAllArmed: indicator._markAllArmed,
             paused: indicator._paused,
+            showRepositoryActions: indicator._settings.get_boolean('show-repository-actions'),
             statusIsError: indicator._statusIsError,
             statusText: indicator._statusItem?.label?.text || '',
             watchEnabled: indicator._settings.get_boolean('watch-mentions'),
@@ -317,7 +318,8 @@ export function addRow(indicator, section, item) {
         // synthetic "more notifications" row has a URL here and is excluded.
         const repository = typeof item.subtitle === 'string' &&
             isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
-        if (repository) {
+        const showRepositoryActions = indicator._settings.get_boolean('show-repository-actions');
+        if (showRepositoryActions && repository) {
             const watched = indicator._watchedRepositories().has(repository);
             if (!watched) {
                 const watchButton = new St.Button({
@@ -325,6 +327,7 @@ export function addRow(indicator, section, item) {
                     can_focus: true,
                     child: new St.Icon({
                         icon_name: 'list-add-symbolic',
+                        icon_size: 16,
                         x_align: Clutter.ActorAlign.CENTER,
                         y_align: Clutter.ActorAlign.CENTER,
                     }),
@@ -347,13 +350,14 @@ export function addRow(indicator, section, item) {
 
         const repositoryForMute = typeof item.subtitle === 'string' &&
             isValidRepository(item.subtitle.trim()) ? item.subtitle.trim().toLowerCase() : '';
-        if (repositoryForMute) {
+        if (showRepositoryActions && repositoryForMute) {
             const muted = indicator._mutedRepositories().has(repositoryForMute);
             const muteButton = new St.Button({
                 style_class: 'github-notifier-read-button',
                 can_focus: true,
                 child: new St.Icon({
                     icon_name: muted ? 'edit-undo-symbolic' : 'notifications-disabled-symbolic',
+                    icon_size: 16,
                     x_align: Clutter.ActorAlign.CENTER,
                     y_align: Clutter.ActorAlign.CENTER,
                 }),
@@ -377,12 +381,13 @@ export function addRow(indicator, section, item) {
         }
 
         const githubCliConfig = indicator._githubCliLaunchConfig(item);
-        if (githubCliConfig) {
+        if (showRepositoryActions && githubCliConfig) {
             const cliButton = new St.Button({
                 style_class: 'github-notifier-read-button',
                 can_focus: true,
                 child: new St.Icon({
                     icon_name: 'utilities-terminal-symbolic',
+                    icon_size: 16,
                     x_align: Clutter.ActorAlign.CENTER,
                     y_align: Clutter.ActorAlign.CENTER,
                 }),

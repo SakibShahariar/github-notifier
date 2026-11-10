@@ -52,6 +52,12 @@
       </description>
     </key>
 
+    <key name="show-repository-actions" type="b">
+      <default>true</default>
+      <summary>Show repository actions in menu rows</summary>
+      <description>Show watch, mute, and GitHub CLI actions beside notification and activity rows.</description>
+    </key>
+
     <key name="quiet-hours-enabled" type="b">
       <default>false</default>
       <summary>Enable quiet hours</summary>
