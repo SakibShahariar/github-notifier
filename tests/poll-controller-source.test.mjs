@@ -33,8 +33,15 @@ test('watched repository polling uses a bounded three-worker pool', () => {
 test('drops activity returned by an in-flight request after its repository becomes muted', () => {
     assert.match(source, /import \{[^}]*filterVisibleActivityItems[^}]*\} from '\.\/repo-utils\.js'/);
     assert.match(source, /const visibleNewActivityItems = filterVisibleActivityItems\(newActivityItems, indicator\._mutedRepositories\(\)\)/);
-    assert.match(source, /indicator\._activityItems = visibleNewActivityItems\.concat\(indicator\._activityItems\)/);
-    assert.match(source, /toToast\.concat\(visibleNewActivityItems\.filter/);
+    assert.match(source, /indicator\._activityItems = freshActivityItems\.concat\(indicator\._activityItems\)/);
+    assert.match(source, /toToast\.concat\(freshActivityItems\.filter/);
+});
+
+test('replayed star or issue ids never duplicate rows, counters, or notifications', () => {
+    assert.match(source, /import \{[^}]*deduplicateActivityItems[^}]*\} from '\.\/repo-utils\.js'/);
+    assert.match(source, /const knownActivityIds = new Set\(indicator\._activityItems\.map\(item => item\.id\)\)/);
+    assert.match(source, /const freshActivityItems = deduplicateActivityItems\(visibleNewActivityItems\)\s*\.filter\(item => !knownActivityIds\.has\(item\.id\)\)/);
+    assert.match(source, /updateDailyStats\(indicator\._dailyStats, indicator\._localDateKey\(\), newNotificationCount, freshActivityItems\.length\)/);
 });
 
 

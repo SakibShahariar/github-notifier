@@ -1,5 +1,5 @@
 import GLib from 'gi://GLib';
-import {updateDailyStats} from './repo-utils.js';
+import {deduplicateActivityItems, updateDailyStats} from './repo-utils.js';
 
 const MAX_RECENT = 40;
 const MAX_NOTIFICATION_PAGES = 3;
@@ -77,7 +77,7 @@ export function restoreCachedState(indicator) {
             .slice(0, MAX_NOTIFICATION_PAGES * 50)
         : []; // cached inbox, restored when GitHub is temporarily unavailable
     indicator._activityItems = Array.isArray(persistedState.activityItems)
-        ? persistedState.activityItems.filter(item => item && typeof item.id === 'string').slice(0, MAX_RECENT)
+        ? deduplicateActivityItems(persistedState.activityItems).slice(0, MAX_RECENT)
         : []; // accumulated issue/PR/star events, restored across shell restarts
     indicator._pendingReadItems = Array.isArray(persistedState.pendingReadItems)
         ? persistedState.pendingReadItems.filter(item => item && typeof item.id === 'string' &&

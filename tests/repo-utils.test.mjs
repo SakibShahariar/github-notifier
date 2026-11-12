@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, deduplicateActivityItems, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -435,6 +435,24 @@ test('filters activity rows by muted repositories and safely handles malformed c
     ];
     assert.deepEqual(filterVisibleActivityItems(items, new Set(['owner/repo'])).map(item => item.id), ['2', '3']);
     assert.deepEqual(filterVisibleActivityItems(null, new Set()), []);
+});
+
+test('deduplicates replayed activity records by id without dropping distinct events', () => {
+    const items = [
+        {id: 'owner/repo-stars-140', title: '+1 new star (140 total)'},
+        {id: 'owner/repo-42', title: 'New issue: duplicate'},
+        {id: 'owner/repo-stars-140', title: '+1 new star (140 total)'},
+        {id: 'owner/repo-42', title: 'New issue: newer copy'},
+        {id: 'owner/repo-stars-141', title: '+1 new star (141 total)'},
+        {title: 'missing id'},
+        null,
+    ];
+    assert.deepEqual(deduplicateActivityItems(items).map(item => [item.id, item.title]), [
+        ['owner/repo-stars-140', '+1 new star (140 total)'],
+        ['owner/repo-42', 'New issue: duplicate'],
+        ['owner/repo-stars-141', '+1 new star (141 total)'],
+    ]);
+    assert.deepEqual(deduplicateActivityItems(null), []);
 });
 
 test('encodes repository path segments without encoding the separator', () => {

@@ -619,6 +619,23 @@ export function filterVisibleActivityItems(items, mutedRepositories) {
     return items.filter(item => item && !isRepositoryMuted(item.subtitle, mutedRepositories));
 }
 
+/**
+ * Drop replayed issue/PR/star records by id, keeping the first (newest)
+ * occurrence. Polls can observe the same Star event again when a baseline
+ * could not be persisted, which must not duplicate menu rows or notifications.
+ */
+export function deduplicateActivityItems(items) {
+    if (!Array.isArray(items))
+        return [];
+    const seen = new Set();
+    return items.filter(item => {
+        if (!item || typeof item.id !== 'string' || seen.has(item.id))
+            return false;
+        seen.add(item.id);
+        return true;
+    });
+}
+
 /** Encode owner/repository segments without encoding their separator. */
 export function encodeRepositoryPath(repository) {
     const [owner, name] = String(repository || '').split('/');

@@ -1,7 +1,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
-import {deduplicateRepositoryEntries, filterVisibleActivityItems, getIdlePollInterval, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {deduplicateActivityItems, deduplicateRepositoryEntries, filterVisibleActivityItems, getIdlePollInterval, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
 import {runBoundedWorkers} from './bounded-workers.js';
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
@@ -407,11 +407,17 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
         const visibleNewActivityItems = filterVisibleActivityItems(newActivityItems, indicator._mutedRepositories())
             .filter(item => !isValidRepository(item.subtitle) ||
                 currentWatchedRepositories.has(item.subtitle.trim().toLowerCase()));
+        // A failed state write or a replayed API response can surface the same
+        // star/issue id again. Only genuinely new records may enter the list,
+        // the daily counters, or desktop notifications.
+        const knownActivityIds = new Set(indicator._activityItems.map(item => item.id));
+        const freshActivityItems = deduplicateActivityItems(visibleNewActivityItems)
+            .filter(item => !knownActivityIds.has(item.id));
         if (indicator._settings.get_boolean('show-daily-stats'))
-            indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, visibleNewActivityItems.length);
+            indicator._dailyStats = updateDailyStats(indicator._dailyStats, indicator._localDateKey(), newNotificationCount, freshActivityItems.length);
 
-        if (visibleNewActivityItems.length > 0)
-            indicator._activityItems = visibleNewActivityItems.concat(indicator._activityItems).slice(0, maxRecent);
+        if (freshActivityItems.length > 0)
+            indicator._activityItems = freshActivityItems.concat(indicator._activityItems).slice(0, maxRecent);
 
         if (updateFetchedAt)
             indicator._lastFetchedAt = new Date().toISOString();
@@ -420,7 +426,7 @@ export function afterPoll(indicator, notificationItems, newActivityItems, {updat
         indicator._updateHero();
         indicator._updateRateFooter();
 
-        const toNotify = toToast.concat(visibleNewActivityItems.filter(item => !indicator._isItemMuted(item)));
+        const toNotify = toToast.concat(freshActivityItems.filter(item => !indicator._isItemMuted(item)));
         if (toNotify.length > 0)
             indicator._notify(toNotify);
 }

@@ -8,7 +8,7 @@ const extensionSource = await readFile(new URL('../extension.js', import.meta.ur
 const utilsUrl = `data:text/javascript;base64,${Buffer.from(utilsSource).toString('base64')}`;
 const executableStateSource = stateSource
     .replace("import GLib from 'gi://GLib';", 'const GLib = {};')
-    .replace("import {updateDailyStats} from './repo-utils.js';", `const {updateDailyStats} = await import('${utilsUrl}');`);
+    .replace(/import \{([^}]+)\} from '\.\/repo-utils\.js';/, `const {$1} = await import('${utilsUrl}');`);
 const stateUrl = `data:text/javascript;base64,${Buffer.from(executableStateSource).toString('base64')}`;
 const {restoreCachedState, isValidPendingMarkAll} = await import(stateUrl);
 
