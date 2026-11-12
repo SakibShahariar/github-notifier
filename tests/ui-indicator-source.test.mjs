@@ -60,6 +60,12 @@ test('icon-only controls have explicit accessible names, not just tooltips', () 
     ]) assert.ok(source.includes(line), `missing accessible name assignment: ${line}`);
 });
 
+test('box layout spacing uses CSS because GNOME Shell 51 removed the spacing property', () => {
+    assert.doesNotMatch(source, /new St\.BoxLayout\(\{[^}]*[,{]\s*spacing:/,
+        'St.BoxLayout({spacing: ...}) throws "No property spacing on StBoxLayout" on Shell 51');
+    assert.ok(source.includes("new St.BoxLayout({style: 'spacing: 6px;'"));
+});
+
 test('pagination position is announced as a page number to assistive technology', () => {
     assert.ok(source.includes('lab.accessible_name = `Page ${opts.page + 1} of ${opts.pageCount}`;'));
 });

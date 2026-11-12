@@ -91,7 +91,9 @@ export function addFooter(indicator, section, opts, activityExpanded) {
         // refresh / pause controls only when handlers provided (global footer)
         if (opts.onPauseToggle && opts.onRefresh) {
             makeBtn(opts.isPaused ? 'Resume' : 'Pause', opts.onPauseToggle);
-            const refreshBox = new St.BoxLayout({spacing: 6, y_align: Clutter.ActorAlign.CENTER});
+            // St.BoxLayout lost its `spacing` property in GNOME Shell 51; use CSS,
+            // which Shell maps onto the internal Clutter.BoxLayout.
+            const refreshBox = new St.BoxLayout({style: 'spacing: 6px;', y_align: Clutter.ActorAlign.CENTER});
             indicator._refreshIcon = new St.Icon({
                 icon_name: 'view-refresh-symbolic',
                 icon_size: 14,

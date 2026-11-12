@@ -76,13 +76,12 @@ export class HoverTooltipController {
         const binding = this._bindings.get(actor);
         if (!binding || !binding.text || !actor.visible || !actor.get_stage())
             return;
+        // A row can be rebuilt while its hover timer is pending. Do not show a
+        // tooltip for an actor that is no longer hovered or keyboard-focused.
+        if (!actor.hover && !actor.has_key_focus())
+            return;
 
         this._label.text = binding.text;
-        this._label.show();
-
-        // Popup menus are added to chrome after the indicator is constructed.
-        // Raise the tooltip each time so it cannot remain underneath the popup.
-        this._label.raise_top();
 
         const [actorX, actorY] = actor.get_transformed_position();
         const [actorWidth, actorHeight] = actor.get_transformed_size();
@@ -105,6 +104,18 @@ export class HoverTooltipController {
         y = Math.max(4, Math.min(y, stageHeight - tooltipHeight - 4));
 
         this._label.set_position(Math.round(x), Math.round(y));
+
+        // Popup menus are added to chrome after the indicator is constructed.
+        // Raise the tooltip each time so it cannot remain underneath the popup.
+        // Clutter 51 removed Actor.raise_top(); set_child_above_sibling() works
+        // on every supported Shell version.
+        const parent = this._label.get_parent();
+        if (parent)
+            parent.set_child_above_sibling(this._label, null);
+
+        // Position before showing so a failure can never leave the label
+        // visible at the stage origin (the top-left corner).
+        this._label.show();
         this._activeActor = actor;
     }
 
