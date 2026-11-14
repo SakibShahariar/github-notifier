@@ -22,7 +22,14 @@ export function getSecretAttributes(host) {
 async function createLibsecretApi() {
     // Dynamic import keeps the extension loadable when the optional typelib is
     // missing; credential operations then return an actionable error instead.
-    const {default: Secret} = await import('gi://Secret');
+    // Some distributions ship the older Secret-1 typelib name rather than
+    // Secret-1.0; fall back to it so the extension still loads.
+    let Secret;
+    try {
+        ({default: Secret} = await import('gi://Secret'));
+    } catch (_error) {
+        ({default: Secret} = await import('gi://Secret-1'));
+    }
     const schema = Secret.Schema.new(SCHEMA_NAME, Secret.SchemaFlags.NONE, {
         application: Secret.SchemaAttributeType.STRING,
         'api-host': Secret.SchemaAttributeType.STRING,
