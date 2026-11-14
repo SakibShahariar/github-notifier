@@ -386,10 +386,10 @@ export function getNotificationIconName(item) {
         if (type === 'PullRequest') return 'insert-link-symbolic';
         if (type === 'Issue') return 'chat-message-new-symbolic';
         if (type === 'Commit') return 'document-edit-symbolic';
-        if (type === 'Release') return 'tag-symbolic';
-        if (type === 'CheckSuite') return 'emblem-ok-symbolic';
+        if (type === 'Release') return 'package-x-generic-symbolic';
+        if (type === 'CheckSuite') return 'object-select-symbolic';
         if (type === 'WorkflowRun') return 'media-playback-start-symbolic';
-        if (type === 'Discussion') return 'chat-bubbles-symbolic';
+        if (type === 'Discussion') return 'chat-message-new-symbolic';
         return 'mail-unread-symbolic';
     }
     if (item?.kind === 'pr') return 'insert-link-symbolic';
