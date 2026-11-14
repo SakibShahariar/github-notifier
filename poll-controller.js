@@ -2,7 +2,26 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ApiError} from './api.js';
 import {deduplicateActivityItems, deduplicateRepositoryEntries, filterVisibleActivityItems, getIdlePollInterval, isRepositoryMuted, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {loadGithubToken} from './secret-store.js';
 import {runBoundedWorkers} from './bounded-workers.js';
+
+// Re-render and re-poll after a background token retry resolved. Mirrors the
+// account-scope refresh in settings-controller but lives here so poll cycles
+// can trigger it without a settings change.
+function refreshAccountScopeForRetry(indicator) {
+    if (indicator._destroyed)
+        return;
+    if (indicator._polling)
+        indicator._accountRefreshPending = true;
+    indicator._idlePollCount = 0;
+    indicator._rateLimitResetEpoch = 0;
+    indicator._retryAfterEpoch = 0;
+    indicator._serverPollIntervalSeconds = 0;
+    indicator._lastRenderHash = '';
+    indicator._updateHero();
+    indicator._updatePanel();
+    indicator._poll();
+}
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
 export async function pollIndicator(indicator) {
@@ -31,6 +50,41 @@ export async function pollIndicator(indicator) {
             return;
         const token = indicator._token;
         if (!token) {
+            // Secret Service may have been unavailable at startup (keyring not
+            // yet unlocked). Re-attempt the lookup on each poll so the token is
+            // picked up as soon as the keyring becomes available, without a
+            // manual preferences round-trip. Only retry while a warning indicates
+            // a Secret Service problem; a genuinely absent token (never set) is
+            // not retried.
+            const isSecretServiceProblem = /secret service/i.test(indicator._tokenWarning || '');
+            if (isSecretServiceProblem && !indicator._tokenRetryInFlight) {
+                indicator._tokenRetryInFlight = true;
+                const generation = ++(indicator._tokenRefreshGeneration ?? 0);
+                indicator._tokenLoading = true;
+                if (indicator._polling)
+                    indicator._restartPollRequested = true;
+                loadGithubToken(indicator._settings).then(credential => {
+                    if (indicator._destroyed || generation !== indicator._tokenRefreshGeneration)
+                        return;
+                    indicator._token = credential.token;
+                    indicator._tokenWarning = credential.warning || '';
+                    indicator._tokenLoading = false;
+                    indicator._tokenRetryInFlight = false;
+                    if (indicator._tokenWarning)
+                        log('github-notifier: Secret Service credential still needs attention');
+                    refreshAccountScopeForRetry(indicator);
+                }).catch(e => {
+                    if (indicator._destroyed || generation !== indicator._tokenRefreshGeneration)
+                        return;
+                    indicator._token = '';
+                    indicator._tokenWarning = e.message;
+                    indicator._tokenLoading = false;
+                    indicator._tokenRetryInFlight = false;
+                    logError(e, 'github-notifier: retry to retrieve GitHub token from Secret Service failed');
+                    refreshAccountScopeForRetry(indicator);
+                });
+                return;
+            }
             indicator._setStatusBanner(indicator._tokenWarning
                 ? 'GitHub token unavailable — check Secret Service and Settings'
                 : 'Add a GitHub token in Settings', 'error');
