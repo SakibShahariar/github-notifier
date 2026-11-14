@@ -59,7 +59,8 @@ export async function pollIndicator(indicator) {
             const isSecretServiceProblem = /secret service/i.test(indicator._tokenWarning || '');
             if (isSecretServiceProblem && !indicator._tokenRetryInFlight) {
                 indicator._tokenRetryInFlight = true;
-                const generation = ++(indicator._tokenRefreshGeneration ?? 0);
+                indicator._tokenRefreshGeneration = (indicator._tokenRefreshGeneration ?? 0) + 1;
+                const generation = indicator._tokenRefreshGeneration;
                 indicator._tokenLoading = true;
                 if (indicator._polling)
                     indicator._restartPollRequested = true;
