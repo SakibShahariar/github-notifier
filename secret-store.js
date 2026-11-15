@@ -1,8 +1,14 @@
+import GLib from 'gi://GLib';
 import {getApiBase} from './repo-utils.js';
 
 const APPLICATION_ID = 'github-notifier@SakibShahariar';
 const SCHEMA_NAME = 'org.gnome.shell.extensions.github-notifier';
 const TOKEN_LABEL = 'GitHub Notifier personal access token';
+// How long to wait for a Secret Service lookup to complete before treating it
+// as unavailable. The GJS async callback can fail to fire in the shell's DBus
+// context (keyring not reachable from gnome-shell's session), which would
+// otherwise hang the poll loop forever.
+const SECRET_LOOKUP_TIMEOUT_MS = 4000;
 
 export function normalizeSecretHost(host) {
     const value = String(host || 'api.github.com').trim().replace(/\/+$/, '') || 'api.github.com';
@@ -38,7 +44,21 @@ async function createLibsecretApi() {
     return {
         lookup(host) {
             return new Promise((resolve, reject) => {
+                let settled = false;
+                const timeoutId = GLib.timeout_add_seconds(
+                    GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
+                        if (settled)
+                            return GLib.SOURCE_REMOVE;
+                        settled = true;
+                        reject(new Error('Secret Service lookup timed out'));
+                        return GLib.SOURCE_REMOVE;
+                    }
+                );
                 Secret.password_lookup(schema, getSecretAttributes(host), null, (_source, result) => {
+                    if (settled)
+                        return;
+                    settled = true;
+                    GLib.source_remove(timeoutId);
                     try {
                         resolve(Secret.password_lookup_finish(result) || '');
                     } catch (error) {
@@ -49,6 +69,16 @@ async function createLibsecretApi() {
         },
         store(host, token) {
             return new Promise((resolve, reject) => {
+                let settled = false;
+                const timeoutId = GLib.timeout_add_seconds(
+                    GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
+                        if (settled)
+                            return GLib.SOURCE_REMOVE;
+                        settled = true;
+                        reject(new Error('Secret Service store timed out'));
+                        return GLib.SOURCE_REMOVE;
+                    }
+                );
                 Secret.password_store(
                     schema,
                     getSecretAttributes(host),
@@ -57,6 +87,10 @@ async function createLibsecretApi() {
                     token,
                     null,
                     (_source, result) => {
+                        if (settled)
+                            return;
+                        settled = true;
+                        GLib.source_remove(timeoutId);
                         try {
                             if (!Secret.password_store_finish(result))
                                 throw new Error('Secret Service did not confirm that the token was stored');
@@ -70,7 +104,21 @@ async function createLibsecretApi() {
         },
         clear(host) {
             return new Promise((resolve, reject) => {
+                let settled = false;
+                const timeoutId = GLib.timeout_add_seconds(
+                    GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
+                        if (settled)
+                            return GLib.SOURCE_REMOVE;
+                        settled = true;
+                        reject(new Error('Secret Service clear timed out'));
+                        return GLib.SOURCE_REMOVE;
+                    }
+                );
                 Secret.password_clear(schema, getSecretAttributes(host), null, (_source, result) => {
+                    if (settled)
+                        return;
+                    settled = true;
+                    GLib.source_remove(timeoutId);
                     try {
                         resolve(Secret.password_clear_finish(result));
                     } catch (error) {
