@@ -89,9 +89,15 @@ export class HoverTooltipController {
         const stageHeight = global.stage.height;
         const maxWidth = Math.max(1, stageWidth - 16);
         this._label.clutter_text.ellipsize = 0;
-        this._label.clutter_text.line_wrap = true;
+        this._label.clutter_text.line_wrap = false;
         this._label.clutter_text.line_wrap_mode = 2;
+        // Size the label to its natural (single-line) width so short text hugs
+        // the box instead of leaving a wide gap. Only enable wrapping when the
+        // natural width exceeds the cap, so long strings wrap instead of
+        // overflowing off the stage.
         const [, naturalWidth] = this._label.get_preferred_width(-1);
+        const needsWrap = naturalWidth > maxWidth;
+        this._label.clutter_text.line_wrap = needsWrap;
         const tooltipWidth = Math.min(naturalWidth, maxWidth, 360);
         this._label.set_width(tooltipWidth);
         const [, tooltipHeight] = this._label.get_preferred_height(tooltipWidth);

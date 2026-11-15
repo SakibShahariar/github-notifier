@@ -55,7 +55,7 @@
 /* --- tooltips --- */
 .github-notifier-tooltip {
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 4px 8px;
     font-size: 0.9em;
     max-width: 360px;
 }
