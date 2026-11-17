@@ -7,8 +7,10 @@ import {
     getSecretAttributes,
     hasLegacyTokenForDifferentHost,
     loadGithubToken,
+    lookupWithSecretTool,
     lookupWithSessionRecovery,
     normalizeSecretHost,
+    secretToolArguments,
     storeGithubToken,
 } from '../secret-store.js';
 
@@ -270,6 +272,64 @@ test('reports the original lookup error when the retry after disconnect also fai
         error => error === failure,
     );
     assert.equal(disconnects, 1);
+});
+
+
+test('secret-tool arguments are shell-free, host-scoped, and carry no token', () => {
+    assert.deepEqual(secretToolArguments('API.GITHUB.COM///'), [
+        'secret-tool', 'lookup',
+        'application', 'github-notifier@SakibShahariar',
+        'api-host', 'api.github.com',
+    ]);
+});
+
+
+function makeSubprocessEnv({successful = true, stdout = 'fallback-token\n', stderr = ''} = {}) {
+    const GLib = {
+        PRIORITY_DEFAULT: 0,
+        SOURCE_REMOVE: false,
+        timeout_add_seconds() { return 1; },
+        source_remove() {},
+    };
+    const Gio = {
+        SubprocessFlags: {STDOUT_PIPE: 1, STDERR_PIPE: 2},
+        Subprocess: {
+            new(argv, flags) {
+                assert.deepEqual(argv, secretToolArguments('api.github.com'));
+                assert.equal(flags, 3);
+                return {
+                    communicate_async(_stdin, _cancellable, callback) {
+                        callback(this, 'result');
+                    },
+                    communicate_finish() {
+                        const bytes = text => ({toArray: () => new TextEncoder().encode(text)});
+                        return [true, bytes(stdout), bytes(stderr)];
+                    },
+                    get_successful() { return successful; },
+                };
+            },
+        },
+    };
+    return {GLib, Gio};
+}
+
+
+test('secret-tool fallback returns the trimmed credential from stdout', async () => {
+    const {GLib, Gio} = makeSubprocessEnv();
+    assert.equal(await lookupWithSecretTool('api.github.com', GLib, Gio), 'fallback-token');
+});
+
+
+test('secret-tool fallback reports failure details from stderr', async () => {
+    const {GLib, Gio} = makeSubprocessEnv({successful: false, stderr: 'No such secret\n'});
+    await assert.rejects(lookupWithSecretTool('api.github.com', GLib, Gio), /No such secret/);
+});
+
+
+test('secret-tool fallback rejects when the helper binary is missing', async () => {
+    const {GLib} = makeSubprocessEnv();
+    const Gio = {SubprocessFlags: {STDOUT_PIPE: 1, STDERR_PIPE: 2}, Subprocess: {new() { throw new Error('not found'); }}};
+    await assert.rejects(lookupWithSecretTool('api.github.com', GLib, Gio), /not found/);
 });
 
 

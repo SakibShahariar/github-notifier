@@ -42,10 +42,65 @@ export function getSecretAttributes(host) {
     };
 }
 
+/** Argument vector for secret-tool. No shell is involved and no token is passed in. */
+export function secretToolArguments(host) {
+    const argv = ['secret-tool', 'lookup'];
+    for (const [key, value] of Object.entries(getSecretAttributes(host)))
+        argv.push(key, value);
+    return argv;
+}
+
+/**
+ * Read a credential through a short-lived secret-tool process. A fresh process
+ * gets its own D-Bus connection, so it cannot inherit the stale Secret Service
+ * session that a long-lived GNOME Shell process can get stuck with.
+ */
+export function lookupWithSecretTool(host, GLib, Gio) {
+    return new Promise((resolve, reject) => {
+        let proc;
+        try {
+            proc = Gio.Subprocess.new(secretToolArguments(host),
+                Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+        } catch (error) {
+            reject(error);
+            return;
+        }
+        let settled = false;
+        const timeoutId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
+                if (settled)
+                    return GLib.SOURCE_REMOVE;
+                settled = true;
+                proc.force_exit();
+                reject(new Error('secret-tool lookup timed out'));
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+        proc.communicate_async(null, null, (_source, result) => {
+            if (settled)
+                return;
+            settled = true;
+            GLib.source_remove(timeoutId);
+            try {
+                const [, stdout, stderr] = proc.communicate_finish(result);
+                if (!proc.get_successful()) {
+                    const detail = new TextDecoder().decode(stderr.toArray()).trim();
+                    reject(new Error(detail || 'secret-tool lookup failed'));
+                    return;
+                }
+                resolve(new TextDecoder().decode(stdout.toArray()).trim());
+            } catch (error) {
+                reject(error);
+            }
+        });
+    });
+}
+
 async function createLibsecretApi() {
     // Import GI namespaces lazily so this module stays loadable in plain Node
     // for the credential/unit tests. GJS resolves these dynamically at runtime.
     const {default: GLib} = await import('gi://GLib');
+    const {default: Gio} = await import('gi://Gio');
     // Dynamic import keeps the extension loadable when the optional typelib is
     // missing; credential operations then return an actionable error instead.
     // Some distributions ship the older Secret-1 typelib name rather than
@@ -94,7 +149,7 @@ async function createLibsecretApi() {
                         Secret.Service.disconnect();
                 },
                 host,
-            );
+            ).catch(() => lookupWithSecretTool(host, GLib, Gio));
         },
         store(host, token) {
             return new Promise((resolve, reject) => {
