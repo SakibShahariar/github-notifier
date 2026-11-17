@@ -63,7 +63,7 @@ test('idle polling backs off after three unchanged successes and remains capped'
     assert.match(source, /getIdlePollInterval\(configuredInterval, indicator\._idlePollCount\)/);
     assert.match(repoUtilsSource, /const multiplier = count < 3\s*\? 1\s*:\s*Math\.min\(8, 2 \*\* \(count - 2\)\)/);
     assert.match(repoUtilsSource, /Math\.max\(baseInterval, Math\.min\(1800, baseInterval \* multiplier\)\)/);
-    assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds\)/);
+    assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds, tokenRetrySeconds\)/);
 });
 
 test('manual refresh, resume, and failed polls reset idle backoff', () => {
@@ -71,4 +71,29 @@ test('manual refresh, resume, and failed polls reset idle backoff', () => {
     assert.match(source, /indicator\._manualRefreshPending = true;\s*indicator\._idlePollCount = 0/);
     assert.match(source, /if \(!pollSucceeded\)\s*indicator\._idlePollCount = 0/);
     assert.match(source, /if \(!indicator\._paused\) \{\s*indicator\._idlePollCount = 0;\s*indicator\._poll\(\)/);
+});
+
+
+test('failed Secret Service token retries wait for a poll-interval cooldown', () => {
+    assert.match(source, /const TOKEN_RETRY_COOLDOWN_SECONDS = 60;/);
+    assert.match(source, /const retryInterval = Math\.max\(TOKEN_RETRY_COOLDOWN_SECONDS, indicator\._settings\.get_int\('poll-interval'\)\);/);
+    assert.match(source, /const retryDue = !indicator\._tokenRetryAfterEpoch \|\| nowEpoch >= indicator\._tokenRetryAfterEpoch;/);
+    assert.match(source, /if \(isSecretServiceProblem && !indicator\._tokenRetryInFlight && retryDue\) \{/);
+    assert.match(source, /indicator\._tokenRetryAfterEpoch = nowEpoch \+ retryInterval;/);
+});
+
+
+test('a failed token retry schedules the timer instead of re-polling immediately', () => {
+    assert.match(source, /function refreshAccountScopeForRetry\(indicator, \{immediate = false\} = \{\}\)/);
+    assert.match(source, /if \(immediate\) \{[\s\S]*?indicator\._poll\(\);[\s\S]*?\} else \{\s*indicator\._restartTimer\(\);\s*\}/);
+    assert.match(source, /refreshAccountScopeForRetry\(indicator, \{immediate: true\}\);/);
+    assert.match(source, /logError\(e, 'github-notifier: retry to retrieve GitHub token from Secret Service failed'\);\s*indicator\._setStatusBanner/);
+    assert.match(source, /logError\(e, 'github-notifier: retry to retrieve GitHub token from Secret Service failed'\);[\s\S]{0,300}refreshAccountScopeForRetry\(indicator\);/);
+});
+
+
+test('manual refresh bypasses and the poll timer respects the token retry cooldown', () => {
+    assert.match(source, /indicator\._networkRetryAfterEpoch = 0;\s*\/\/ An explicit refresh may bypass the Secret Service retry cooldown\.\s*indicator\._tokenRetryAfterEpoch = 0;/);
+    assert.match(source, /const tokenRetrySeconds = Math\.max\(0, \(indicator\._tokenRetryAfterEpoch \?\? 0\) - nowEpoch\);/);
+    assert.match(source, /Math\.max\(idleInterval, indicator\._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds, tokenRetrySeconds\)/);
 });

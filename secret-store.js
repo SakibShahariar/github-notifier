@@ -1,4 +1,3 @@
-import GLib from 'gi://GLib';
 import {getApiBase} from './repo-utils.js';
 
 const APPLICATION_ID = 'github-notifier@SakibShahariar';
@@ -9,6 +8,24 @@ const TOKEN_LABEL = 'GitHub Notifier personal access token';
 // context (keyring not reachable from gnome-shell's session), which would
 // otherwise hang the poll loop forever.
 const SECRET_LOOKUP_TIMEOUT_MS = 4000;
+
+/**
+ * Retry a Secret Service lookup once after dropping libsecret's cached default
+ * proxy. That proxy is shared process-wide and caches its D-Bus session, so a
+ * long-lived process such as GNOME Shell can keep referencing a session that
+ * the daemon has already closed (for example, oo7-daemon cleaning up an idle
+ * session). Disconnecting makes the next lookup open a fresh session.
+ */
+export async function lookupWithSessionRecovery(lookup, disconnect, host) {
+    try {
+        return await lookup(host);
+    } catch (error) {
+        if (typeof disconnect !== 'function')
+            throw error;
+        disconnect();
+        return lookup(host);
+    }
+}
 
 export function normalizeSecretHost(host) {
     const value = String(host || 'api.github.com').trim().replace(/\/+$/, '') || 'api.github.com';
@@ -26,11 +43,14 @@ export function getSecretAttributes(host) {
 }
 
 async function createLibsecretApi() {
+    // Import GI namespaces lazily so this module stays loadable in plain Node
+    // for the credential/unit tests. GJS resolves these dynamically at runtime.
+    const {default: GLib} = await import('gi://GLib');
     // Dynamic import keeps the extension loadable when the optional typelib is
     // missing; credential operations then return an actionable error instead.
     // Some distributions ship the older Secret-1 typelib name rather than
     // Secret-1.0; fall back to it so the extension still loads.
-    let Secret;
+    let Secret = null;
     try {
         ({default: Secret} = await import('gi://Secret'));
     } catch (_error) {
@@ -41,31 +61,40 @@ async function createLibsecretApi() {
         'api-host': Secret.SchemaAttributeType.STRING,
     });
 
+    const lookupSecret = host => new Promise((resolve, reject) => {
+        let settled = false;
+        const timeoutId = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
+                if (settled)
+                    return GLib.SOURCE_REMOVE;
+                settled = true;
+                reject(new Error('Secret Service lookup timed out'));
+                return GLib.SOURCE_REMOVE;
+            }
+        );
+        Secret.password_lookup(schema, getSecretAttributes(host), null, (_source, result) => {
+            if (settled)
+                return;
+            settled = true;
+            GLib.source_remove(timeoutId);
+            try {
+                resolve(Secret.password_lookup_finish(result) || '');
+            } catch (error) {
+                reject(error);
+            }
+        });
+    });
+
     return {
         lookup(host) {
-            return new Promise((resolve, reject) => {
-                let settled = false;
-                const timeoutId = GLib.timeout_add_seconds(
-                    GLib.PRIORITY_DEFAULT, Math.ceil(SECRET_LOOKUP_TIMEOUT_MS / 1000), () => {
-                        if (settled)
-                            return GLib.SOURCE_REMOVE;
-                        settled = true;
-                        reject(new Error('Secret Service lookup timed out'));
-                        return GLib.SOURCE_REMOVE;
-                    }
-                );
-                Secret.password_lookup(schema, getSecretAttributes(host), null, (_source, result) => {
-                    if (settled)
-                        return;
-                    settled = true;
-                    GLib.source_remove(timeoutId);
-                    try {
-                        resolve(Secret.password_lookup_finish(result) || '');
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            });
+            return lookupWithSessionRecovery(
+                lookupSecret,
+                () => {
+                    if (typeof Secret.Service?.disconnect === 'function')
+                        Secret.Service.disconnect();
+                },
+                host,
+            );
         },
         store(host, token) {
             return new Promise((resolve, reject) => {

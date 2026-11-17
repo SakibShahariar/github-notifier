@@ -19,6 +19,8 @@ The Account preferences provide a **Remove saved token** action for the currentl
 - **No token stored:** the extension asks the user to add a token in Settings.
 - **Secret Service missing or unavailable with a legacy token:** preserve and continue using the legacy token where possible; report that migration needs attention.
 - **Secret Service unavailable with no legacy token:** do not issue authenticated requests; show an actionable token/keyring status.
+- **Stale Secret Service session:** after a failed lookup, disconnect libsecret's cached default proxy and retry once so a fresh D-Bus session is opened. This keeps Secret Service as the primary store; it does not fall back to plaintext storage.
+- **Repeated credential failures:** a failed token retry does not re-enter polling immediately. The next attempt waits at least the configured poll interval (minimum 60 seconds), with the remaining time shown in the status banner. An explicit refresh bypasses that cooldown.
 - **Store failure while saving a new token:** retain the value in the preferences entry for retry, report the error, and do not write it to GSettings.
 - **Legacy cleanup failure after a successful store or removal:** report the partial result clearly and retain the legacy setting rather than claiming it was cleared.
 - **Unscoped legacy token during a host-specific save/removal:** retain it because its original host is unknown; first load binds it to the configured host before host-scoped migration or cleanup can occur.

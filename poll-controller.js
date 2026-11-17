@@ -5,10 +5,17 @@ import {deduplicateActivityItems, deduplicateRepositoryEntries, filterVisibleAct
 import {loadGithubToken} from './secret-store.js';
 import {runBoundedWorkers} from './bounded-workers.js';
 
-// Re-render and re-poll after a background token retry resolved. Mirrors the
-// account-scope refresh in settings-controller but lives here so poll cycles
-// can trigger it without a settings change.
-function refreshAccountScopeForRetry(indicator) {
+// Minimum wait between Secret Service token retries. A failed credential load
+// must never re-enter polling immediately: with an unavailable keyring that
+// becomes a tight loop that floods the journal and hammers the service.
+const TOKEN_RETRY_COOLDOWN_SECONDS = 60;
+
+// Re-render after a background token retry resolved. A successful load queues
+// one fresh poll; a failed one leaves scheduling to the normal poll timer so
+// the retry cooldown is respected. Mirrors the account-scope refresh in
+// settings-controller but lives here so poll cycles can trigger it without a
+// settings change.
+function refreshAccountScopeForRetry(indicator, {immediate = false} = {}) {
     if (indicator._destroyed)
         return;
     if (indicator._polling)
@@ -20,7 +27,15 @@ function refreshAccountScopeForRetry(indicator) {
     indicator._lastRenderHash = '';
     indicator._updateHero();
     indicator._updatePanel();
-    indicator._poll();
+    if (immediate) {
+        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!indicator._destroyed)
+                indicator._poll();
+            return GLib.SOURCE_REMOVE;
+        });
+    } else {
+        indicator._restartTimer();
+    }
 }
 
 // Poll orchestration extracted from the indicator; the indicator retains state and UI ownership.
@@ -51,13 +66,18 @@ export async function pollIndicator(indicator) {
         const token = indicator._token;
         if (!token) {
             // Secret Service may have been unavailable at startup (keyring not
-            // yet unlocked). Re-attempt the lookup on each poll so the token is
-            // picked up as soon as the keyring becomes available, without a
-            // manual preferences round-trip. Only retry while a warning indicates
-            // a Secret Service problem; a genuinely absent token (never set) is
-            // not retried.
+            // yet unlocked). Re-attempt the lookup on a later poll so the token
+            // is picked up once the keyring becomes available, without a manual
+            // preferences round-trip. Only retry while a warning indicates a
+            // Secret Service problem; a genuinely absent token (never set) is
+            // not retried. Failed attempts wait at least one poll interval so a
+            // persistently broken service cannot spin the poll loop.
             const isSecretServiceProblem = /secret service/i.test(indicator._tokenWarning || '');
-            if (isSecretServiceProblem && !indicator._tokenRetryInFlight) {
+            const retryInterval = Math.max(TOKEN_RETRY_COOLDOWN_SECONDS, indicator._settings.get_int('poll-interval'));
+            const nowEpoch = Math.floor(Date.now() / 1000);
+            const retryDue = !indicator._tokenRetryAfterEpoch || nowEpoch >= indicator._tokenRetryAfterEpoch;
+            if (isSecretServiceProblem && !indicator._tokenRetryInFlight && retryDue) {
+                indicator._tokenRetryAfterEpoch = nowEpoch + retryInterval;
                 indicator._tokenRetryInFlight = true;
                 indicator._tokenRefreshGeneration = (indicator._tokenRefreshGeneration ?? 0) + 1;
                 const generation = indicator._tokenRefreshGeneration;
@@ -71,9 +91,10 @@ export async function pollIndicator(indicator) {
                     indicator._tokenWarning = credential.warning || '';
                     indicator._tokenLoading = false;
                     indicator._tokenRetryInFlight = false;
+                    indicator._tokenRetryAfterEpoch = 0;
                     if (indicator._tokenWarning)
                         log('github-notifier: Secret Service credential still needs attention');
-                    refreshAccountScopeForRetry(indicator);
+                    refreshAccountScopeForRetry(indicator, {immediate: true});
                 }).catch(e => {
                     if (indicator._destroyed || generation !== indicator._tokenRefreshGeneration)
                         return;
@@ -82,12 +103,15 @@ export async function pollIndicator(indicator) {
                     indicator._tokenLoading = false;
                     indicator._tokenRetryInFlight = false;
                     logError(e, 'github-notifier: retry to retrieve GitHub token from Secret Service failed');
+                    indicator._setStatusBanner(`GitHub token unavailable — retrying in about ${Math.ceil(retryInterval / 60)} min; check Secret Service and Settings`, 'error');
                     refreshAccountScopeForRetry(indicator);
                 });
                 return;
             }
+            const retryIn = Math.max(0, (indicator._tokenRetryAfterEpoch ?? 0) - nowEpoch);
+            const retryHint = retryIn > 0 ? ` — retrying in about ${Math.ceil(retryIn / 60)} min` : '';
             indicator._setStatusBanner(indicator._tokenWarning
-                ? 'GitHub token unavailable — check Secret Service and Settings'
+                ? `GitHub token unavailable${retryHint} — check Secret Service and Settings`
                 : 'Add a GitHub token in Settings', 'error');
             indicator._updateHero();
             indicator._updatePanel();
@@ -415,8 +439,9 @@ export function restartPollTimer(indicator) {
         const nowEpoch = Math.floor(Date.now() / 1000);
         const backoffSeconds = Math.max(0, indicator._networkRetryAfterEpoch - nowEpoch);
         const retryAfterSeconds = Math.max(0, indicator._retryAfterEpoch - nowEpoch);
+        const tokenRetrySeconds = Math.max(0, (indicator._tokenRetryAfterEpoch ?? 0) - nowEpoch);
         const idleInterval = getIdlePollInterval(configuredInterval, indicator._idlePollCount);
-        const interval = Math.max(idleInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds);
+        const interval = Math.max(idleInterval, indicator._serverPollIntervalSeconds, backoffSeconds, retryAfterSeconds, tokenRetrySeconds);
         indicator._timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             indicator._poll();
             return GLib.SOURCE_CONTINUE;
@@ -437,6 +462,8 @@ export function refreshPollNow(indicator) {
         indicator._idlePollCount = 0;
         indicator._networkFailureCount = 0;
         indicator._networkRetryAfterEpoch = 0;
+        // An explicit refresh may bypass the Secret Service retry cooldown.
+        indicator._tokenRetryAfterEpoch = 0;
         if (indicator._polling) {
             // A manual refresh should not be ignored behind a stalled request.
             // Cancel the active cycle and queue exactly one fresh cycle in finally.

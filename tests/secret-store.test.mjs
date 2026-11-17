@@ -7,6 +7,7 @@ import {
     getSecretAttributes,
     hasLegacyTokenForDifferentHost,
     loadGithubToken,
+    lookupWithSessionRecovery,
     normalizeSecretHost,
     storeGithubToken,
 } from '../secret-store.js';
@@ -242,4 +243,51 @@ test('does not report a stale host marker as a retained legacy token after plain
     settings.set_string('github-token', 'legacy-token');
     assert.equal(hasLegacyTokenForDifferentHost(settings, 'git.example.com/api/v3'), true);
     assert.equal(hasLegacyTokenForDifferentHost(settings, 'API.GITHUB.COM/'), false);
+});
+
+
+test('retries a Secret Service lookup once after disconnecting the cached proxy', async () => {
+    const calls = [];
+    let disconnects = 0;
+    const lookup = async host => {
+        calls.push(host);
+        if (calls.length === 1)
+            throw new Error('The session /org/freedesktop/secrets/session/s0 does not exist');
+        return 'secret-token';
+    };
+    const result = await lookupWithSessionRecovery(lookup, () => { disconnects += 1; }, 'api.github.com');
+    assert.equal(result, 'secret-token');
+    assert.deepEqual(calls, ['api.github.com', 'api.github.com']);
+    assert.equal(disconnects, 1);
+});
+
+
+test('reports the original lookup error when the retry after disconnect also fails', async () => {
+    const failure = new Error('keyring offline');
+    let disconnects = 0;
+    await assert.rejects(
+        lookupWithSessionRecovery(async () => { throw failure; }, () => { disconnects += 1; }, 'api.github.com'),
+        error => error === failure,
+    );
+    assert.equal(disconnects, 1);
+});
+
+
+test('does not disconnect after success or retry without a disconnect hook', async () => {
+    let calls = 0;
+    assert.equal(
+        await lookupWithSessionRecovery(
+            async () => { calls += 1; return 'token'; },
+            () => assert.fail('must not disconnect after a successful lookup'),
+            'api.github.com',
+        ),
+        'token',
+    );
+    assert.equal(calls, 1);
+
+    await assert.rejects(
+        lookupWithSessionRecovery(async () => { calls += 1; throw new Error('offline'); }, undefined, 'api.github.com'),
+        /offline/,
+    );
+    assert.equal(calls, 2);
 });
