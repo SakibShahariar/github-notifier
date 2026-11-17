@@ -12,7 +12,7 @@ import {isValidPendingMarkAll, loadState, persistCurrentItems, restoreCachedStat
 import {HoverTooltipController} from './ui-utils.js';
 import {addEmpty, addFooter, addRow, addSectionHeader, addSeparator, buildMenuSkeleton, buildPanelButton, setupMenuLifecycle, renderList, setActionStatus, setStatusBanner, showRepositoryActionStatus, updateDailyStatsItem, updateHero, updatePanel, updateRateFooter} from './ui-indicator.js';
 import {addTransientTimeout, afterPoll, pollIndicator, refreshPollNow, restartPollTimer, sleepIndicator, togglePollingPause} from './poll-controller.js';
-import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
+import {addButtonHoverScale, animateBadgePop, animateHeaderEntrance, animateIconPulse, ease, hasMotion, prefersReducedMotion, resetBadgeTransform, startRefreshSpin, stopRefreshSpin} from './ui-animations.js';
 import {pollRepoIssues, pollRepoStars} from './repository-polling.js';
 import {pollNotifications} from './notification-polling.js';
 import {dismissActivityItem, handleOpenedItem, disarmMarkAll, markAllRead, publishNotificationSummary, markThreadRead, queuePendingReadItem, retryPendingReadItems} from './notification-actions.js';
@@ -240,6 +240,10 @@ class Indicator extends PanelMenu.Button {
 
     _animateBadgePop() {
         animateBadgePop(this);
+    }
+
+    _resetBadgeTransform() {
+        resetBadgeTransform(this);
     }
 
     /** Strong Octocat pulse + slight hop when new activity arrives. */

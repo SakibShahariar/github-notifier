@@ -77,68 +77,79 @@ export function ease(indicator, actor, props = {}) {
         }
     }
 
-export function animateBadgePop(indicator) {
-        if (!indicator._label || !indicator.hasMotion())
+/** Cancel any badge animation and leave the panel count at its neutral transform. */
+export function resetBadgeTransform(indicator) {
+        const label = indicator._label;
+        if (!label)
             return;
-        indicator._label.set_pivot_point(0.5, 0.5);
-        indicator._label.scale_x = 0.55;
-        indicator._label.scale_y = 0.55;
-        indicator._label.opacity = 180;
-        indicator._ease(indicator._label, {
-            scale_x: 1.45,
-            scale_y: 1.45,
-            opacity: 255,
-            time: 140,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        indicator._badgeAnimationGeneration = (indicator._badgeAnimationGeneration ?? 0) + 1;
+        try {
+            label.remove_all_transitions();
+        } catch (_e) {
+            /* actor may already be disposed */
+        }
+        label.scale_x = 1.0;
+        label.scale_y = 1.0;
+        label.opacity = 255;
+    }
+
+export function animateBadgePop(indicator) {
+        const label = indicator._label;
+        if (!label || !indicator.hasMotion())
+            return;
+        // Each pop invalidates earlier chains. Without a generation guard, a
+        // stale onComplete can fire after a newer animation and leave the label
+        // stranded at an intermediate scale (the count renders tiny).
+        const generation = (indicator._badgeAnimationGeneration ?? 0) + 1;
+        indicator._badgeAnimationGeneration = generation;
+        const live = () => !indicator._destroyed && indicator._badgeAnimationGeneration === generation;
+        const step = (props, next) => indicator._ease(label, {
+            ...props,
             onComplete: () => {
-                indicator._ease(indicator._label, {
-                    scale_x: 0.92,
-                    scale_y: 0.92,
-                    time: 90,
-                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                    onComplete: () => {
-                        indicator._ease(indicator._label, {
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            time: 110,
-                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                        });
-                    },
-                });
+                if (live() && next)
+                    next();
             },
         });
+
+        try {
+            label.remove_all_transitions();
+        } catch (_e) {
+            /* actor may already be disposed */
+        }
+        label.set_pivot_point(0.5, 0.5);
+        label.scale_x = 0.55;
+        label.scale_y = 0.55;
+        label.opacity = 180;
+        step({scale_x: 1.45, scale_y: 1.45, opacity: 255, time: 140, mode: Clutter.AnimationMode.EASE_OUT_BACK}, () =>
+            step({scale_x: 0.92, scale_y: 0.92, time: 90, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD}, () =>
+                step({scale_x: 1.0, scale_y: 1.0, time: 110, mode: Clutter.AnimationMode.EASE_OUT_BACK})));
     }
 
 export function animateIconPulse(indicator) {
-        if (!indicator._icon || !indicator.hasMotion())
+        const icon = indicator._icon;
+        if (!icon || !indicator.hasMotion())
             return;
-        indicator._icon.set_pivot_point(0.5, 0.5);
-        indicator._icon.translation_y = 0;
-        indicator._ease(indicator._icon, {
-            scale_x: 1.35,
-            scale_y: 1.35,
-            translation_y: -3,
-            time: 120,
-            mode: Clutter.AnimationMode.EASE_OUT_BACK,
+        const generation = (indicator._iconAnimationGeneration ?? 0) + 1;
+        indicator._iconAnimationGeneration = generation;
+        const live = () => !indicator._destroyed && indicator._iconAnimationGeneration === generation;
+        const step = (props, next) => indicator._ease(icon, {
+            ...props,
             onComplete: () => {
-                indicator._ease(indicator._icon, {
-                    scale_x: 0.88,
-                    scale_y: 0.88,
-                    translation_y: 1,
-                    time: 100,
-                    mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                    onComplete: () => {
-                        indicator._ease(indicator._icon, {
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            translation_y: 0,
-                            time: 130,
-                            mode: Clutter.AnimationMode.EASE_OUT_BACK,
-                        });
-                    },
-                });
+                if (live() && next)
+                    next();
             },
         });
+
+        try {
+            icon.remove_all_transitions();
+        } catch (_e) {
+            /* actor may already be disposed */
+        }
+        icon.set_pivot_point(0.5, 0.5);
+        icon.translation_y = 0;
+        step({scale_x: 1.35, scale_y: 1.35, translation_y: -3, time: 120, mode: Clutter.AnimationMode.EASE_OUT_BACK}, () =>
+            step({scale_x: 0.88, scale_y: 0.88, translation_y: 1, time: 100, mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD}, () =>
+                step({scale_x: 1.0, scale_y: 1.0, translation_y: 0, time: 130, mode: Clutter.AnimationMode.EASE_OUT_BACK})));
     }
 
 export function startRefreshSpin(indicator) {

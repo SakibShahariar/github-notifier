@@ -691,9 +691,13 @@ export function updatePanel(indicator, maxBadge) {
         } else {
             indicator._label.hide();
             indicator._label.remove_style_class_name('urgent');
-            indicator._label.scale_x = 1.0;
-            indicator._label.scale_y = 1.0;
         }
+        // Snap to neutral whenever no fresh pop starts, so an interrupted
+        // animation can never leave the count stuck at a smaller scale.
+        if (unread > prev)
+            indicator._animateBadgePop();
+        else
+            indicator._resetBadgeTransform();
 
         // Dim the Octocat itself when "keep icon unlit" is on (even with unread)
         if (indicator._icon) {
@@ -703,11 +707,9 @@ export function updatePanel(indicator, maxBadge) {
                 indicator._icon.remove_style_class_name('github-notifier-icon-unlit');
         }
 
-        // Subtle motion when new items arrive (not on every poll drop)
-        if (unread > prev) {
-            indicator._animateBadgePop();
+        // Subtle icon motion when new items arrive (not on every poll drop)
+        if (unread > prev)
             indicator._animateIconPulse();
-        }
         indicator._lastUnreadCount = unread;
 
         if (indicator._statusIsError)
