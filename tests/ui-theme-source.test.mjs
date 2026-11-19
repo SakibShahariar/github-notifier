@@ -26,6 +26,7 @@ const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url),
 
 test('Matugen colors section icons differently for issues and stars', () => {
     assert.match(source, /\.github-notifier-section-icon \{ color: \$\{c\.secondary\}; \}/);
+    assert.match(source, /\.github-notifier-section-icon-conversation \{ color: \$\{c\.primary\}; \}/);
     assert.match(source, /\.github-notifier-section-icon-issues \{ color: \$\{c\.primary\}; \}/);
     assert.match(source, /\.github-notifier-section-icon-stars \{ color: \$\{c\.tertiary\}; \}/);
 });

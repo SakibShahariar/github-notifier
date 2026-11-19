@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {getDailyStatsTotals, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {getDailyStatsTotals, getNotificationCategory, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
 export function addSectionHeader(section, title, count, iconName, variant) {
@@ -136,6 +136,7 @@ export function renderList(indicator, constants) {
             notificationsPage: indicator._notificationsPage,
             notificationSearchQuery: indicator._notificationSearchQuery,
             issuesExpanded: indicator._issuesExpanded,
+            conversationExpanded: indicator._conversationExpanded,
             starsExpanded: indicator._starsExpanded,
             markAllArmed: indicator._markAllArmed,
             paused: indicator._paused,
@@ -156,14 +157,20 @@ export function renderList(indicator, constants) {
 
         // clear sections
         indicator._notifSection.removeAll();
+        indicator._conversationSection.removeAll();
         indicator._issuesSection.removeAll();
         indicator._starsSection.removeAll();
         indicator._footerSection.removeAll();
         indicator._notifSection._rowAnimIdx = 0;
+        indicator._conversationSection._rowAnimIdx = 0;
         indicator._issuesSection._rowAnimIdx = 0;
         indicator._starsSection._rowAnimIdx = 0;
 
         const visibleNotificationItems = indicator._visibleNotificationItems();
+        const conversationItems = visibleNotificationItems
+            .filter(item => getNotificationCategory(item) === 'conversation')
+            .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+        const inboxItems = visibleNotificationItems.filter(item => getNotificationCategory(item) !== 'conversation');
         const visibleActivityItems = indicator._visibleActivityItems();
         const hasAny = visibleNotificationItems.length > 0 || visibleActivityItems.length > 0;
 
@@ -174,10 +181,22 @@ export function renderList(indicator, constants) {
 
         // ---- Unread Notifications (GNOME HIG: Title Case) ----
         // No leading separator: hero (and optional banner) already separate the section.
-        const notifCount = visibleNotificationItems.length;
+        const notifCount = inboxItems.length;
         indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications');
         if (notifCount === 0) {
-            if (indicator._notificationSearchQuery.trim()) {
+            // If conversation items were pulled into their own section below,
+            // an empty-state message here would be misleading — but keep the
+            // mark-all action available for the whole inbox.
+            if (conversationItems.length > 0) {
+                indicator._addFooter(indicator._notifSection, {
+                    expandable: false,
+                    paginated: false,
+                    showOpen: false,
+                    showMarkAll: true,
+                    markAllArmed: indicator._markAllArmed,
+                    onMarkAll: () => indicator._markAllRead(),
+                });
+            } else if (indicator._notificationSearchQuery.trim()) {
                 indicator._addEmpty(indicator._notifSection, 'No cached notifications match your search.');
             } else {
             const emptyMessage = getNotificationEmptyState({
@@ -196,7 +215,7 @@ export function renderList(indicator, constants) {
             if (indicator._notificationsPage >= pageCount) indicator._notificationsPage = pageCount - 1;
             if (indicator._notificationsPage < 0) indicator._notificationsPage = 0;
             const start = indicator._notificationsPage * constants.notifPageSize;
-            const slice = visibleNotificationItems.slice(start, start + constants.notifPageSize);
+            const slice = inboxItems.slice(start, start + constants.notifPageSize);
             for (const item of slice) indicator._addRow(indicator._notifSection, item);
             const paginated = pageCount > 1;
             const showMarkAll = notifCount > 0;
@@ -211,6 +230,22 @@ export function renderList(indicator, constants) {
                 showMarkAll,
                 markAllArmed: indicator._markAllArmed,
                 onMarkAll: () => indicator._markAllRead(),
+            });
+        }
+
+        // ---- CONVERSATION ---- (comments/replies pulled out of the inbox)
+        if (conversationItems.length > 0) {
+            indicator._addSeparator(indicator._conversationSection);
+            indicator._addSectionHeader(indicator._conversationSection, 'Conversation', conversationItems.length, 'mail-reply-sender-symbolic', 'conversation');
+            const expandable = conversationItems.length > constants.activityPreview;
+            const shown = conversationItems.slice(0, indicator._conversationExpanded ? constants.activityExpanded : constants.activityPreview);
+            for (const item of shown) indicator._addRow(indicator._conversationSection, item);
+            indicator._addFooter(indicator._conversationSection, {
+                expandable,
+                expanded: indicator._conversationExpanded,
+                count: conversationItems.length,
+                onToggle: () => { indicator._conversationExpanded = !indicator._conversationExpanded; indicator._renderList(); },
+                showOpen: false,
             });
         }
 
@@ -562,6 +597,8 @@ export function buildMenuSkeleton(indicator) {
         // sections
         indicator._notifSection = new PopupMenu.PopupMenuSection();
         indicator.menu.addMenuItem(indicator._notifSection);
+        indicator._conversationSection = new PopupMenu.PopupMenuSection();
+        indicator.menu.addMenuItem(indicator._conversationSection);
         indicator._issuesSection = new PopupMenu.PopupMenuSection();
         indicator.menu.addMenuItem(indicator._issuesSection);
         indicator._starsSection = new PopupMenu.PopupMenuSection();

@@ -6,6 +6,17 @@ const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'u
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
+test('conversation notifications render in their own section with preview/expand', () => {
+    assert.match(source, /import \{[^}]*getNotificationCategory[^}]*\} from '\.\/repo-utils\.js'/);
+    assert.match(source, /conversationItems = visibleNotificationItems\s*\.filter\(item => getNotificationCategory\(item\) === 'conversation'\)/);
+    assert.match(source, /inboxItems = visibleNotificationItems\.filter\(item => getNotificationCategory\(item\) !== 'conversation'\)/);
+    assert.match(source, /indicator\._conversationSection = new PopupMenu\.PopupMenuSection\(\)/);
+    assert.match(source, /_addSectionHeader\(indicator\._conversationSection, 'Conversation', conversationItems\.length, 'mail-reply-sender-symbolic', 'conversation'\)/);
+    assert.match(source, /indicator\._conversationExpanded = !indicator\._conversationExpanded/);
+    assert.match(source, /const slice = inboxItems\.slice\(start, start \+ constants\.notifPageSize\)/);
+    assert.match(extensionSource, /this\._conversationExpanded = false/);
+});
+
 test('section headers use distinct icons and variants so issues and stars read as separate sections', () => {
     assert.match(source, /export function addSectionHeader\(section, title, count, iconName, variant\)/);
     assert.match(source, /github-notifier-section-icon-\$\{variant\}/);
