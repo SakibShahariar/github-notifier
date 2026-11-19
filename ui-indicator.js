@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import {getDailyStatsTotals, getNotificationCategory, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
+import {getDailyStatsTotals, getNotificationSection, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
 export function addSectionHeader(section, title, count, iconName, variant) {
@@ -137,6 +137,9 @@ export function renderList(indicator, constants) {
             notificationSearchQuery: indicator._notificationSearchQuery,
             issuesExpanded: indicator._issuesExpanded,
             conversationExpanded: indicator._conversationExpanded,
+            actionExpanded: indicator._actionExpanded,
+            checksExpanded: indicator._checksExpanded,
+            releasesExpanded: indicator._releasesExpanded,
             starsExpanded: indicator._starsExpanded,
             markAllArmed: indicator._markAllArmed,
             paused: indicator._paused,
@@ -158,19 +161,29 @@ export function renderList(indicator, constants) {
         // clear sections
         indicator._notifSection.removeAll();
         indicator._conversationSection.removeAll();
+        indicator._actionSection.removeAll();
+        indicator._checksSection.removeAll();
+        indicator._releasesSection.removeAll();
         indicator._issuesSection.removeAll();
         indicator._starsSection.removeAll();
         indicator._footerSection.removeAll();
-        indicator._notifSection._rowAnimIdx = 0;
-        indicator._conversationSection._rowAnimIdx = 0;
-        indicator._issuesSection._rowAnimIdx = 0;
-        indicator._starsSection._rowAnimIdx = 0;
+        for (const section of [
+            indicator._notifSection, indicator._conversationSection, indicator._actionSection,
+            indicator._checksSection, indicator._releasesSection, indicator._issuesSection,
+            indicator._starsSection,
+        ]) section._rowAnimIdx = 0;
 
         const visibleNotificationItems = indicator._visibleNotificationItems();
-        const conversationItems = visibleNotificationItems
-            .filter(item => getNotificationCategory(item) === 'conversation')
-            .sort((a, b) => new Date(b.ts) - new Date(a.ts));
-        const inboxItems = visibleNotificationItems.filter(item => getNotificationCategory(item) !== 'conversation');
+        const notificationSections = {
+            inbox: [], conversation: [], action: [], checks: [], releases: [],
+        };
+        for (const item of visibleNotificationItems)
+            notificationSections[getNotificationSection(item)].push(item);
+        const inboxItems = notificationSections.inbox;
+        const conversationItems = notificationSections.conversation;
+        const actionItems = notificationSections.action;
+        const checksItems = notificationSections.checks;
+        const releaseItems = notificationSections.releases;
         const visibleActivityItems = indicator._visibleActivityItems();
         const hasAny = visibleNotificationItems.length > 0 || visibleActivityItems.length > 0;
 
@@ -184,10 +197,10 @@ export function renderList(indicator, constants) {
         const notifCount = inboxItems.length;
         indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications');
         if (notifCount === 0) {
-            // If conversation items were pulled into their own section below,
-            // an empty-state message here would be misleading — but keep the
-            // mark-all action available for the whole inbox.
-            if (conversationItems.length > 0) {
+            // If every notification was pulled into one of the dedicated
+            // sections below, an empty-state message here would be misleading —
+            // but keep the mark-all action available for the whole inbox.
+            if (visibleNotificationItems.length > 0) {
                 indicator._addFooter(indicator._notifSection, {
                     expandable: false,
                     paginated: false,
@@ -233,18 +246,32 @@ export function renderList(indicator, constants) {
             });
         }
 
-        // ---- CONVERSATION ---- (comments/replies pulled out of the inbox)
-        if (conversationItems.length > 0) {
-            indicator._addSeparator(indicator._conversationSection);
-            indicator._addSectionHeader(indicator._conversationSection, 'Conversation', conversationItems.length, 'mail-reply-sender-symbolic', 'conversation');
-            const expandable = conversationItems.length > constants.activityPreview;
-            const shown = conversationItems.slice(0, indicator._conversationExpanded ? constants.activityExpanded : constants.activityPreview);
-            for (const item of shown) indicator._addRow(indicator._conversationSection, item);
-            indicator._addFooter(indicator._conversationSection, {
+        // ---- NOTIFICATION-DERIVED SECTIONS ----
+        const notificationSectionConfigs = [
+            {key: 'conversation', section: indicator._conversationSection, title: 'Conversation', icon: 'mail-reply-sender-symbolic', items: conversationItems},
+            {key: 'action', section: indicator._actionSection, title: 'Needs your action', icon: 'checkbox-checked-symbolic', items: actionItems},
+            {key: 'checks', section: indicator._checksSection, title: 'Checks', icon: 'object-select-symbolic', items: checksItems},
+            {key: 'releases', section: indicator._releasesSection, title: 'New Releases', icon: 'package-x-generic-symbolic', items: releaseItems},
+        ];
+        for (const config of notificationSectionConfigs) {
+            if (config.items.length === 0)
+                continue;
+            const expandedKey = `_${config.key}Expanded`;
+            const expanded = indicator[expandedKey];
+            indicator._addSeparator(config.section);
+            indicator._addSectionHeader(config.section, config.title, config.items.length, config.icon, config.key);
+            const expandable = config.items.length > constants.activityPreview;
+            const shown = config.items.slice(0, expanded ? constants.activityExpanded : constants.activityPreview);
+            for (const item of shown)
+                indicator._addRow(config.section, item);
+            indicator._addFooter(config.section, {
                 expandable,
-                expanded: indicator._conversationExpanded,
-                count: conversationItems.length,
-                onToggle: () => { indicator._conversationExpanded = !indicator._conversationExpanded; indicator._renderList(); },
+                expanded,
+                count: config.items.length,
+                onToggle: () => {
+                    indicator[expandedKey] = !indicator[expandedKey];
+                    indicator._renderList();
+                },
                 showOpen: false,
             });
         }
@@ -599,6 +626,12 @@ export function buildMenuSkeleton(indicator) {
         indicator.menu.addMenuItem(indicator._notifSection);
         indicator._conversationSection = new PopupMenu.PopupMenuSection();
         indicator.menu.addMenuItem(indicator._conversationSection);
+        indicator._actionSection = new PopupMenu.PopupMenuSection();
+        indicator.menu.addMenuItem(indicator._actionSection);
+        indicator._checksSection = new PopupMenu.PopupMenuSection();
+        indicator.menu.addMenuItem(indicator._checksSection);
+        indicator._releasesSection = new PopupMenu.PopupMenuSection();
+        indicator.menu.addMenuItem(indicator._releasesSection);
         indicator._issuesSection = new PopupMenu.PopupMenuSection();
         indicator.menu.addMenuItem(indicator._issuesSection);
         indicator._starsSection = new PopupMenu.PopupMenuSection();

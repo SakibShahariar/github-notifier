@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, deduplicateActivityItems, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationSection, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, deduplicateActivityItems, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -64,6 +64,24 @@ test('maps GitHub notification reasons to filter categories', () => {
     for (const [item, expected] of cases) {
         assert.equal(getNotificationCategory(item), expected, JSON.stringify(item));
     }
+});
+
+test('notification sections group categories without changing filter categories', () => {
+    const cases = [
+        [{reasonLabel: 'New comment'}, 'conversation'],
+        [{notificationReason: 'author'}, 'conversation'],
+        [{reasonLabel: 'Review requested'}, 'action'],
+        [{notificationReason: 'assign'}, 'action'],
+        [{reasonLabel: 'CI run', subjectType: 'WorkflowRun'}, 'checks'],
+        [{notificationReason: 'ci_activity'}, 'checks'],
+        [{subjectType: 'CheckSuite'}, 'checks'],
+        [{subjectType: 'Release'}, 'releases'],
+        [{reasonLabel: 'New release'}, 'releases'],
+        [{reasonLabel: 'Mention'}, 'inbox'],
+        [{notificationReason: 'security_alert'}, 'inbox'],
+    ];
+    for (const [item, expected] of cases)
+        assert.equal(getNotificationSection(item), expected, JSON.stringify(item));
 });
 
 test('parses and normalizes a comma-separated muted repository list', () => {

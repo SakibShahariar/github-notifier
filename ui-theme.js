@@ -76,6 +76,9 @@ export function buildMatugenCss(c) {
 .github-notifier-section-header { color: ${c.on_surface}; }
 .github-notifier-section-icon { color: ${c.secondary}; }
 .github-notifier-section-icon-conversation { color: ${c.primary}; }
+.github-notifier-section-icon-action { color: ${c.primary}; }
+.github-notifier-section-icon-checks { color: ${c.secondary}; }
+.github-notifier-section-icon-releases { color: ${c.tertiary}; }
 .github-notifier-section-icon-issues { color: ${c.primary}; }
 .github-notifier-section-icon-stars { color: ${c.tertiary}; }
 .github-notifier-separator { background-color: ${c.outline_variant}; }

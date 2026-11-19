@@ -6,15 +6,23 @@ const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'u
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
-test('conversation notifications render in their own section with preview/expand', () => {
-    assert.match(source, /import \{[^}]*getNotificationCategory[^}]*\} from '\.\/repo-utils\.js'/);
-    assert.match(source, /conversationItems = visibleNotificationItems\s*\.filter\(item => getNotificationCategory\(item\) === 'conversation'\)/);
-    assert.match(source, /inboxItems = visibleNotificationItems\.filter\(item => getNotificationCategory\(item\) !== 'conversation'\)/);
-    assert.match(source, /indicator\._conversationSection = new PopupMenu\.PopupMenuSection\(\)/);
-    assert.match(source, /_addSectionHeader\(indicator\._conversationSection, 'Conversation', conversationItems\.length, 'mail-reply-sender-symbolic', 'conversation'\)/);
-    assert.match(source, /indicator\._conversationExpanded = !indicator\._conversationExpanded/);
+test('notifications are split into dedicated sections with preview/expand', () => {
+    assert.match(source, /import \{[^}]*getNotificationSection[^}]*\} from '\.\/repo-utils\.js'/);
+    assert.match(source, /notificationSections\[getNotificationSection\(item\)\]\.push\(item\)/);
     assert.match(source, /const slice = inboxItems\.slice\(start, start \+ constants\.notifPageSize\)/);
-    assert.match(extensionSource, /this\._conversationExpanded = false/);
+    for (const key of ['conversation', 'action', 'checks', 'releases'])
+        assert.match(source, new RegExp(`indicator\\._${key}Section = new PopupMenu\\.PopupMenuSection\\(\\)`));
+    assert.match(source, /title: 'Conversation', icon: 'mail-reply-sender-symbolic'/);
+    assert.match(source, /title: 'Needs your action', icon: 'checkbox-checked-symbolic'/);
+    assert.match(source, /title: 'Checks', icon: 'object-select-symbolic'/);
+    assert.match(source, /title: 'New Releases', icon: 'package-x-generic-symbolic'/);
+    assert.match(source, /indicator\[expandedKey\] = !indicator\[expandedKey\]/);
+    for (const key of ['conversation', 'action', 'checks', 'releases'])
+        assert.match(extensionSource, new RegExp(`this\\._${key}Expanded = false`));
+});
+
+test('mark all read stays available when every notification is in a dedicated section', () => {
+    assert.match(source, /if \(visibleNotificationItems\.length > 0\) \{[\s\S]*?showMarkAll: true/);
 });
 
 test('section headers use distinct icons and variants so issues and stars read as separate sections', () => {

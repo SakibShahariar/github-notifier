@@ -150,6 +150,24 @@ export function getNotificationCategory(item) {
     return 'other';
 }
 
+/**
+ * Map a notification to the menu section it belongs to. Display-only: filtering
+ * and muting still use getNotificationCategory() and the filter keys.
+ */
+export function getNotificationSection(item) {
+    const category = getNotificationCategory(item);
+    if (category === 'conversation')
+        return 'conversation';
+    if (category === 'reviews' || category === 'assignments')
+        return 'action';
+    if (category === 'checks')
+        return 'checks';
+    const label = String(item?.reasonLabel || '').trim().toLowerCase().replaceAll(' ', '_');
+    if (item?.subjectType === 'Release' || label === 'new_release')
+        return 'releases';
+    return 'inbox';
+}
+
 export function parseRepositoryList(value) {
     if (typeof value !== 'string')
         return [];

@@ -87,6 +87,9 @@ class Indicator extends PanelMenu.Button {
         this._notificationSearchQuery = '';
         this._issuesExpanded = false;
         this._conversationExpanded = false;
+        this._actionExpanded = false;
+        this._checksExpanded = false;
+        this._releasesExpanded = false;
         this._starsExpanded = false;
         this._markAllArmed = false;
         this._markAllTimer = null;
