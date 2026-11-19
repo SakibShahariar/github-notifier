@@ -6,6 +6,15 @@ const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'u
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
+test('section headers use distinct icons and variants so issues and stars read as separate sections', () => {
+    assert.match(source, /export function addSectionHeader\(section, title, count, iconName, variant\)/);
+    assert.match(source, /github-notifier-section-icon-\$\{variant\}/);
+    assert.match(source, /_addSectionHeader\(indicator\._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications'\)/);
+    assert.match(source, /_addSectionHeader\(indicator\._issuesSection, 'New Issues & Pull Requests', issuePrItems\.length, 'chat-message-new-symbolic', 'issues'\)/);
+    assert.match(source, /_addSectionHeader\(indicator\._starsSection, 'New Stars', starItems\.length, 'starred-symbolic', 'stars'\)/);
+    assert.match(stylesheet, /\.github-notifier-section-icon\s*\{[^}]*icon-size:\s*14px/);
+});
+
 test('repository activity footer opens the correct tab for issue-only and PR-only sections', () => {
     assert.match(source, /issuePrItems\[0\]\.kind === 'pr' \? 'pulls'/);
     assert.match(source, /issuePrItems\[0\]\.kind === 'issue' \? 'issues'/);

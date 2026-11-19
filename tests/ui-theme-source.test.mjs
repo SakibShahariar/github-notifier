@@ -24,6 +24,12 @@ test('Matugen file changes clear stale overrides and monitor creation when the p
 
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
+test('Matugen colors section icons differently for issues and stars', () => {
+    assert.match(source, /\.github-notifier-section-icon \{ color: \$\{c\.secondary\}; \}/);
+    assert.match(source, /\.github-notifier-section-icon-issues \{ color: \$\{c\.primary\}; \}/);
+    assert.match(source, /\.github-notifier-section-icon-stars \{ color: \$\{c\.tertiary\}; \}/);
+});
+
 test('base stylesheet inherits GNOME Shell colors when Matugen is unavailable', () => {
     assert.doesNotMatch(stylesheet, /\bcolor\s*:\s*(?:#[0-9a-fA-F]{3,8}\b|rgba?\()/);
     assert.doesNotMatch(stylesheet, /\bbackground-color\s*:\s*(?:#[0-9a-fA-F]{3,8}\b|rgba?\()/);

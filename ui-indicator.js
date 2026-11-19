@@ -7,9 +7,17 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {getDailyStatsTotals, getNotificationEmptyState, getStatusAction, isValidRepository, updateDailyStats} from './repo-utils.js';
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
-export function addSectionHeader(section, title, count) {
+export function addSectionHeader(section, title, count, iconName, variant) {
     const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
-    const box = new St.BoxLayout({x_expand: true});
+    const box = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+    if (iconName) {
+        box.add_child(new St.Icon({
+            icon_name: iconName,
+            style_class: `popup-menu-icon github-notifier-section-icon github-notifier-section-icon-${variant}`,
+            icon_size: 14,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+    }
     const label = new St.Label({text: `${title}  ${count}`, style_class: 'github-notifier-section-header', x_expand: true});
     box.add_child(label);
     headerItem.add_child(box);
@@ -167,7 +175,7 @@ export function renderList(indicator, constants) {
         // ---- Unread Notifications (GNOME HIG: Title Case) ----
         // No leading separator: hero (and optional banner) already separate the section.
         const notifCount = visibleNotificationItems.length;
-        indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount);
+        indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications');
         if (notifCount === 0) {
             if (indicator._notificationSearchQuery.trim()) {
                 indicator._addEmpty(indicator._notifSection, 'No cached notifications match your search.');
@@ -211,7 +219,7 @@ export function renderList(indicator, constants) {
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
         if (issuePrItems.length > 0) {
             indicator._addSeparator(indicator._issuesSection);
-            indicator._addSectionHeader(indicator._issuesSection, 'New Issues & Pull Requests', issuePrItems.length);
+            indicator._addSectionHeader(indicator._issuesSection, 'New Issues & Pull Requests', issuePrItems.length, 'chat-message-new-symbolic', 'issues');
             const expandable = issuePrItems.length > constants.activityPreview;
             const shown = issuePrItems.slice(0, indicator._issuesExpanded ? constants.activityExpanded : constants.activityPreview);
             for (const item of shown) indicator._addRow(indicator._issuesSection, item);
@@ -231,7 +239,7 @@ export function renderList(indicator, constants) {
             .sort((a,b)=> new Date(b.ts)-new Date(a.ts));
         if (starItems.length > 0) {
             indicator._addSeparator(indicator._starsSection);
-            indicator._addSectionHeader(indicator._starsSection, 'New Stars', starItems.length);
+            indicator._addSectionHeader(indicator._starsSection, 'New Stars', starItems.length, 'starred-symbolic', 'stars');
             const expandable = starItems.length > constants.activityPreview;
             const shown = starItems.slice(0, indicator._starsExpanded ? constants.activityExpanded : constants.activityPreview);
             for (const item of shown) indicator._addRow(indicator._starsSection, item);

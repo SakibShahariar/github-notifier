@@ -94,6 +94,11 @@
     letter-spacing: 0;
     padding: 10px 16px 4px 16px;
 }
+.github-notifier-section-icon {
+    icon-size: 14px;
+    margin-right: 4px;
+    opacity: 0.8;
+}
 .github-notifier-separator {
     height: 1px;
     opacity: 1;
