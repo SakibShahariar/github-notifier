@@ -192,27 +192,35 @@ export function renderList(indicator, constants) {
             // show hero already, but ensure empty state still renders sections
         }
 
-        // ---- Unread Notifications (GNOME HIG: Title Case) ----
-        // No leading separator: hero (and optional banner) already separate the section.
+        // ---- MENTIONS & OTHER ----
+        // Rendered only when it has items. Empty notifications live in dedicated
+        // sections below, so a permanent empty header here would just be noise.
+        // No leading separator: hero (and optional banner) already separate it.
         const notifCount = inboxItems.length;
-        indicator._addSectionHeader(indicator._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications');
-        if (notifCount === 0) {
-            // If every notification was pulled into one of the dedicated
-            // sections below, an empty-state message here would be misleading —
-            // but keep the mark-all action available for the whole inbox.
-            if (visibleNotificationItems.length > 0) {
-                indicator._addFooter(indicator._notifSection, {
-                    expandable: false,
-                    paginated: false,
-                    showOpen: false,
-                    showMarkAll: true,
-                    markAllArmed: indicator._markAllArmed,
-                    onMarkAll: () => indicator._markAllRead(),
-                });
-            } else if (indicator._notificationSearchQuery.trim()) {
-                indicator._addEmpty(indicator._notifSection, 'No cached notifications match your search.');
-            } else {
-            const emptyMessage = getNotificationEmptyState({
+        if (notifCount > 0) {
+            indicator._addSectionHeader(indicator._notifSection, 'Mentions & Other', notifCount, 'mail-unread-symbolic', 'notifications');
+            const pageCount = Math.max(1, Math.ceil(notifCount / constants.notifPageSize));
+            if (indicator._notificationsPage >= pageCount) indicator._notificationsPage = pageCount - 1;
+            if (indicator._notificationsPage < 0) indicator._notificationsPage = 0;
+            const start = indicator._notificationsPage * constants.notifPageSize;
+            const slice = inboxItems.slice(start, start + constants.notifPageSize);
+            for (const item of slice) indicator._addRow(indicator._notifSection, item);
+            indicator._addFooter(indicator._notifSection, {
+                expandable: false,
+                paginated: pageCount > 1,
+                page: indicator._notificationsPage,
+                pageCount,
+                onPrev: () => { indicator._notificationsPage = Math.max(0, indicator._notificationsPage - 1); indicator._renderList(); },
+                onNext: () => { indicator._notificationsPage = Math.min(pageCount - 1, indicator._notificationsPage + 1); indicator._renderList(); },
+                showOpen: false,
+                showMarkAll: true,
+                markAllArmed: indicator._markAllArmed,
+                onMarkAll: () => indicator._markAllRead(),
+            });
+        } else if (indicator._notificationSearchQuery.trim() && visibleNotificationItems.length === 0) {
+            indicator._addEmpty(indicator._notifSection, 'No cached notifications match your search.');
+        } else if (!hasAny) {
+            indicator._addEmpty(indicator._notifSection, getNotificationEmptyState({
                 watchEnabled: indicator._settings.get_boolean('watch-mentions'),
                 tokenLoading: indicator._tokenLoading,
                 hasToken: Boolean(indicator._token),
@@ -220,30 +228,7 @@ export function renderList(indicator, constants) {
                 statusIsError: indicator._statusIsError,
                 hasFetched: Boolean(indicator._lastFetchedAt),
                 hasCachedNotifications: indicator._notificationItems.length > 0,
-            });
-            indicator._addEmpty(indicator._notifSection, emptyMessage);
-            }
-        } else {
-            const pageCount = Math.max(1, Math.ceil(notifCount / constants.notifPageSize));
-            if (indicator._notificationsPage >= pageCount) indicator._notificationsPage = pageCount - 1;
-            if (indicator._notificationsPage < 0) indicator._notificationsPage = 0;
-            const start = indicator._notificationsPage * constants.notifPageSize;
-            const slice = inboxItems.slice(start, start + constants.notifPageSize);
-            for (const item of slice) indicator._addRow(indicator._notifSection, item);
-            const paginated = pageCount > 1;
-            const showMarkAll = notifCount > 0;
-            indicator._addFooter(indicator._notifSection, {
-                expandable: false,
-                paginated,
-                page: indicator._notificationsPage,
-                pageCount,
-                onPrev: () => { indicator._notificationsPage = Math.max(0, indicator._notificationsPage - 1); indicator._renderList(); },
-                onNext: () => { indicator._notificationsPage = Math.min(pageCount - 1, indicator._notificationsPage + 1); indicator._renderList(); },
-                showOpen: false,
-                showMarkAll,
-                markAllArmed: indicator._markAllArmed,
-                onMarkAll: () => indicator._markAllRead(),
-            });
+            }));
         }
 
         // ---- NOTIFICATION-DERIVED SECTIONS ----
@@ -321,7 +306,11 @@ export function renderList(indicator, constants) {
             showOpen: true,
             openLabel: 'Open in GitHub',
             openUrl: `${indicator._webBase()}/notifications`,
-            showMarkAll: false,
+            // All notifications may live in dedicated sections, leaving the
+            // inbox section empty; keep mark-all reachable in that case.
+            showMarkAll: notifCount === 0 && visibleNotificationItems.length > 0,
+            markAllArmed: indicator._markAllArmed,
+            onMarkAll: () => indicator._markAllRead(),
             isPaused: indicator._paused,
             onPauseToggle: () => indicator._togglePause(),
             onRefresh: () => indicator._refreshNow(),

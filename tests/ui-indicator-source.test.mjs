@@ -21,14 +21,21 @@ test('notifications are split into dedicated sections with preview/expand', () =
         assert.match(extensionSource, new RegExp(`this\\._${key}Expanded = false`));
 });
 
-test('mark all read stays available when every notification is in a dedicated section', () => {
-    assert.match(source, /if \(visibleNotificationItems\.length > 0\) \{[\s\S]*?showMarkAll: true/);
+test('mark all read moves to the global footer when the inbox section is empty', () => {
+    assert.match(source, /showMarkAll: notifCount === 0 && visibleNotificationItems\.length > 0/);
+    assert.match(source, /markAllArmed: indicator\._markAllArmed,\s*onMarkAll: \(\) => indicator\._markAllRead\(\),\s*isPaused: indicator\._paused/);
+});
+
+test('the inbox section hides itself when it has no items', () => {
+    assert.match(source, /if \(notifCount > 0\) \{\s*indicator\._addSectionHeader\(indicator\._notifSection, 'Mentions & Other'/);
+    assert.match(source, /\}\s*else if \(indicator\._notificationSearchQuery\.trim\(\) && visibleNotificationItems\.length === 0\)/);
+    assert.match(source, /\}\s*else if \(!hasAny\) \{\s*indicator\._addEmpty\(indicator\._notifSection, getNotificationEmptyState/);
 });
 
 test('section headers use distinct icons and variants so issues and stars read as separate sections', () => {
     assert.match(source, /export function addSectionHeader\(section, title, count, iconName, variant\)/);
     assert.match(source, /github-notifier-section-icon-\$\{variant\}/);
-    assert.match(source, /_addSectionHeader\(indicator\._notifSection, 'Unread Notifications', notifCount, 'mail-unread-symbolic', 'notifications'\)/);
+    assert.match(source, /_addSectionHeader\(indicator\._notifSection, 'Mentions & Other', notifCount, 'mail-unread-symbolic', 'notifications'\)/);
     assert.match(source, /_addSectionHeader\(indicator\._issuesSection, 'New Issues & Pull Requests', issuePrItems\.length, 'chat-message-new-symbolic', 'issues'\)/);
     assert.match(source, /_addSectionHeader\(indicator\._starsSection, 'New Stars', starItems\.length, 'starred-symbolic', 'stars'\)/);
     assert.match(stylesheet, /\.github-notifier-section-icon\s*\{[^}]*icon-size:\s*14px/);
