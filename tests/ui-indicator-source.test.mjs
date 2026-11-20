@@ -11,7 +11,7 @@ test('menu content is wrapped in a capped scroll view', () => {
     assert.match(source, /new St\.ScrollView\(\{/);
     assert.match(source, /vscrollbar_policy: St\.PolicyType\.AUTOMATIC/);
     assert.match(source, /hscrollbar_policy: St\.PolicyType\.NEVER/);
-    assert.match(source, /bin\.remove_child\(box\);\s*scroll\.add_child\(box\);\s*bin\.set_child\(scroll\);/);
+    assert.match(source, /bin\.remove_child\(box\);\s*const scroll = new St\.ScrollView\(\{[\s\S]*?child: box,[\s\S]*?x_expand: true,[\s\S]*?y_expand: true,[\s\S]*?\}\);\s*bin\.set_child\(scroll\);/);
     assert.match(source, /wrapMenuContentInScrollView\(indicator\);/);
     assert.match(stylesheet, /\.github-notifier-menu-scroll\s*\{\s*max-height:\s*640px/);
 });

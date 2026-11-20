@@ -507,16 +507,16 @@ export function wrapMenuContentInScrollView(indicator) {
                 const box = indicator.menu.box;
                 if (!bin || !box || box.get_parent() !== bin)
                         return;
+                bin.remove_child(box);
                 const scroll = new St.ScrollView({
                         style_class: 'github-notifier-menu-scroll',
-                        x_fill: true,
-                        y_fill: true,
+                        child: box,
+                        x_expand: true,
+                        y_expand: true,
+                        clip_to_allocation: true,
                         hscrollbar_policy: St.PolicyType.NEVER,
                         vscrollbar_policy: St.PolicyType.AUTOMATIC,
                 });
-                scroll.clip_to_allocation = true;
-                bin.remove_child(box);
-                scroll.add_child(box);
                 bin.set_child(scroll);
                 indicator._menuScrollView = scroll;
         } catch (e) {
