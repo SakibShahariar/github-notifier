@@ -3,6 +3,9 @@
     min-width: 360px;
     max-width: 420px;
 }
+.github-notifier-menu-scroll {
+    max-height: 640px;
+}
 
 /* --- top bar badge and icon --- */
 .github-notifier-label {

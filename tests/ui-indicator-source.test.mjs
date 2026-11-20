@@ -6,6 +6,16 @@ const source = await readFile(new URL('../ui-indicator.js', import.meta.url), 'u
 const extensionSource = await readFile(new URL('../extension.js', import.meta.url), 'utf8');
 const stylesheet = await readFile(new URL('../stylesheet.css', import.meta.url), 'utf8');
 
+test('menu content is wrapped in a capped scroll view', () => {
+    assert.match(source, /export function wrapMenuContentInScrollView\(indicator\)/);
+    assert.match(source, /new St\.ScrollView\(\{/);
+    assert.match(source, /vscrollbar_policy: St\.PolicyType\.AUTOMATIC/);
+    assert.match(source, /hscrollbar_policy: St\.PolicyType\.NEVER/);
+    assert.match(source, /bin\.remove_child\(box\);\s*scroll\.add_child\(box\);\s*bin\.set_child\(scroll\);/);
+    assert.match(source, /wrapMenuContentInScrollView\(indicator\);/);
+    assert.match(stylesheet, /\.github-notifier-menu-scroll\s*\{\s*max-height:\s*640px/);
+});
+
 test('notifications are split into dedicated sections with preview/expand', () => {
     assert.match(source, /import \{[^}]*getNotificationSection[^}]*\} from '\.\/repo-utils\.js'/);
     assert.match(source, /notificationSections\[getNotificationSection\(item\)\]\.push\(item\)/);

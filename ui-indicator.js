@@ -499,6 +499,31 @@ export function addRow(indicator, section, item) {
         // its painted bounds beyond the popup edge on hover.
     }
 
+// Wrap the menu content in a capped scroll view so a fully populated menu stays
+// reachable on shorter screens. GNOME Shell does not scroll top-level menus.
+export function wrapMenuContentInScrollView(indicator) {
+        try {
+                const bin = indicator.menu._boxPointer?.bin;
+                const box = indicator.menu.box;
+                if (!bin || !box || box.get_parent() !== bin)
+                        return;
+                const scroll = new St.ScrollView({
+                        style_class: 'github-notifier-menu-scroll',
+                        x_fill: true,
+                        y_fill: true,
+                        hscrollbar_policy: St.PolicyType.NEVER,
+                        vscrollbar_policy: St.PolicyType.AUTOMATIC,
+                });
+                scroll.clip_to_allocation = true;
+                bin.remove_child(box);
+                scroll.add_child(box);
+                bin.set_child(scroll);
+                indicator._menuScrollView = scroll;
+        } catch (e) {
+                logError(e, 'github-notifier: menu scroll wrapper failed');
+        }
+}
+
 // Construct the menu's stable skeleton and keep it owned by the indicator.
 export function buildMenuSkeleton(indicator) {
         // --- hero ---
@@ -639,6 +664,7 @@ export function buildMenuSkeleton(indicator) {
 
         indicator._updateHero();
         indicator._updateDailyStatsItem();
+        wrapMenuContentInScrollView(indicator);
     }
 
 export function updateRateFooter(indicator) {
