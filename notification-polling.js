@@ -1,3 +1,5 @@
+import {notificationSubjectNumber} from './repo-utils.js';
+
 function isValidEtag(value) {
     return typeof value === 'string' &&
         value.length <= 512 &&
@@ -93,6 +95,10 @@ export async function pollNotifications(indicator, state, maxPages = 3) {
                 isNewToast: !isInitialBaseline && !toasted.has(rawId),
                 reasonLabel: kind,
                 subjectType,
+                // Fields already in the notification payload, kept for the
+                // opt-in details view. No extra API request is made.
+                detailNumber: notificationSubjectNumber(subject.url),
+                detailSubjectType: subjectType,
             });
             toasted.add(rawId);
         }

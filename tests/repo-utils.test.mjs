@@ -6,7 +6,7 @@ import test from 'node:test';
 // change that could affect GNOME Shell's extension module loading.
 const helperSource = await readFile(new URL('../repo-utils.js', import.meta.url), 'utf8');
 const helperUrl = `data:text/javascript;base64,${Buffer.from(helperSource).toString('base64')}`;
-const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationSection, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, deduplicateActivityItems, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
+const {createNotificationSummary, getNextPageUrl, getApiBase, getApiPathFromAbsoluteUrl, getDailyStatsTotals, getGitHubCliArguments, getNotificationCategory, getNotificationSection, notificationSubjectNumber, buildItemDetails, isSafeHttpsUrl, isSafeWebUrl, getNotificationIconName, encodeRepositoryPath, truncateText, filterNotificationsByQuery, deduplicateActivityItems, filterVisibleActivityItems, filterVisibleNotificationItems, getStatusAction, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getNotificationEmptyState, getIdlePollInterval, formatLocalDateKey, getWebBase, getSubjectHtmlUrl, isRepositoryMuted, isValidClockTime, parseRateLimitResetEpoch, parseRetryAfterEpoch, parseGitHubPollInterval, isValidRepository, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, deduplicateRepositoryEntries, shouldSuppressDesktopNotifications, updateDailyStats} = await import(helperUrl);
 
 test('accepts ordinary GitHub owner/repository names', () => {
     for (const value of [
@@ -82,6 +82,39 @@ test('notification sections group categories without changing filter categories'
     ];
     for (const [item, expected] of cases)
         assert.equal(getNotificationSection(item), expected, JSON.stringify(item));
+});
+
+test('extracts issue/PR numbers only from API subject URLs', () => {
+    assert.equal(notificationSubjectNumber('https://api.github.com/repos/owner/repo/issues/123'), 123);
+    assert.equal(notificationSubjectNumber('https://api.github.com/repos/owner/repo/pulls/7?x=1'), 7);
+    assert.equal(notificationSubjectNumber('https://api.github.com/repos/owner/repo/issues/abc'), null);
+    assert.equal(notificationSubjectNumber('Fix issue 123 in the title'), null);
+    assert.equal(notificationSubjectNumber(undefined), null);
+});
+
+test('builds details from actual payload fields and reports missing metadata honestly', () => {
+    const issue = buildItemDetails({
+        kind: 'issue', subtitle: 'owner/repo', detailNumber: 42,
+        detailAuthor: 'alice', detailState: 'open', detailLabels: ['bug', 'help wanted'],
+    });
+    assert.deepEqual(issue.fields.map(f => f.label), ['Repository', 'Number', 'Author', 'State', 'Labels']);
+    assert.equal(issue.fields.find(f => f.label === 'Number').value, '#42');
+    assert.equal(issue.fields.find(f => f.label === 'Labels').value, 'bug, help wanted');
+    assert.deepEqual(issue.unavailable, []);
+
+    const notification = buildItemDetails({
+        kind: 'notification', subtitle: 'owner/repo',
+        detailNumber: 7, detailSubjectType: 'PullRequest',
+    });
+    assert.deepEqual(notification.fields.map(f => f.label), ['Repository', 'Number', 'Type']);
+    assert.deepEqual(notification.unavailable, ['author', 'state', 'labels']);
+
+    // Star events have no author/state/labels, so none are reported missing.
+    const star = buildItemDetails({kind: 'star', subtitle: 'owner/repo', detailDescription: 'A repo'});
+    assert.deepEqual(star.fields.map(f => f.label), ['Repository', 'About']);
+    assert.deepEqual(star.unavailable, []);
+
+    assert.deepEqual(buildItemDetails(null), {fields: [], unavailable: []});
 });
 
 test('parses and normalizes a comma-separated muted repository list', () => {

@@ -347,3 +347,34 @@ test('star polling drops malformed ETags from full responses', async () => {
     assert.deepEqual(await pollRepoStars(indicator, repo, state, []), []);
     assert.equal(state.repos[repo].starsEtag, null);
 });
+
+test('issue polling keeps author, state and labels from the existing payload', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo/issues?state=all&sort=created&direction=desc&per_page=20': [{
+            number: 31,
+            title: 'A bug',
+            html_url: 'https://github.com/owner/repo/issues/31',
+            created_at: '2026-10-23T00:00:00Z',
+            state: 'open',
+            user: {login: 'alice'},
+            labels: [{name: 'bug'}, {name: 'triage'}],
+        }],
+    });
+    const items = await pollRepoIssues(indicator, repo, {repos: {[repo]: {lastIssueNumber: 30}}}, []);
+    assert.equal(items[0].detailNumber, 31);
+    assert.equal(items[0].detailAuthor, 'alice');
+    assert.equal(items[0].detailState, 'open');
+    assert.deepEqual(items[0].detailLabels, ['bug', 'triage']);
+    assert.equal(indicator.calls.length, 1);
+});
+
+test('star polling keeps the total count and repository description without extra requests', async () => {
+    const repo = 'owner/repo';
+    const indicator = indicatorWithResponses({
+        '/repos/owner/repo': {stargazers_count: 142, description: 'A useful tool'},
+    });
+    const items = await pollRepoStars(indicator, repo, {repos: {[repo]: {stars: 140}}}, []);
+    assert.equal(items[0].detailDescription, 'A useful tool');
+    assert.equal(indicator.calls.length, 1);
+});

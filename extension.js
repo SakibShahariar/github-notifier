@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
-import {getApiBase, getApiPathFromAbsoluteUrl, getNextPageUrl, getNotificationCategory, getNotificationIconName, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
+import {buildItemDetails, getApiBase, getApiPathFromAbsoluteUrl, getNextPageUrl, getNotificationCategory, getNotificationIconName, filterNotificationsByQuery, filterVisibleActivityItems, filterVisibleNotificationItems, formatRelativeTime, getItemDetail, getNotificationReasonLabel, getWebBase, getSubjectHtmlUrl, formatLocalDateKey, encodeRepositoryPath, truncateText, isRepositoryMuted, setRepositoryMembership, isWithinQuietHours, parseRepositoryList, shouldSuppressDesktopNotifications} from './repo-utils.js';
 import {connectSettingsSignals} from './settings-controller.js';
 import {cleanupIndicator, scheduleInitialPoll, setupNetworkRecovery} from './indicator-lifecycle.js';
 import {apiRequest, buildMessage, sendOnce} from './api.js';
@@ -86,6 +86,8 @@ class Indicator extends PanelMenu.Button {
         this._notificationsPage = 0;
         this._notificationSearchQuery = '';
         this._issuesExpanded = false;
+        // Ids of rows whose opt-in details panel is open.
+        this._expandedDetailIds = new Set();
         this._conversationExpanded = false;
         this._actionExpanded = false;
         this._checksExpanded = false;
@@ -204,6 +206,10 @@ class Indicator extends PanelMenu.Button {
     }
     _detailForItem(item) {
         return getItemDetail(item, this._relativeTime(item.ts));
+    }
+
+    _buildItemDetails(item) {
+        return buildItemDetails(item);
     }
 
     _localDateKey(date = new Date()) {

@@ -56,6 +56,14 @@ export async function pollRepoIssues(indicator, repo, state, baselineNotes) {
                     url: issue.html_url,
                     kind: isPR ? 'pr' : 'issue',
                     ts: issue.created_at,
+                    // Metadata already present in the /issues response,
+                    // retained for the opt-in details view. No extra requests.
+                    detailNumber: Number.isSafeInteger(issue.number) ? issue.number : null,
+                    detailAuthor: typeof issue.user?.login === 'string' ? issue.user.login : '',
+                    detailState: typeof issue.state === 'string' ? issue.state : '',
+                    detailLabels: Array.isArray(issue.labels)
+                        ? issue.labels.map(label => typeof label?.name === 'string' ? label.name : '').filter(Boolean)
+                        : [],
                 });
             }
             if (issue.number > maxId)
@@ -133,6 +141,13 @@ export async function pollRepoStars(indicator, repo, state, baselineNotes) {
                 url: `${indicator._webBase()}/${repo}/stargazers`,
                 kind: 'star',
                 ts: new Date().toISOString(),
+                // Star items already know the total count from /repos; no
+                // extra request for the details view.
+                detailNumber: null,
+                detailAuthor: '',
+                detailState: '',
+                detailLabels: [],
+                detailDescription: typeof data.description === 'string' ? data.description : '',
             });
         }
 

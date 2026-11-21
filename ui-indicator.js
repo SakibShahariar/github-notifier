@@ -370,10 +370,77 @@ export function addRow(indicator, section, item) {
         textBox.add_child(detailLabel);
         rowBox.add_child(textBox);
 
-        // combine row and read-strip in single container (PopupBaseMenuItem is a Bin)
-        const container = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
-        container.add_child(rowBox);
+        // Combine row and read-strip in a horizontal row, with optional opt-in
+        // details below it (PopupBaseMenuItem is a Bin).
+        const container = new St.BoxLayout({orientation: Clutter.Orientation.VERTICAL, x_expand: true});
+        const rowRow = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
+        rowRow.add_child(rowBox);
         const strip = new St.BoxLayout({style_class: 'github-notifier-read-strip', y_align: Clutter.ActorAlign.CENTER});
+
+        // Opt-in details from data already fetched with this row. No API call.
+        const details = indicator._buildItemDetails(item);
+        let detailsBox = null;
+        if (details.fields.length > 0) {
+            const detailId = String(item.id ?? '');
+            let expanded = indicator._expandedDetailIds.has(detailId);
+            detailsBox = new St.BoxLayout({
+                orientation: Clutter.Orientation.VERTICAL,
+                style_class: 'github-notifier-row-details',
+                x_expand: true,
+            });
+            for (const field of details.fields) {
+                const line = new St.Label({
+                    text: indicator._truncate(`${field.label}: ${field.value}`, 72),
+                    style_class: 'github-notifier-row-detail github-notifier-row-details-line',
+                    x_expand: true,
+                });
+                line.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+                detailsBox.add_child(line);
+            }
+            if (details.unavailable.length > 0) {
+                const note = new St.Label({
+                    text: indicator._truncate(
+                        `Not in notification data: ${details.unavailable.join(', ')}`, 72),
+                    style_class: 'github-notifier-row-detail github-notifier-row-details-note',
+                    x_expand: true,
+                });
+                note.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+                detailsBox.add_child(note);
+            }
+            detailsBox.visible = expanded;
+
+            const detailsIcon = new St.Icon({
+                icon_name: 'dialog-information-symbolic',
+                icon_size: 16,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            const detailsButton = new St.Button({
+                style_class: 'github-notifier-read-button github-notifier-details-button',
+                can_focus: true,
+                child: detailsIcon,
+            });
+            detailsButton.set_style(`color: ${secondaryColor}; width: 24px; height: 24px;`);
+            const updateDetailsButton = () => {
+                const label = expanded ? 'Hide details' : 'Show details';
+                detailsButton.accessible_name = label;
+                indicator._setTooltip(detailsButton, label);
+            };
+            updateDetailsButton();
+            detailsButton.connect('clicked', () => {
+                expanded = !expanded;
+                if (detailId) {
+                    if (expanded)
+                        indicator._expandedDetailIds.add(detailId);
+                    else
+                        indicator._expandedDetailIds.delete(detailId);
+                }
+                detailsBox.visible = expanded;
+                updateDetailsButton();
+                return Clutter.EVENT_STOP;
+            });
+            strip.add_child(detailsButton);
+        }
         // Inbox and activity rows carry owner/repo in subtitle. Only show
         // repository actions when that value passes the shared validator; the
         // synthetic "more notifications" row has a URL here and is excluded.
@@ -484,7 +551,10 @@ export function addRow(indicator, section, item) {
             return Clutter.EVENT_STOP;
         });
         strip.add_child(btn);
-        container.add_child(strip);
+        rowRow.add_child(strip);
+        container.add_child(rowRow);
+        if (detailsBox)
+            container.add_child(detailsBox);
         menuItem.add_child(container);
 
         section.addMenuItem(menuItem);

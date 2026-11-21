@@ -298,3 +298,28 @@ test('drops malformed ETags and clears stale validators missing from a full resp
     assert.deepEqual(indicator.calls[0].options.headers, {});
     assert.equal(state.notificationsEtag, null);
 });
+
+test('inbox polling keeps subject metadata for opt-in details without extra requests', async () => {
+    const indicator = makeIndicator({
+        [inboxPath]: {
+            data: [{
+                id: 789,
+                reason: 'review_requested',
+                subject: {
+                    type: 'PullRequest',
+                    title: 'Review me',
+                    url: 'https://api.github.com/repos/owner/repo/pulls/789',
+                },
+                repository: {full_name: 'owner/repo'},
+                updated_at: '2026-10-23T00:00:00Z',
+            }],
+            linkHeader: null,
+            lastModified: null,
+            notModified: false,
+        },
+    });
+    const items = await pollNotifications(indicator, {});
+    assert.equal(items[0].detailNumber, 789);
+    assert.equal(items[0].detailSubjectType, 'PullRequest');
+    assert.deepEqual(indicator.calls.map(c => c.path), [inboxPath]);
+});

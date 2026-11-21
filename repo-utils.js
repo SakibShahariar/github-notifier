@@ -452,6 +452,68 @@ export function getItemDetail(item, relativeTime = '') {
 }
 
 
+/**
+ * Extract an issue/PR number from a GitHub notification subject API URL.
+ * Numbers are only reported when they come from an actual API-provided URL;
+ * notification text is never parsed or guessed.
+ */
+export function notificationSubjectNumber(subjectUrl) {
+    if (typeof subjectUrl !== 'string')
+        return null;
+    const match = subjectUrl.match(/\/repos\/[^/]+\/[^/]+\/(?:issues|pulls)\/(\d{1,10})(?:\?|$)/);
+    return match ? Number(match[1]) : null;
+}
+
+
+/**
+ * Build opt-in expanded details from fields GitHub already returned in the
+ * payload that produced the row. This makes no network request and never
+ * infers metadata from notification text. Returns {fields, unavailable} where
+ * fields are {label, value} pairs and unavailable names fields the source API
+ * does not provide, so the UI can say so instead of guessing.
+ */
+export function buildItemDetails(item) {
+    if (!item || typeof item !== 'object')
+        return {fields: [], unavailable: []};
+    const fields = [];
+    const unavailable = [];
+    const add = (label, value) => {
+        if (typeof value === 'string' && value.trim())
+            fields.push({label, value: value.trim()});
+    };
+
+    if (typeof item.subtitle === 'string' && isValidRepository(item.subtitle.trim()))
+        add('Repository', item.subtitle.trim());
+    if (Number.isSafeInteger(item.detailNumber) && item.detailNumber > 0)
+        add('Number', `#${item.detailNumber}`);
+    if (typeof item.detailSubjectType === 'string' && item.detailSubjectType.trim())
+        add('Type', item.detailSubjectType.trim());
+    add('Author', item.detailAuthor);
+    add('State', item.detailState);
+    if (Array.isArray(item.detailLabels) && item.detailLabels.length) {
+        const labels = item.detailLabels.filter(v => typeof v === 'string' && v.trim());
+        if (labels.length)
+            add('Labels', labels.join(', '));
+    }
+    if (typeof item.detailDescription === 'string' && item.detailDescription.trim())
+        add('About', item.detailDescription);
+
+    // The notifications API does not include issue/PR author, state or labels.
+    // Say so explicitly rather than leaving users to assume they are empty.
+    // Star events have no such fields, so do not report them as missing there.
+    if (item.kind === 'notification' || item.kind === 'issue' || item.kind === 'pr') {
+        if (!item.detailAuthor)
+            unavailable.push('author');
+        if (!item.detailState)
+            unavailable.push('state');
+        if (!Array.isArray(item.detailLabels) || item.detailLabels.length === 0)
+            unavailable.push('labels');
+    }
+
+    return {fields, unavailable};
+}
+
+
 /** Map GitHub notification reasons and subject types to concise display labels. */
 export function getNotificationReasonLabel(reason, subjectType) {
     const typeLabels = {

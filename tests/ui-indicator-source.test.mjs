@@ -193,3 +193,20 @@ test('row action strip sizes to its actions and keeps a right inset', () => {
 test('base stylesheet has no dangling hover selector commas', () => {
     assert.doesNotMatch(stylesheet, /:\s*(?:hover|focus|selected|insensitive),\s*(?:\/\*|\n\s*\})/);
 });
+
+test('rows expose opt-in details from fetched data with an accessible toggle', () => {
+    assert.match(source, /const details = indicator\._buildItemDetails\(item\);/);
+    assert.match(source, /style_class: 'github-notifier-row-details'/);
+    assert.match(source, /icon_name: 'dialog-information-symbolic'/);
+    assert.match(source, /style_class: 'github-notifier-read-button github-notifier-details-button'/);
+    assert.match(source, /detailsButton\.accessible_name = label;/);
+    assert.match(source, /indicator\._expandedDetailIds\.has\(detailId\)/);
+    assert.match(source, /detailsBox\.visible = expanded;/);
+    assert.match(source, /Not in notification data:/);
+    assert.match(stylesheet, /\.github-notifier-row-details\s*\{/);
+});
+
+test('expanded detail ids are tracked on the indicator without mutating GitHub', () => {
+    assert.match(extensionSource, /this\._expandedDetailIds = new Set\(\)/);
+    assert.match(extensionSource, /_buildItemDetails\(item\) \{\s*return buildItemDetails\(item\);\s*\}/);
+});

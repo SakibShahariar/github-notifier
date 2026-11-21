@@ -96,6 +96,10 @@ Enable **Pause polling during quiet hours** to avoid API requests during that in
 
 Changing a filter does not permanently discard inbox items.
 
+### Row details
+
+Each notification or activity row can show an opt-in details panel via the **Show details** button (info icon) in the row's action strip. It displays metadata GitHub already returned when the row was fetched — repository, issue/PR number, author, state, labels, or a star/README description where available. It never infers values from notification text and makes no additional API requests. Fields the notifications API does not provide (author, state, labels) are called out as unavailable rather than shown as empty. Details reflect the data from the last poll, not live state; open the item on GitHub for current information. The expanded state is local to the running session and does not alter anything on GitHub.
+
 ### GitHub CLI integration
 
 When `gh` and a supported terminal (`kgx`, Ptyxis, GNOME Terminal, or `x-terminal-emulator`) are available, issue and pull-request rows offer an action that runs `gh issue view` or `gh pr view` in a new terminal. Authenticate the CLI separately with `gh auth login`. Browser opening remains available, and the CLI action is omitted when a dependency or issue/PR number is unavailable.
