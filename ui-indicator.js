@@ -509,7 +509,11 @@ export function wrapMenuContentInScrollView(indicator) {
                         return;
                 bin.remove_child(box);
                 const scroll = new St.ScrollView({
-                        style_class: 'github-notifier-menu-scroll',
+                        // bms-popup-blur-target opts this surface into
+                        // blur-my-shell. Without it, the blur only covers the
+                        // menu's initial size and newly revealed rows (e.g.
+                        // after "Show all") appear without the background blur.
+                        style_class: 'github-notifier-menu-scroll bms-popup-blur-target',
                         child: box,
                         x_expand: true,
                         y_expand: true,
