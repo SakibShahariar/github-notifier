@@ -76,7 +76,7 @@ Quiet hours suppress desktop alerts without hiding the inbox or stopping its bad
 ## Documentation and help
 
 - **[User guide](docs/user-guide.md)** — detailed setup, token permissions, preferences, quiet hours, notification categories, integrations, and troubleshooting.
-- **[Token storage security model](docs/security-model.md)** — how credentials are stored, migrated, and recovered.
+- **[Security and data-handling model](docs/security-model.md)** — token storage, API endpoints, local data, and threat model.
 - **[Contributing](CONTRIBUTING.md)** — development and commit conventions.
 - **[Issues and feature requests](https://github.com/SakibShahariar/github-notifier/issues)** — report a problem or suggest an improvement.
 

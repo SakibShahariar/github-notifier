@@ -23,10 +23,14 @@ This guide covers setup, permissions, settings, optional integrations, and commo
 
 ## Requirements and installation notes
 
-- GNOME Shell **45–51**.
+- GNOME Shell **45–51**. These are the versions declared in `metadata.json`; the code targets Shell 51 APIs with compatibility paths for earlier releases.
 - A GitHub personal access token for inbox access.
 - A Secret Service provider (usually GNOME Keyring) and the `Secret-1.0` GObject introspection namespace for protected token storage.
 - An internet connection.
+
+**Session type:** the extension uses only GNOME Shell's public JavaScript APIs and has no X11-specific dependencies, so it is expected to work on both Wayland and X11 sessions. Development and validation have been performed on a Wayland session. On Wayland, a Shell restart means logging out and back in; on X11 it can be done with **Alt+F2**, `r`.
+
+**Installation sources:** only installation from source is currently documented below. No release archive or listing on extensions.gnome.org is available yet; those will be documented here when published (see #65).
 
 After installing, open preferences from the panel menu or run:
 
@@ -106,12 +110,26 @@ The key is in schema `org.gnome.shell.extensions.github-notifier` at `/org/gnome
 
 Set **API host** to your Enterprise host and any required path prefix. Browser-link conversion preserves the configured path prefix and removes the API `/api/v3` suffix. URL helpers have automated coverage for issues, discussions, pull requests, commits, releases, and workflow links; verify links with your own proxy layout if it differs from the usual format.
 
+## Desktop state read and personal data
+
+At runtime the extension reads only:
+
+- **Network status:** connectivity (`Gio.NetworkMonitor`) and whether the connection is metered, to pause automatic polling when appropriate.
+- **Do Not Disturb:** the `org.gnome.desktop.notifications show-banners` setting, to suppress desktop alerts. The extension never changes it.
+- **Motion and theme settings:** GNOME's reduced-motion / animation settings, the active system theme, and an optional local Matugen palette at `~/.config/matugen/matugen-colors.css`.
+- **Local time:** for quiet-hours windows and relative timestamps.
+- **`gh` CLI availability:** to decide whether to show the optional issue/PR terminal action.
+
+Personal data stored locally is limited to the credential and the caches described in [Data stored locally](security-model.md#data-stored-locally). No notification content, repository data, or credential is sent anywhere except the configured GitHub API host.
+
 ## Troubleshooting
 
-- **No notifications:** Check the token and its permissions.
+- **No notifications:** Check the token and its permissions, and that **Unread notifications** is enabled and no category filter is turned off. Muted repositories are hidden from the inbox.
 - **Repository watching fails:** Confirm each repository uses `owner/repo` and the token can access it.
-- **Rate-limit errors:** Increase the polling interval or wait for the applicable limit to reset.
-- **Connection errors:** Check that the network is fully connected.
+- **Rate-limit errors:** Increase the polling interval or wait for the applicable limit to reset. The panel banner shows the approximate retry time.
+- **Connection errors:** Check that the network is fully connected. Automatic polling pauses on metered or limited connections; use **Refresh** to override that once.
+- **Indicator icon or count looks wrong / menu does not appear:** the icon and count are theme-aware and may look dim when there is nothing unread (especially with **Keep icon unlit** or **Hide when empty** enabled). If the panel item is missing after an update, restart GNOME Shell — log out and back in on Wayland, or **Alt+F2**, `r` on X11 — since the shell caches extension modules.
+- **GNOME version mismatch:** check `gnome-shell --version` against the supported range (45–51 in `metadata.json`). Extensions may be disabled automatically after a Shell upgrade until you re-enable them with `gnome-extensions enable github-notifier@SakibShahariar`.
 - **GNOME Shell logs:** `journalctl -f /usr/bin/gnome-shell`
 - **Looking Glass:** On X11, press **Alt+F2** and enter `lg`.
 
