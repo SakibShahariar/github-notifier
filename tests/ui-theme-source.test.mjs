@@ -40,3 +40,8 @@ test('base stylesheet inherits GNOME Shell colors when Matugen is unavailable', 
     assert.match(stylesheet, /\.github-notifier-banner-error\s*\{[^}]*font-weight:\s*600/);
     assert.match(stylesheet, /\.github-notifier-glyph\.urgent/);
 });
+
+test('hero icon uses on_primary_container for readable contrast on primary_container', () => {
+    assert.match(source, /\.github-notifier-hero-icon \{ color: \$\{c\.on_primary_container\}; \}/);
+    assert.doesNotMatch(source, /\.github-notifier-hero-icon \{ color: \$\{c\.on_primary\}; \}/);
+});

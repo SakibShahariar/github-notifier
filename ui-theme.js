@@ -64,7 +64,7 @@ export function loadMatugenColors() {
 export function buildMatugenCss(c) {
     return `
 .github-notifier-hero { background-color: ${c.primary_container}; border-color: transparent; }
-.github-notifier-hero-icon { color: ${c.on_primary}; }
+.github-notifier-hero-icon { color: ${c.on_primary_container}; }
 .github-notifier-hero-title { color: ${c.on_primary_container}; }
 .github-notifier-hero-meta { color: ${hexToRgba(c.on_primary_container, 0.75)}; }
 .github-notifier-hero-gear { color: ${c.on_primary_container}; }
