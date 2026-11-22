@@ -151,6 +151,9 @@ GitHub Actions runs source-level validation on pushes to `main`, including JavaS
 
 These checks do **not** replace testing in a real GNOME Shell session; runtime behavior and compatibility still need verification there. Polling is non-overlapping, with up to three watched repositories checked concurrently. Inbox and watched-repository requests use conditional validators where supported, and repeated unchanged successful polls gradually back off (without shortening the configured interval or GitHub's retry guidance).
 
-A standalone benchmark for the concurrent repository pool is available at `tests/benchmark-parallel-polling.mjs` (`node tests/benchmark-parallel-polling.mjs`). It uses simulated network latency so it needs no credentials. It is not part of CI.
+Two standalone benchmarks for the concurrent repository pool are available (neither runs in CI):
+
+- `tests/benchmark-parallel-polling.mjs` (`node tests/benchmark-parallel-polling.mjs`) uses simulated latency and needs no credentials.
+- `tests/benchmark-live-github.mjs` (`gjs --module tests/benchmark-live-github.mjs`) issues real read-only GETs to public repositories through the same `runBoundedWorkers()` scheduler. It requires the saved token in Secret Service and compares a 3-repo and 30-repo watch list, serial vs the 3-worker pool. It is bound by GitHub's rate limit (a full run uses well under 200 of the 5000 available requests).
 
 For contribution workflow and commit conventions, see [CONTRIBUTING.md](../CONTRIBUTING.md).
