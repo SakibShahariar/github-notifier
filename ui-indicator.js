@@ -8,7 +8,10 @@ import {getDailyStatsTotals, getNotificationSection, getNotificationEmptyState, 
 
 // Small menu primitives kept separate from the indicator's stateful rendering.
 export function addSectionHeader(section, title, count, iconName, variant) {
-    const headerItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+    const headerItem = new PopupMenu.PopupBaseMenuItem({
+        reactive: false, can_focus: false,
+        style_class: 'github-notifier-section-header-item',
+    });
     const box = new St.BoxLayout({x_expand: true, y_align: Clutter.ActorAlign.CENTER});
     if (iconName) {
         box.add_child(new St.Icon({
@@ -25,7 +28,10 @@ export function addSectionHeader(section, title, count, iconName, variant) {
 }
 
 export function addSeparator(section) {
-    const sepItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+    const sepItem = new PopupMenu.PopupBaseMenuItem({
+        reactive: false, can_focus: false,
+        style_class: 'github-notifier-separator-item',
+    });
     const sep = new St.Widget({style_class: 'github-notifier-separator', x_expand: true});
     sepItem.add_child(sep);
     section.addMenuItem(sepItem);
@@ -692,7 +698,10 @@ export function buildMenuSkeleton(indicator) {
         indicator.menu.addMenuItem(indicator._repositoryUndoItem);
 
         // Search cached inbox notifications without triggering extra API requests.
-        const searchItem = new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false});
+        const searchItem = new PopupMenu.PopupBaseMenuItem({
+            reactive: false, can_focus: false,
+            style_class: 'github-notifier-search-item',
+        });
         indicator._notificationSearchEntry = new St.Entry({
             style_class: 'github-notifier-search',
             hint_text: 'Search notifications…',

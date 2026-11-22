@@ -55,6 +55,10 @@
     border-radius: 99px;
 }
 
+.github-notifier-search-item {
+    padding: 4px 8px 6px 8px;
+}
+
 /* --- tooltips --- */
 .github-notifier-tooltip {
     border-radius: 8px;
@@ -91,21 +95,32 @@
 }
 
 /* --- section header --- */
+/* PopupBaseMenuItem inherits the theme's 9px 12px padding. Zero it so our
+   own spacing is the only spacing; otherwise each header/separator stacks
+   the theme padding on top and leaves large gaps between sections. */
+.github-notifier-section-header-item {
+    padding: 0;
+    margin: 0;
+}
 .github-notifier-section-header {
     font-weight: 600;
     font-size: 0.85em;
     letter-spacing: 0;
-    padding: 10px 16px 4px 16px;
+    padding: 12px 16px 4px 16px;
 }
 .github-notifier-section-icon {
     icon-size: 14px;
     margin-right: 4px;
     opacity: 0.8;
 }
+.github-notifier-separator-item {
+    padding: 0;
+    margin: 0;
+}
 .github-notifier-separator {
     height: 1px;
     opacity: 1;
-    margin: 4px 8px;
+    margin: 6px 16px;
 }
 
 /* --- notification rows --- */

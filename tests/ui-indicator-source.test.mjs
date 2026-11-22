@@ -210,3 +210,11 @@ test('expanded detail ids are tracked on the indicator without mutating GitHub',
     assert.match(extensionSource, /this\._expandedDetailIds = new Set\(\)/);
     assert.match(extensionSource, /_buildItemDetails\(item\) \{\s*return buildItemDetails\(item\);\s*\}/);
 });
+
+test('section headers, separators and search zero out inherited theme padding', () => {
+    assert.match(source, /style_class: 'github-notifier-section-header-item'/);
+    assert.match(source, /style_class: 'github-notifier-separator-item'/);
+    assert.match(source, /style_class: 'github-notifier-search-item'/);
+    assert.match(stylesheet, /\.github-notifier-section-header-item\s*\{[^}]*padding:\s*0/);
+    assert.match(stylesheet, /\.github-notifier-separator-item\s*\{[^}]*padding:\s*0/);
+});
