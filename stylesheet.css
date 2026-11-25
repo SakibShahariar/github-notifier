@@ -6,6 +6,9 @@
 .github-notifier-menu-scroll {
     max-height: 640px;
 }
+.github-notifier-pinned-footer {
+    padding: 0 6px 6px 6px;
+}
 
 /* --- top bar badge and icon --- */
 .github-notifier-label {
