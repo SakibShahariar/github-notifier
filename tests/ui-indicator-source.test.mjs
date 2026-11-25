@@ -11,7 +11,8 @@ test('menu content is wrapped in a capped scroll view', () => {
     assert.match(source, /new St\.ScrollView\(\{/);
     assert.match(source, /vscrollbar_policy: St\.PolicyType\.AUTOMATIC/);
     assert.match(source, /hscrollbar_policy: St\.PolicyType\.NEVER/);
-    assert.match(source, /bin\.remove_child\(box\);\s*const scroll = new St\.ScrollView\(\{[\s\S]*?style_class: 'github-notifier-menu-scroll bms-popup-blur-target',[\s\S]*?child: box,[\s\S]*?x_expand: true,[\s\S]*?y_expand: true,[\s\S]*?\}\);\s*bin\.set_child\(scroll\);/);
+    assert.match(source, /bin\.remove_child\(box\);\s*const scroll = new St\.ScrollView\(\{[\s\S]*?style_class: 'github-notifier-menu-scroll bms-popup-blur-target',[\s\S]*?child: box,[\s\S]*?x_expand: true,[\s\S]*?y_expand: true,[\s\S]*?\}\);/);
+    assert.match(source, /bin\.set_child\(outer\);/);
     assert.match(source, /wrapMenuContentInScrollView\(indicator\);/);
     assert.match(stylesheet, /\.github-notifier-menu-scroll\s*\{\s*max-height:\s*640px/);
 });
@@ -217,4 +218,14 @@ test('section headers, separators and search zero out inherited theme padding', 
     assert.match(source, /style_class: 'github-notifier-search-item'/);
     assert.match(stylesheet, /\.github-notifier-section-header-item\s*\{[^}]*padding:\s*0/);
     assert.match(stylesheet, /\.github-notifier-separator-item\s*\{[^}]*padding:\s*0/);
+});
+
+test('global footer is pinned outside the scrolling menu content', () => {
+    assert.match(source, /indicator\._footerSeparator = new PopupMenu\.PopupSeparatorMenuItem\(\)/);
+    assert.match(source, /const footerItems = \[[\s\S]*?indicator\._footerSeparator,[\s\S]*?indicator\._footerSection,[\s\S]*?indicator\._rateItem,[\s\S]*?\]/);
+    assert.match(source, /for \(const item of footerItems\)\s*box\.remove_child\(item\.actor\)/);
+    assert.match(source, /style_class: 'github-notifier-pinned-footer'/);
+    assert.match(source, /for \(const item of footerItems\)\s*pinned\.add_child\(item\.actor\)/);
+    assert.match(source, /outer\.add_child\(scroll\);[\s\S]*?outer\.add_child\(pinned\)/);
+    assert.match(stylesheet, /\.github-notifier-pinned-footer\s*\{[^}]*padding:/);
 });

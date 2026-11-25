@@ -583,6 +583,16 @@ export function wrapMenuContentInScrollView(indicator) {
                 const box = indicator.menu.box;
                 if (!bin || !box || box.get_parent() !== bin)
                         return;
+                // Pull the global footer out of the scrolling box so it stays
+                // pinned at the bottom of the menu while the rows scroll.
+                const footerItems = [
+                        indicator._footerSeparator,
+                        indicator._footerSection,
+                        indicator._rateItem,
+                ].filter(item => item?.actor?.get_parent?.() === box);
+                for (const item of footerItems)
+                        box.remove_child(item.actor);
+
                 bin.remove_child(box);
                 const scroll = new St.ScrollView({
                         // bms-popup-blur-target opts this surface into
@@ -597,7 +607,24 @@ export function wrapMenuContentInScrollView(indicator) {
                         hscrollbar_policy: St.PolicyType.NEVER,
                         vscrollbar_policy: St.PolicyType.AUTOMATIC,
                 });
-                bin.set_child(scroll);
+                const outer = new St.BoxLayout({
+                        orientation: Clutter.Orientation.VERTICAL,
+                        x_expand: true,
+                        y_expand: true,
+                });
+                outer.add_child(scroll);
+                if (footerItems.length > 0) {
+                        const pinned = new St.BoxLayout({
+                                orientation: Clutter.Orientation.VERTICAL,
+                                x_expand: true,
+                                style_class: 'github-notifier-pinned-footer',
+                        });
+                        for (const item of footerItems)
+                                pinned.add_child(item.actor);
+                        outer.add_child(pinned);
+                        indicator._pinnedFooter = pinned;
+                }
+                bin.set_child(outer);
                 indicator._menuScrollView = scroll;
         } catch (e) {
                 logError(e, 'github-notifier: menu scroll wrapper failed');
@@ -734,7 +761,8 @@ export function buildMenuSkeleton(indicator) {
         indicator._starsSection = new PopupMenu.PopupMenuSection();
         indicator.menu.addMenuItem(indicator._starsSection);
 
-        indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        indicator._footerSeparator = new PopupMenu.PopupSeparatorMenuItem();
+        indicator.menu.addMenuItem(indicator._footerSeparator);
 
         // footer controls + rate limit
         indicator._footerSection = new PopupMenu.PopupMenuSection();
