@@ -97,36 +97,59 @@ export function getApiBase(host) {
     return 'https://' + authority + path;
 }
 
+// GJS does not provide the global `URL` constructor that Node does, so link
+// validation uses a self-contained parser that behaves identically in both.
+// It accepts only absolute http(s) URLs and rejects embedded credentials.
+function parseWebUrl(value) {
+    if (typeof value !== 'string')
+        return null;
+    const match = value.match(/^(https?):\/\/([^/?#]*)([^?#]*)(?:[?#].*)?$/i);
+    if (!match)
+        return null;
+    const scheme = match[1].toLowerCase();
+    const authority = match[2];
+    // JSON-stringified or whitespace-wrapped values must not be parsed.
+    if (authority !== authority.trim() || !authority || authority.includes('@') || authority.includes('['))
+        return null;
+    let hostname = authority;
+    let port = '';
+    const colon = authority.lastIndexOf(':');
+    if (colon !== -1) {
+        hostname = authority.slice(0, colon);
+        port = authority.slice(colon + 1);
+        if (!/^\d{1,5}$/.test(port) || !hostname)
+            return null;
+    }
+    if (!hostname)
+        return null;
+    let pathname = match[3] || '';
+    if (!pathname.startsWith('/'))
+        pathname = `/${pathname}`;
+    const origin = `${scheme}://${hostname.toLowerCase()}${port ? `:${port}` : ''}`;
+    const search = value.includes('?') ? value.slice(value.indexOf('?')) : '';
+    const host = `${hostname.toLowerCase()}${port ? `:${port}` : ''}`;
+    return {protocol: `${scheme}:`, hostname: hostname.toLowerCase(), host, port, pathname, origin, search};
+}
+
 /** Accept only absolute HTTPS links without embedded credentials. */
 export function isSafeHttpsUrl(value) {
-    if (typeof value !== 'string')
-        return false;
-    try {
-        const url = new URL(value);
-        return url.protocol === 'https:' && Boolean(url.hostname) &&
-            !url.username && !url.password;
-    } catch (_error) {
-        return false;
-    }
+    const url = parseWebUrl(value);
+    return Boolean(url && url.protocol === 'https:' && url.hostname);
 }
 
 /** Accept browser links only from the configured GitHub/GHES web base. */
 export function isSafeWebUrl(value, configuredWebBase) {
-    if (!isSafeHttpsUrl(value) || !isSafeHttpsUrl(configuredWebBase))
+    const url = parseWebUrl(value);
+    const base = parseWebUrl(configuredWebBase);
+    if (!url || !base || url.protocol !== 'https:' || base.protocol !== 'https:')
         return false;
-    try {
-        const url = new URL(value);
-        const base = new URL(configuredWebBase);
-        if (url.origin !== base.origin)
-            return false;
-        let basePath = base.pathname;
-        while (basePath.endsWith('/'))
-            basePath = basePath.slice(0, -1);
-        return !basePath || basePath === '/' || url.pathname === basePath ||
-            url.pathname.startsWith(basePath + '/');
-    } catch (_error) {
+    if (url.origin !== base.origin)
         return false;
-    }
+    let basePath = base.pathname;
+    while (basePath.endsWith('/'))
+        basePath = basePath.slice(0, -1);
+    return !basePath || basePath === '/' || url.pathname === basePath ||
+        url.pathname.startsWith(basePath + '/');
 }
 
 export function isValidRepository(value) {
@@ -213,13 +236,8 @@ export function getGitHubCliArguments(item, configuredWebBase = null) {
     if (!isValidRepository(repository))
         return null;
 
-    let url;
-    try {
-        url = new URL(item.url);
-    } catch (_error) {
-        return null;
-    }
-    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password)
+    const url = parseWebUrl(item.url);
+    if (!url || url.protocol !== 'https:' || !url.hostname)
         return null;
 
     const [owner, name] = repository.split('/');
@@ -235,18 +253,15 @@ export function getGitHubCliArguments(item, configuredWebBase = null) {
         return null;
 
     if (configuredWebBase) {
-        try {
-            const base = new URL(configuredWebBase);
-            let basePath = base.pathname;
-            while (basePath.endsWith('/'))
-                basePath = basePath.slice(0, -1);
-            if (base.protocol !== 'https:' || url.origin !== base.origin ||
-                (basePath && basePath !== '/' && url.pathname !== basePath &&
-                    !url.pathname.startsWith(basePath + '/')))
-                return null;
-        } catch (_error) {
+        const base = parseWebUrl(configuredWebBase);
+        if (!base || base.protocol !== 'https:' || url.origin !== base.origin)
             return null;
-        }
+        let basePath = base.pathname;
+        while (basePath.endsWith('/'))
+            basePath = basePath.slice(0, -1);
+        if (basePath && basePath !== '/' && url.pathname !== basePath &&
+            !url.pathname.startsWith(basePath + '/'))
+            return null;
     }
 
     const command = resource.toLowerCase() === 'pull' || item.kind === 'pr'
@@ -370,10 +385,10 @@ export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
     if (typeof apiBase !== 'string' || typeof absoluteUrl !== 'string')
         return null;
 
-    try {
-        const base = new URL(apiBase);
-        const link = new URL(absoluteUrl);
-        if (base.protocol !== 'https:' || link.protocol !== base.protocol ||
+    {
+        const base = parseWebUrl(apiBase);
+        const link = parseWebUrl(absoluteUrl);
+        if (!base || !link || base.protocol !== 'https:' || link.protocol !== base.protocol ||
             link.origin !== base.origin)
             return null;
 
@@ -391,8 +406,6 @@ export function getApiPathFromAbsoluteUrl(apiBase, absoluteUrl) {
         }
 
         return (path || '/') + link.search;
-    } catch (_error) {
-        return null;
     }
 }
 
@@ -598,13 +611,12 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
     if (!subject?.url || !isSafeHttpsUrl(apiBase) || !isSafeHttpsUrl(webBase))
         return repoUrl;
 
-    try {
-        const source = new URL(subject.url);
-        const api = new URL(apiBase);
-        const web = new URL(webBase);
-        if (source.protocol !== 'https:' || source.username || source.password ||
-            source.origin !== api.origin || web.protocol !== 'https:' ||
-            web.username || web.password)
+    {
+        const source = parseWebUrl(subject.url);
+        const api = parseWebUrl(apiBase);
+        const web = parseWebUrl(webBase);
+        if (!source || !api || !web || source.protocol !== 'https:' ||
+            source.origin !== api.origin || web.protocol !== 'https:')
             return repoUrl;
 
         let apiPath = api.pathname;
@@ -646,8 +658,6 @@ export function getSubjectHtmlUrl(subject, repoFullName, apiBase, webBase) {
                 return repoUrl;
         }
         return `${web.origin}${browserPath}`;
-    } catch (_error) {
-        return repoUrl;
     }
 }
 

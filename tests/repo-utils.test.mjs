@@ -643,3 +643,8 @@ test('accepts only complete safe GitHub polling interval values', () => {
     for (const value of [null, undefined, '', '59', '-1', '+60', '60junk', '1.5', '9007199254740992'])
         assert.equal(parseGitHubPollInterval(value), null, String(value));
 });
+
+test('link validation does not depend on the URL global, which GJS does not provide', () => {
+    assert.doesNotMatch(helperSource, /\bnew URL\(/);
+    assert.match(helperSource, /function parseWebUrl\(/);
+});
